@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EVAT & ELAWS - Assistant Universel & Bulle Magique</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.webmanifest">
+</head>
+<body>
+    <div id="app">
+        <!-- En-tête principal -->
+        <header class="header">
+            <div class="header-left">
+                <button onclick="toggleMenu(event)" class="menu-btn" aria-label="Menu principal">☰</button>
+                <div class="header-brand">
+                    <h1 id="appTitle">EVAT</h1>
+                    <span class="brand-subtitle" id="headerLocationBadge">📍 Lomé, Togo (Magic Bubble v3.15)</span>
+                </div>
+            </div>
+
+            <!-- ELAWS : Bulle Magique interactive (Effet Sphère / Goutte d'eau) -->
+            <div id="elawsWidget" class="elaws-widget">
+                <button onclick="toggleElawsChat(event)" class="elaws-magic-bubble" title="Toucher ELAWS - Discuter avec l'IA">
+                    <div class="magic-sphere-core"></div>
+                    <span class="magic-label">🤖 ELAWS</span>
+                </button>
+                <div id="elawsPopup" class="elaws-popup" style="display: none;" onclick="event.stopPropagation()">
+                    <div class="elaws-popup-header">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span class="status-indicator"></span>
+                            <span>Assistant IA ELAWS v3.15</span>
+                        </div>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <button onclick="toggleMicrophone()" id="microBtn" class="micro-btn-discret" title="Commande vocale active">🎙️</button>
+                            <button onclick="toggleElawsChat(event)" class="close-popup-btn" aria-label="Fermer">✕</button>
+                        </div>
+                    </div>
+                    <div class="elaws-popup-body">
+                        <div id="elawsMessages" class="elaws-messages"></div>
+                        <div id="voiceStatus" style="display:none; font-size: 12px; color: var(--accent); margin-bottom: 8px; text-align: center; font-weight: 500;">🎙️ Écoute vocale active...</div>
+                        <div class="elaws-input-area">
+                            <input type="text" id="elawsInput" placeholder="Posez votre question à ELAWS..." onkeypress="if(event.key==='Enter') envoyerMessageElaws()">
+                            <button onclick="envoyerMessageElaws()">Envoyer</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Menu latéral -->
+        <nav id="sidebar" class="sidebar" onclick="event.stopPropagation()">
+            <div class="sidebar-header">
+                <h3>Navigation EVAT</h3>
+                <span id="sidebarUserRole" class="sidebar-badge">Chargement...</span>
+            </div>
+            <div class="sidebar-links">
+                <a href="#" onclick="switchTab('dashboard')" class="nav-link active" id="link-dashboard">📊 Dashboard</a>
+                <a href="#" onclick="switchTab('voyage')" class="nav-link" id="link-voyage">✈️ Guide Voyage & Démarches (Pas à Pas)</a>
+                <a href="#" onclick="switchTab('crise')" class="nav-link" id="link-crise">🚨 Urgences & Solutions</a>
+                <a href="#" onclick="switchTab('audit')" class="nav-link" id="link-audit">🌐 Évaluation Web (Global)</a>
+                <a href="#" onclick="switchTab('appel')" class="nav-link" id="link-appel">📞 Appel Direct & Live</a>
+                <a href="#" onclick="switchTab('profil')" class="nav-link" id="link-profil">👤 Profil & Voix</a>
+                <a href="#" onclick="switchTab('outils')" class="nav-link" id="link-outils">🛠️ Outils & Bloc-Notes</a>
+                <a href="#" onclick="switchTab('banque')" class="nav-link" id="link-banque">💳 Banque & Cartes</a>
+                <a href="#" onclick="switchTab('devises')" class="nav-link" id="link-devises">💱 Échange & Devises</a>
+            </div>
+            <div class="sidebar-footer">
+                <p>EVAT v3.15 • Universal AI Sphere</p>
+            </div>
+        </nav>
+
+        <!-- Overlay -->
+        <div id="appOverlay" class="app-overlay" onclick="fermerTousLesMenus()"></div>
+
+        <!-- Contenu principal -->
+        <main class="content">
+            <!-- 1. Section Dashboard -->
+            <section id="tab-dashboard" class="tab-content active">
+                <div class="card welcome-card">
+                    <h2>Écosystème Universel EVAT</h2>
+                    <p class="text">Bienvenue, <strong id="dashNomUser" style="color:var(--accent);">Kodjo</strong>. Touchez la bulle magique ELAWS en haut à droite à tout moment pour poser vos questions et obtenir des réponses instantanées.</p>
+                    
+                    <div class="dash-grid" style="margin-top:15px;">
+                        <div class="dash-stat-box">
+                            <span class="stat-icon">✈️</span>
+                            <div>
+                                <h4 id="dashStatVoyages">0 Projet</h4>
+                                <p>Démarches suivies</p>
+                            </div>
+                        </div>
+                        <div class="dash-stat-box">
+                            <span class="stat-icon">🚨</span>
+                            <div>
+                                <h4 id="dashStatCrises">0 Résolution</h4>
+                                <p>Problèmes traités</p>
+                            </div>
+                        </div>
+                        <div class="dash-stat-box">
+                            <span class="stat-icon">📝</span>
+                            <div>
+                                <h4 id="dashStatNotes">0 Note</h4>
+                                <p>Bloc-notes</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>✨ Assistant Magique ELAWS</h3>
+                    <p class="text">ELAWS est entièrement disposé à vous répondre sur n'importe quel sujet : voyage, urgence, code informatique, commerce ou questions du quotidien.</p>
+                    <div class="quick-actions">
+                        <button class="btn-action" onclick="toggleElawsChat()">Ouvrir la Bulle Magique 🤖</button>
+                        <button class="btn-action secondary" onclick="switchTab('voyage')">Guide Voyage ✈️</button>
+                        <button class="btn-action secondary" onclick="switchTab('crise')">Urgences 🚨</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. Section Voyage & Guide Interactif Pas à Pas -->
+            <section id="tab-voyage" class="tab-content">
+                <div class="card" style="border-left: 4px solid var(--accent);">
+                    <h2>✈️ Assistant Interactif de Voyage & Démarches</h2>
+                    <p class="text">Démarrez votre projet de voyage ou de démarche administrative. ELAWS vous accompagne pas à pas jusqu'à l'accomplissement total.</p>
+                    <div class="form-group">
+                        <label>Destination ou Nom de la démarche :</label>
+                        <input type="text" id="voyageDestination" class="input" placeholder="Ex: Voyage en France, Passeport biométrique...">
+                        <label>Où en êtes-vous actuellement ?</label>
+                        <select id="voyageEtapeActuelle" class="input">
+                            <option value="depart">1. Rien commencé / Juste une idée</option>
+                            <option value="passeport">2. Documents d'identité (Passeport / Nationalité) en cours</option>
+                            <option value="visa">3. Formalités de Visa / Billets d'avion</option>
+                            <option value="sante">4. Santé, Vaccins & Bordereau de voyage</option>
+                        </select>
+                        <button class="btn-action" onclick="lancerAssistantVoyage()" style="margin-top:12px;">Lancer l'Accompagnement ELAWS 🚀</button>
+                    </div>
+                    <div id="resultatAssistantVoyage" style="margin-top:20px; display:none;"></div>
+                </div>
+                <div class="card" style="margin-top: 20px;">
+                    <h3>📋 Suivi de mes Projets Actifs</h3>
+                    <div id="listeProjetsVoyage" style="margin-top: 10px;">
+                        <p class="text">Aucun projet de voyage en cours.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 3. Section Urgences -->
+            <section id="tab-crise" class="tab-content">
+                <div class="card" style="border-left: 4px solid var(--danger);">
+                    <h2>🚨 Module de Résolution d'Urgences & Problèmes</h2>
+                    <input type="text" id="criseDescription" class="input" placeholder="Décrivez l'urgence...">
+                    <button class="btn-action" style="background:var(--danger); color:#fff;" onclick="analyserEtResoudreCrise()">Générer une Solution ⚡</button>
+                    <div id="resultatCriseContainer" style="margin-top:15px; display:none;"></div>
+                </div>
+            </section>
+
+            <!-- 4. Section Évaluation Web -->
+            <section id="tab-audit" class="tab-content">
+                <div class="card" style="border-left: 4px solid var(--accent);">
+                    <h2>🌐 Module Mondial d'Évaluation de Sites Web</h2>
+                    <input type="url" id="auditUrl" class="input" placeholder="https://exemple.com">
+                    <button class="btn-action" onclick="lancerAuditSite()">Lancer l'Évaluation 🚀</button>
+                    <div id="resultatAuditContainer" style="margin-top:15px; display:none;"></div>
+                </div>
+            </section>
+
+            <!-- 5. Section Appel en Direct -->
+            <section id="tab-appel" class="tab-content">
+                <div class="card" style="border-left: 4px solid var(--success);">
+                    <h2>📞 Appel en Direct & Traduction Temps Réel</h2>
+                    <input type="text" id="appelCorrespondant" class="input" placeholder="Nom du correspondant...">
+                    <button class="btn-action" style="background:var(--success); color:#fff;" onclick="demarrerAppelTraduit()">Démarrer l'Appel Live 📞</button>
+                    <div id="ecranAppelLive" style="margin-top:15px; display:none;">
+                        <div id="fluxTraductionLive" style="background:var(--bg-color); padding:10px; border-radius:8px; height:100px; overflow-y:auto;"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 6. Section Profil -->
+            <section id="tab-profil" class="tab-content">
+                <div class="card">
+                    <h2>Gestion du Profil & Préférences IA</h2>
+                    <input type="text" id="inputNom" class="input" placeholder="Ton nom...">
+                    <select id="selectTonIa" class="input">
+                        <option value="standard">Standard & Professionnel</option>
+                        <option value="pedagogique">Pédagogique & Simple</option>
+                        <option value="vocal_inclusif">Vocal & Accompagné</option>
+                    </select>
+                    <button class="btn-action" onclick="sauvegarderProfilBase()">Enregistrer</button>
+                </div>
+            </section>
+
+            <!-- 7. Section Bloc-Notes -->
+            <section id="tab-outils" class="tab-content">
+                <div class="card">
+                    <h2>🛠️ Bloc-Notes Intelligent</h2>
+                    <input type="text" id="noteTitre" class="input" placeholder="Titre de la note...">
+                    <textarea id="noteContenu" class="input" rows="3" placeholder="Contenu..."></textarea>
+                    <button class="btn-action" onclick="ajouterNoteBlocNotes()">Enregistrer 📝</button>
+                    <div id="listeNotesBlocNotes" style="margin-top:15px;"></div>
+                </div>
+            </section>
+
+            <!-- 8. Section Banque -->
+            <section id="tab-banque" class="tab-content">
+                <div class="card">
+                    <h2>Banque & Cartes Bancaires</h2>
+                    <input type="text" id="inputPaysBanque" class="input" placeholder="Pays ou banque...">
+                    <button class="btn-action" onclick="rechercherBanque()">Consulter</button>
+                    <div id="resultatBanque" style="margin-top:15px;"></div>
+                </div>
+            </section>
+
+            <!-- 9. Section Devises -->
+            <section id="tab-devises" class="tab-content">
+                <div class="card">
+                    <h2>Échange & Devises</h2>
+                    <input type="number" id="montantDevise" class="input" placeholder="Montant...">
+                    <button class="btn-action" onclick="convertirDevise()">Calculer</button>
+                    <div id="resultatDevise" style="margin-top:15px;"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="elaws.js"></script>
+    <script src="app.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(reg => console.log('Service Worker v3.15 enregistré !', reg.scope))
+                    .catch(err => console.log('Erreur SW :', err));
+            });
+        }
+    </script>
+</body>
+</html>
