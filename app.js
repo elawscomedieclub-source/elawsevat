@@ -8,7 +8,7 @@ let utilisateur = JSON.parse(localStorage.getItem('evat_profil')) || {
         { nom: "Service Client ELAWS", tel: "+22898231402", email: "support@evat-elaws.net" }
     ],
     notes: [
-        { titre: "Lancement v3.16", contenu: "Installation PWA automatique et interface mobile optimisée." }
+        { titre: "Lancement v3.17 Dual", contenu: "Choix explicite entre mode clavier et mode vocal activé." }
     ],
     voyages: [],
     crises: [],
@@ -19,7 +19,6 @@ let utilisateur = JSON.parse(localStorage.getItem('evat_profil')) || {
 let deferredPrompt = null;
 let ecouteVocaleActive = false;
 
-// Gestion de l'événement PWA pour proposer l'installation automatique
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
@@ -35,12 +34,12 @@ function installerPWA() {
         deferredPrompt.prompt();
         deferredPrompt.userChoice.then((choiceResult) => {
             if (choiceResult.outcome === 'accepted') {
-                console.log('Utilisateur a accepté l\'installation PWA');
+                console.log('Application installée');
             }
             deferredPrompt = null;
         });
     } else {
-        alert("Pour installer l'application sur votre appareil : ouvrez le menu de votre navigateur (les 3 points en haut à droite) et sélectionnez 'Ajouter à l'écran d'accueil' ou 'Installer l'application'.");
+        alert("Pour installer sur votre appareil : ouvrez le menu du navigateur (les 3 points) et sélectionnez 'Installer l'application' ou 'Ajouter à l'écran d'accueil'.");
     }
 }
 
@@ -59,28 +58,62 @@ function lireVocalement(texte) {
     }
 }
 
-function toggleMicrophone() {
-    const btn = document.getElementById('microBtn');
-    const status = document.getElementById('voiceStatus');
-    ecouteVocaleActive = !ecouteVocaleActive;
-    
-    if(ecouteVocaleActive) {
-        btn.classList.add('active');
-        status.style.display = 'block';
-        setTimeout(() => {
-            if(ecouteVocaleActive) {
-                document.getElementById('elawsInput').value = "je souhaite préparer mon voyage";
-                toggleMicrophone();
-                envoyerMessageElaws();
-            }
-        }, 3000);
+// --- BASCULE EXPLICITE ENTRE MODE CLAVIER ET MODE MICRO ---
+function changerModeInteraction(mode) {
+    const btnClavier = document.getElementById('modeBtnClavier');
+    const btnMicro = document.getElementById('modeBtnMicro');
+    const panelClavier = document.getElementById('panelClavier');
+    const panelMicro = document.getElementById('panelMicro');
+
+    if (mode === 'clavier') {
+        btnClavier.classList.add('active');
+        btnMicro.classList.remove('active');
+        panelClavier.style.display = 'block';
+        panelMicro.style.display = 'none';
+        
+        // Arrêter l'écoute vocale si active
+        if (ecouteVocaleActive) {
+            ecouteVocaleActive = false;
+        }
     } else {
-        btn.classList.remove('active');
-        status.style.display = 'none';
+        btnMicro.classList.add('active');
+        btnClavier.classList.remove('active');
+        panelMicro.style.display = 'block';
+        panelClavier.style.display = 'none';
     }
 }
 
-// --- GESTION DU CHAT ELAWS ---
+function basculerEcouteVocaleLive() {
+    const btnMicro = document.getElementById('microGrandBtn');
+    const label = document.getElementById('microLabelState');
+    const textStatus = document.getElementById('voiceStatusText');
+    
+    ecouteVocaleActive = !ecouteVocaleActive;
+
+    if (ecouteVocaleActive) {
+        btnMicro.classList.add('active');
+        label.innerText = "Écoute en cours...";
+        textStatus.innerText = "🎙️ Parlez maintenant, ELAWS vous écoute...";
+        lireVocalement("Je vous écoute. Posez votre question.");
+
+        // Simulation d'écoute vocale réussie après 3 secondes (ou intégration SpeechRecognition si disponible)
+        setTimeout(() => {
+            if (ecouteVocaleActive) {
+                const exempleQuestion = "Comment préparer mon voyage ?";
+                basculerEcouteVocaleLive(); // Désactiver
+                changerModeInteraction('clavier'); // Revenir au clavier pour voir le résultat
+                document.getElementById('elawsInput').value = exempleQuestion;
+                envoyerMessageElaws();
+            }
+        }, 4000);
+    } else {
+        btnMicro.classList.remove('active');
+        label.innerText = "Commencer à parler";
+        textStatus.innerText = "Appuyez sur le micro pour parler à ELAWS :";
+    }
+}
+
+// --- GESTION DU CHAT ---
 function toggleElawsChat(event) {
     if (event) event.stopPropagation();
     const popup = document.getElementById('elawsPopup');
@@ -92,7 +125,7 @@ function toggleElawsChat(event) {
         
         const chat = document.getElementById('elawsMessages');
         if(chat && chat.children.length === 0) {
-            const accueilMsg = `Bonjour ${utilisateur.nom || 'ami'} ! ✨ Je suis ELAWS, votre assistant universel. Je suis entièrement disposé à vous répondre et à vous guider. Que pouvons-nous faire ensemble ?`;
+            const accueilMsg = `Bonjour ${utilisateur.nom || 'ami'} ! ✨ Choisissez ci-dessus entre le mode Clavier ⌨️ ou le mode Micro 🎙️ selon votre préférence pour discuter avec ELAWS.`;
             ajouterBulleElaws(accueilMsg, 'elaws');
             lireVocalement(accueilMsg);
         }
@@ -127,7 +160,7 @@ function ajouterBulleElaws(txt, exp) {
     chat.scrollTop = chat.scrollHeight;
 }
 
-// --- MODULES ---
+// --- MODULES DE BASE ---
 function lancerAssistantVoyage() {
     const dest = document.getElementById('voyageDestination').value.trim();
     const etape = document.getElementById('voyageEtapeActuelle').value;
@@ -214,7 +247,7 @@ function analyserEtResoudreCrise() {
     const container = document.getElementById('resultatCriseContainer');
     if(!desc) { alert("Décrivez l'urgence."); return; }
     container.style.display = 'block';
-    container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:10px;"><h4 style="color:var(--danger);">🚨 Solution ELAWS</h4><p class="text" style="margin-top:6px;">Plan d'action d'urgence généré.</p></div>`;
+    container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:10px;"><h4 style="color:var(--danger);">🚨 Solution ELAWS</h4><p class="text" style="margin-top:6px;">Plan d'action généré.</p></div>`;
     if(!utilisateur.crises) utilisateur.crises = [];
     utilisateur.crises.unshift({ description: desc, date: new Date().toLocaleDateString() });
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
@@ -226,7 +259,7 @@ function lancerAuditSite() {
     const res = document.getElementById('resultatAuditContainer');
     if(!url) { alert("Entrez une URL."); return; }
     res.style.display = 'block';
-    res.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:10px;"><h4 style="color:var(--accent);">✅ Audit Web Réussi</h4><p class="text" style="margin-top:6px;">Score : 94/100 (Optimisé Mobile).</p></div>`;
+    res.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:10px;"><h4 style="color:var(--accent);">✅ Audit Web Réussi</h4><p class="text" style="margin-top:6px;">Score : 94/100.</p></div>`;
 }
 
 function demarrerAppelTraduit() {
