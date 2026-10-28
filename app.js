@@ -8,7 +8,7 @@ let utilisateur = JSON.parse(localStorage.getItem('evat_profil')) || {
         { nom: "Service Client ELAWS", tel: "+22898231402", email: "support@evat-elaws.net" }
     ],
     notes: [
-        { titre: "Lancement v3.15", contenu: "Bulle magique ELAWS et cerveau universel actifs." }
+        { titre: "Lancement v3.16", contenu: "Installation PWA automatique et interface mobile optimisée." }
     ],
     voyages: [],
     crises: [],
@@ -16,8 +16,38 @@ let utilisateur = JSON.parse(localStorage.getItem('evat_profil')) || {
     iaTon: "standard"
 };
 
+let deferredPrompt = null;
 let ecouteVocaleActive = false;
-let appelEnCoursInterval = null;
+
+// Gestion de l'événement PWA pour proposer l'installation automatique
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    const banner = document.getElementById('pwaInstallBanner');
+    if(banner) banner.style.display = 'flex';
+});
+
+function installerPWA() {
+    const banner = document.getElementById('pwaInstallBanner');
+    if(banner) banner.style.display = 'none';
+    
+    if (deferredPrompt) {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then((choiceResult) => {
+            if (choiceResult.outcome === 'accepted') {
+                console.log('Utilisateur a accepté l\'installation PWA');
+            }
+            deferredPrompt = null;
+        });
+    } else {
+        alert("Pour installer l'application sur votre appareil : ouvrez le menu de votre navigateur (les 3 points en haut à droite) et sélectionnez 'Ajouter à l'écran d'accueil' ou 'Installer l'application'.");
+    }
+}
+
+function fermerBannierePWA() {
+    const banner = document.getElementById('pwaInstallBanner');
+    if(banner) banner.style.display = 'none';
+}
 
 function lireVocalement(texte) {
     if ('speechSynthesis' in window) {
@@ -39,7 +69,7 @@ function toggleMicrophone() {
         status.style.display = 'block';
         setTimeout(() => {
             if(ecouteVocaleActive) {
-                document.getElementById('elawsInput').value = "comment préparer mon voyage ?";
+                document.getElementById('elawsInput').value = "je souhaite préparer mon voyage";
                 toggleMicrophone();
                 envoyerMessageElaws();
             }
@@ -50,7 +80,7 @@ function toggleMicrophone() {
     }
 }
 
-// --- GESTION DU CHAT ELAWS (Bulle Magique) ---
+// --- GESTION DU CHAT ELAWS ---
 function toggleElawsChat(event) {
     if (event) event.stopPropagation();
     const popup = document.getElementById('elawsPopup');
@@ -60,10 +90,9 @@ function toggleElawsChat(event) {
         popup.style.display = 'flex';
         overlay.classList.add('active');
         
-        // Message d'accueil chaleureux dès l'ouverture si le chat est vide
         const chat = document.getElementById('elawsMessages');
         if(chat && chat.children.length === 0) {
-            const accueilMsg = `Bonjour ${utilisateur.nom || 'ami'} ! ✨ Je suis ELAWS, votre sphère intelligente et fidèle. Je suis entièrement disposé à vous aider et à répondre à toutes vos questions, peu importe le sujet. Que pouvons-nous accomplir ensemble aujourd'hui ?`;
+            const accueilMsg = `Bonjour ${utilisateur.nom || 'ami'} ! ✨ Je suis ELAWS, votre assistant universel. Je suis entièrement disposé à vous répondre et à vous guider. Que pouvons-nous faire ensemble ?`;
             ajouterBulleElaws(accueilMsg, 'elaws');
             lireVocalement(accueilMsg);
         }
@@ -98,7 +127,7 @@ function ajouterBulleElaws(txt, exp) {
     chat.scrollTop = chat.scrollHeight;
 }
 
-// --- MODULES DE PROJET ET DÉMARCHES ---
+// --- MODULES ---
 function lancerAssistantVoyage() {
     const dest = document.getElementById('voyageDestination').value.trim();
     const etape = document.getElementById('voyageEtapeActuelle').value;
@@ -125,7 +154,7 @@ function lancerAssistantVoyage() {
         afficherResultatAssistantVoyage(projetRecord, 0);
         afficherProjetsVoyage();
         actualiserDashboard();
-        lireVocalement(`Guide de voyage configuré pour ${dest}. ELAWS vous accompagne pas à pas.`);
+        lireVocalement(`Guide de voyage configuré pour ${dest}.`);
     }, 1200);
 }
 
@@ -185,7 +214,7 @@ function analyserEtResoudreCrise() {
     const container = document.getElementById('resultatCriseContainer');
     if(!desc) { alert("Décrivez l'urgence."); return; }
     container.style.display = 'block';
-    container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:10px;"><h4 style="color:var(--danger);">🚨 Solution ELAWS</h4><p class="text" style="margin-top:6px;">Plan d'action d'urgence généré avec succès.</p></div>`;
+    container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:10px;"><h4 style="color:var(--danger);">🚨 Solution ELAWS</h4><p class="text" style="margin-top:6px;">Plan d'action d'urgence généré.</p></div>`;
     if(!utilisateur.crises) utilisateur.crises = [];
     utilisateur.crises.unshift({ description: desc, date: new Date().toLocaleDateString() });
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
@@ -197,7 +226,7 @@ function lancerAuditSite() {
     const res = document.getElementById('resultatAuditContainer');
     if(!url) { alert("Entrez une URL."); return; }
     res.style.display = 'block';
-    res.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:10px;"><h4 style="color:var(--accent);">✅ Audit Web Réussi</h4><p class="text" style="margin-top:6px;">Score global : 94/100 (Optimisé Mobile).</p></div>`;
+    res.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:10px;"><h4 style="color:var(--accent);">✅ Audit Web Réussi</h4><p class="text" style="margin-top:6px;">Score : 94/100 (Optimisé Mobile).</p></div>`;
 }
 
 function demarrerAppelTraduit() {
@@ -205,7 +234,7 @@ function demarrerAppelTraduit() {
     const ecran = document.getElementById('ecranAppelLive');
     const flux = document.getElementById('fluxTraductionLive');
     ecran.style.display = 'block';
-    flux.innerHTML = `<div style="color:var(--success);">📞 Appel live actif avec ${corres}. Traduction en cours...</div>`;
+    flux.innerHTML = `<div style="color:var(--success);">📞 Appel live actif avec ${corres}.</div>`;
 }
 
 function ajouterNoteBlocNotes() {

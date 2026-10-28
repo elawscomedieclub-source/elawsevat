@@ -3,45 +3,65 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EVAT & ELAWS - Assistant Universel & Bulle Magique</title>
+    <title>EVAT & ELAWS - Assistant Universel & Installation PWA</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.webmanifest">
+    <meta name="theme-color" content="#070a13">
 </head>
 <body>
     <div id="app">
+        <!-- Bannière d'installation PWA automatique -->
+        <div id="pwaInstallBanner" class="pwa-install-banner" style="display: none;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 24px;">📱</span>
+                <div>
+                    <h4 style="font-size: 13.5px; color: var(--accent);">Installer EVAT & ELAWS</h4>
+                    <p style="font-size: 11.5px; color: var(--text-secondary); margin-bottom: 0;">Accédez à l'application directement depuis votre écran d'accueil, même hors-ligne.</p>
+                </div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button onclick="installerPWA()" class="btn-pwa-accept">Installer</button>
+                <button onclick="fermerBannierePWA()" class="btn-pwa-close">Plus tard</button>
+            </div>
+        </div>
+
         <!-- En-tête principal -->
         <header class="header">
             <div class="header-left">
                 <button onclick="toggleMenu(event)" class="menu-btn" aria-label="Menu principal">☰</button>
                 <div class="header-brand">
                     <h1 id="appTitle">EVAT</h1>
-                    <span class="brand-subtitle" id="headerLocationBadge">📍 Lomé, Togo (Magic Bubble v3.15)</span>
+                    <span class="brand-subtitle" id="headerLocationBadge">📍 Lomé, Togo (PWA v3.16)</span>
                 </div>
             </div>
 
-            <!-- ELAWS : Bulle Magique interactive (Effet Sphère / Goutte d'eau) -->
+            <!-- ELAWS : Bulle Magique interactive -->
             <div id="elawsWidget" class="elaws-widget">
                 <button onclick="toggleElawsChat(event)" class="elaws-magic-bubble" title="Toucher ELAWS - Discuter avec l'IA">
                     <div class="magic-sphere-core"></div>
                     <span class="magic-label">🤖 ELAWS</span>
                 </button>
+                
+                <!-- Popup de discussion ELAWS fixe et optimisé mobile (Clavier toujours visible) -->
                 <div id="elawsPopup" class="elaws-popup" style="display: none;" onclick="event.stopPropagation()">
                     <div class="elaws-popup-header">
                         <div style="display:flex; align-items:center; gap:8px;">
                             <span class="status-indicator"></span>
-                            <span>Assistant IA ELAWS v3.15</span>
+                            <span>Assistant IA ELAWS v3.16</span>
                         </div>
                         <div style="display: flex; gap: 8px; align-items: center;">
-                            <button onclick="toggleMicrophone()" id="microBtn" class="micro-btn-discret" title="Commande vocale active">🎙️</button>
                             <button onclick="toggleElawsChat(event)" class="close-popup-btn" aria-label="Fermer">✕</button>
                         </div>
                     </div>
                     <div class="elaws-popup-body">
                         <div id="elawsMessages" class="elaws-messages"></div>
                         <div id="voiceStatus" style="display:none; font-size: 12px; color: var(--accent); margin-bottom: 8px; text-align: center; font-weight: 500;">🎙️ Écoute vocale active...</div>
+                        
+                        <!-- Barre de saisie avec micro tactile direct sous le pouce -->
                         <div class="elaws-input-area">
-                            <input type="text" id="elawsInput" placeholder="Posez votre question à ELAWS..." onkeypress="if(event.key==='Enter') envoyerMessageElaws()">
-                            <button onclick="envoyerMessageElaws()">Envoyer</button>
+                            <button onclick="toggleMicrophone()" id="microBtn" class="micro-btn-tactile" title="Parler à ELAWS">🎙️</button>
+                            <input type="text" id="elawsInput" placeholder="Écris ou parle à ELAWS..." onkeypress="if(event.key==='Enter') envoyerMessageElaws()">
+                            <button onclick="envoyerMessageElaws()" class="btn-envoyer-chat">Envoyer</button>
                         </div>
                     </div>
                 </div>
@@ -66,7 +86,7 @@
                 <a href="#" onclick="switchTab('devises')" class="nav-link" id="link-devises">💱 Échange & Devises</a>
             </div>
             <div class="sidebar-footer">
-                <p>EVAT v3.15 • Universal AI Sphere</p>
+                <p>EVAT v3.16 • PWA Prêt</p>
             </div>
         </nav>
 
@@ -79,8 +99,12 @@
             <section id="tab-dashboard" class="tab-content active">
                 <div class="card welcome-card">
                     <h2>Écosystème Universel EVAT</h2>
-                    <p class="text">Bienvenue, <strong id="dashNomUser" style="color:var(--accent);">Kodjo</strong>. Touchez la bulle magique ELAWS en haut à droite à tout moment pour poser vos questions et obtenir des réponses instantanées.</p>
+                    <p class="text">Bienvenue, <strong id="dashNomUser" style="color:var(--accent);">Kodjo</strong>. L'application est prête à être installée sur votre appareil pour un accès instantané hors-ligne.</p>
                     
+                    <div style="margin-top: 15px;" id="installCardContainer">
+                        <button onclick="installerPWA()" class="btn-action" style="background: var(--success); color: #fff;">📲 Installer l'application sur mon appareil</button>
+                    </div>
+
                     <div class="dash-grid" style="margin-top:15px;">
                         <div class="dash-stat-box">
                             <span class="stat-icon">✈️</span>
@@ -108,20 +132,19 @@
 
                 <div class="card">
                     <h3>✨ Assistant Magique ELAWS</h3>
-                    <p class="text">ELAWS est entièrement disposé à vous répondre sur n'importe quel sujet : voyage, urgence, code informatique, commerce ou questions du quotidien.</p>
+                    <p class="text">Touchez la bulle magique en haut à droite pour discuter avec ELAWS à tout moment.</p>
                     <div class="quick-actions">
                         <button class="btn-action" onclick="toggleElawsChat()">Ouvrir la Bulle Magique 🤖</button>
                         <button class="btn-action secondary" onclick="switchTab('voyage')">Guide Voyage ✈️</button>
-                        <button class="btn-action secondary" onclick="switchTab('crise')">Urgences 🚨</button>
                     </div>
                 </div>
             </section>
 
-            <!-- 2. Section Voyage & Guide Interactif Pas à Pas -->
+            <!-- 2. Section Voyage -->
             <section id="tab-voyage" class="tab-content">
                 <div class="card" style="border-left: 4px solid var(--accent);">
                     <h2>✈️ Assistant Interactif de Voyage & Démarches</h2>
-                    <p class="text">Démarrez votre projet de voyage ou de démarche administrative. ELAWS vous accompagne pas à pas jusqu'à l'accomplissement total.</p>
+                    <p class="text">Démarrez votre projet de voyage ou de démarche administrative. ELAWS vous accompagne pas à pas.</p>
                     <div class="form-group">
                         <label>Destination ou Nom de la démarche :</label>
                         <input type="text" id="voyageDestination" class="input" placeholder="Ex: Voyage en France, Passeport biométrique...">
@@ -154,7 +177,7 @@
                 </div>
             </section>
 
-            <!-- 4. Section Évaluation Web -->
+            <!-- 4. Section Audit Web -->
             <section id="tab-audit" class="tab-content">
                 <div class="card" style="border-left: 4px solid var(--accent);">
                     <h2>🌐 Module Mondial d'Évaluation de Sites Web</h2>
@@ -164,7 +187,7 @@
                 </div>
             </section>
 
-            <!-- 5. Section Appel en Direct -->
+            <!-- 5. Section Appel Direct -->
             <section id="tab-appel" class="tab-content">
                 <div class="card" style="border-left: 4px solid var(--success);">
                     <h2>📞 Appel en Direct & Traduction Temps Réel</h2>
@@ -226,10 +249,11 @@
     <script src="elaws.js"></script>
     <script src="app.js"></script>
     <script>
+        // Enregistrement du Service Worker PWA v3.16
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('sw.js')
-                    .then(reg => console.log('Service Worker v3.15 enregistré !', reg.scope))
+                    .then(reg => console.log('Service Worker v3.16 PWA enregistré !', reg.scope))
                     .catch(err => console.log('Erreur SW :', err));
             });
         }
