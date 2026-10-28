@@ -2,24 +2,24 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EVAT & ELAWS - Choix Mode Interaction (Clavier / Micro)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>EVAT & ELAWS - Écosystème Universel v3.23 Quantum</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.webmanifest">
     <meta name="theme-color" content="#070a13">
 </head>
 <body>
     <div id="app">
-        <!-- Bannière d'installation PWA -->
+        <!-- Bannière PWA -->
         <div id="pwaInstallBanner" class="pwa-install-banner" style="display: none;">
             <div style="display: flex; align-items: center; gap: 10px;">
                 <span style="font-size: 26px;">📲</span>
                 <div>
-                    <h4 style="font-size: 14px; color: var(--accent);">Installer EVAT & ELAWS</h4>
-                    <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 0;">Accès hors-ligne direct depuis votre écran d'accueil.</p>
+                    <h4 style="font-size: 14px; color: var(--accent);">Installer EVAT & ELAWS v3.23</h4>
+                    <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 0;">Installation instantanée et accès hors-ligne total [cite: 20].</p>
                 </div>
             </div>
-            <div style="display: flex; gap: 8px; margin-top: 4px;">
+            <div style="display: flex; gap: 8px; margin-top: 6px;">
                 <button onclick="installerPWA()" class="btn-pwa-accept">Installer</button>
                 <button onclick="fermerBannierePWA()" class="btn-pwa-close">Plus tard</button>
             </div>
@@ -28,34 +28,34 @@
         <!-- En-tête principal -->
         <header class="header">
             <div class="header-left">
-                <button onclick="toggleMenu(event)" class="menu-btn" aria-label="Menu principal">☰</button>
+                <button onclick="toggleMenu(event)" class="menu-btn ripple-effect" aria-label="Menu principal">☰</button>
                 <div class="header-brand">
                     <h1 id="appTitle">EVAT</h1>
-                    <span class="brand-subtitle" id="headerLocationBadge">📍 Lomé, Togo (v3.17 Dual Mode)</span>
+                    <span class="brand-subtitle" id="headerLocationBadge">📍 Lomé, Togo (v3.23 Quantum) [cite: 20]</span>
                 </div>
             </div>
 
             <!-- ELAWS : Bulle Magique interactive -->
             <div id="elawsWidget" class="elaws-widget">
-                <button onclick="toggleElawsChat(event)" class="elaws-magic-bubble" title="Discuter avec ELAWS">
+                <button onclick="toggleElawsChat(event)" class="elaws-magic-bubble ripple-effect" title="Discuter avec ELAWS">
                     <div class="magic-sphere-core"></div>
-                    <span class="magic-label">🤖 ELAWS</span>
+                    <span class="magic-label">🤖 ELAWS Quantum</span>
                 </button>
                 
-                <!-- Popup de discussion ELAWS avec Sélecteur de Mode (Clavier ou Micro) -->
+                <!-- Popup de discussion ELAWS -->
                 <div id="elawsPopup" class="elaws-popup" style="display: none;" onclick="event.stopPropagation()">
                     <div class="elaws-popup-header">
                         <div style="display:flex; align-items:center; gap:8px;">
                             <span class="status-indicator"></span>
-                            <span>Assistant ELAWS • Choix du Mode</span>
+                            <span>Assistant ELAWS • Succès 1000% & Futur [cite: 20]</span>
                         </div>
-                        <button onclick="toggleElawsChat(event)" class="close-popup-btn" aria-label="Fermer">✕</button>
+                        <button onclick="toggleElawsChat(event)" class="close-popup-btn ripple-effect" aria-label="Fermer">✕</button>
                     </div>
 
-                    <!-- Sélecteur de mode explicite : Clavier ou Micro -->
+                    <!-- Sélecteur de mode -->
                     <div class="mode-selector-bar">
-                        <button id="modeBtnClavier" onclick="changerModeInteraction('clavier')" class="mode-pill active">⌨️ Clavier</button>
-                        <button id="modeBtnMicro" onclick="changerModeInteraction('micro')" class="mode-pill">🎙️ Micro Vocal</button>
+                        <button id="modeBtnClavier" onclick="changerModeInteraction('clavier')" class="mode-pill ripple-effect active">⌨️ Clavier</button>
+                        <button id="modeBtnMicro" onclick="changerModeInteraction('micro')" class="mode-pill ripple-effect">🎙️ Micro Vocal</button>
                     </div>
 
                     <div class="elaws-popup-body">
@@ -65,14 +65,14 @@
                         <div id="panelClavier" class="input-panel active">
                             <div class="elaws-input-area">
                                 <input type="text" id="elawsInput" placeholder="Écrivez votre message..." onkeypress="if(event.key==='Enter') envoyerMessageElaws()">
-                                <button onclick="envoyerMessageElaws()" class="btn-envoyer-chat">Envoyer</button>
+                                <button onclick="envoyerMessageElaws()" class="btn-envoyer-chat ripple-effect">Envoyer</button>
                             </div>
                         </div>
 
-                        <!-- Panneau Mode Micro (Direct & Tactile) -->
+                        <!-- Panneau Mode Micro -->
                         <div id="panelMicro" class="input-panel" style="display: none; text-align: center; padding: 10px;">
-                            <p id="voiceStatusText" style="font-size: 13px; color: var(--accent); margin-bottom: 12px; font-weight: 500;">Appuyez sur le micro pour parler à ELAWS :</p>
-                            <button onclick="basculerEcouteVocaleLive()" id="microGrandBtn" class="micro-grand-btn">
+                            <p id="voiceStatusText" style="font-size: 13px; color: var(--accent); margin-bottom: 10px; font-weight: 500;">Touchez pour parler à ELAWS [cite: 20] :</p>
+                            <button onclick="basculerEcouteVocaleLive()" id="microGrandBtn" class="micro-grand-btn ripple-effect">
                                 <span class="mic-icon">🎙️</span>
                                 <span id="microLabelState">Commencer à parler</span>
                             </button>
@@ -89,18 +89,21 @@
                 <span id="sidebarUserRole" class="sidebar-badge">Chargement...</span>
             </div>
             <div class="sidebar-links">
-                <a href="#" onclick="switchTab('dashboard')" class="nav-link active" id="link-dashboard">📊 Dashboard</a>
-                <a href="#" onclick="switchTab('voyage')" class="nav-link" id="link-voyage">✈️ Guide Voyage & Démarches (Pas à Pas)</a>
-                <a href="#" onclick="switchTab('crise')" class="nav-link" id="link-crise">🚨 Urgences & Solutions</a>
-                <a href="#" onclick="switchTab('audit')" class="nav-link" id="link-audit">🌐 Évaluation Web (Global)</a>
-                <a href="#" onclick="switchTab('appel')" class="nav-link" id="link-appel">📞 Appel Direct & Live</a>
-                <a href="#" onclick="switchTab('profil')" class="nav-link" id="link-profil">👤 Profil & Voix</a>
-                <a href="#" onclick="switchTab('outils')" class="nav-link" id="link-outils">🛠️ Outils & Bloc-Notes</a>
-                <a href="#" onclick="switchTab('banque')" class="nav-link" id="link-banque">💳 Banque & Cartes</a>
-                <a href="#" onclick="switchTab('devises')" class="nav-link" id="link-devises">💱 Échange & Devises</a>
+                <a href="#" onclick="switchTab('dashboard')" class="nav-link ripple-effect active" id="link-dashboard">📊 Dashboard Quantum</a>
+                <a href="#" onclick="switchTab('succes1000')" class="nav-link ripple-effect" id="link-succes1000">💎 Garantie Succès 1000%</a>
+                <a href="#" onclick="switchTab('sync')" class="nav-link ripple-effect" id="link-sync">☁️ Cloud & Synchro Sécurisée</a>
+                <a href="#" onclick="switchTab('voyage')" class="nav-link ripple-effect" id="link-voyage">✈️ Guide Voyage & Carbone [cite: 20]</a>
+                <a href="#" onclick="switchTab('partage')" class="nav-link ripple-effect" id="link-partage">🔗 Partage Collaboratif</a>
+                <a href="#" onclick="switchTab('crise')" class="nav-link ripple-effect" id="link-crise">🚨 Urgences & Solutions [cite: 20]</a>
+                <a href="#" onclick="switchTab('audit')" class="nav-link ripple-effect" id="link-audit">🌐 Évaluation Web (Global)</a>
+                <a href="#" onclick="switchTab('appel')" class="nav-link ripple-effect" id="link-appel">📞 Appel Direct & Live</a>
+                <a href="#" onclick="switchTab('profil')" class="nav-link ripple-effect" id="link-profil">👤 Profil & Voix IA</a>
+                <a href="#" onclick="switchTab('outils')" class="nav-link ripple-effect" id="link-outils">🛠️ Bloc-Notes & Projets [cite: 20]</a>
+                <a href="#" onclick="switchTab('banque')" class="nav-link ripple-effect" id="link-banque">💳 Banque & Cartes</a>
+                <a href="#" onclick="switchTab('devises')" class="nav-link ripple-effect" id="link-devises">💱 Échange & Devises</a>
             </div>
             <div class="sidebar-footer">
-                <p>EVAT v3.17 • Dual Input Mode</p>
+                <p>EVAT v3.23 • Eric Lawson & ELAWS</p>
             </div>
         </nav>
 
@@ -112,108 +115,184 @@
             <!-- 1. Dashboard -->
             <section id="tab-dashboard" class="tab-content active">
                 <div class="card welcome-card">
-                    <h2>Écosystème Universel EVAT</h2>
-                    <p class="text">Bienvenue, <strong id="dashNomUser" style="color:var(--accent);">Kodjo</strong>. Choisissez à tout moment entre le **Clavier** et le **Microphone** pour discuter avec ELAWS.</p>
+                    <h2>Écosystème Universel EVAT v3.23 Quantum</h2>
+                    <p class="text">Bienvenue, <strong id="dashNomUser" style="color:var(--accent);">Kodjo</strong>. Votre plateforme intègre la Garantie de Succès à 1000% pour propulser vos ambitions [cite: 20].</p>
                     
-                    <div style="margin-top: 15px;">
-                        <button onclick="installerPWA()" class="btn-action" style="background: var(--success); color: #fff;">📲 Installer l'application</button>
+                    <!-- Alerte Prédictive ELAWS -->
+                    <div id="elawsPredictiveAlert" style="background:var(--bg-color); border:1px solid var(--success); padding:14px; border-radius:12px; margin-top:12px;">
+                        <h4 style="color:var(--success); font-size:13.5px; margin-bottom:4px;">💎 ELAWS Quantum • Booster Succès 1000%</h4>
+                        <p id="predictiveText" style="font-size:12.5px; color:var(--text-secondary); margin-bottom:0;">Analyse quantique des projets en cours pour éliminer toute friction...</p>
+                    </div>
+
+                    <div style="margin-top: 15px; display:flex; gap:10px; flex-wrap:wrap;">
+                        <button onclick="installerPWA()" class="btn-action ripple-effect" style="background: var(--success); color: #fff; flex:1;">📲 Installer PWA [cite: 20]</button>
+                        <button onclick="switchTab('succes1000')" class="btn-action secondary ripple-effect" style="flex:1;">💎 Booster 1000%</button>
                     </div>
 
                     <div class="dash-grid" style="margin-top:15px;">
                         <div class="dash-stat-box">
-                            <span class="stat-icon">✈️</span>
+                            <span class="stat-icon">📈</span>
                             <div>
-                                <h4 id="dashStatVoyages">0 Projet</h4>
-                                <p>Démarches suivies</p>
+                                <h4 id="dashStatRendement">1000%</h4>
+                                <p>Rendement Objectif</p>
                             </div>
                         </div>
                         <div class="dash-stat-box">
-                            <span class="stat-icon">🚨</span>
+                            <span class="stat-icon">🌱</span>
                             <div>
-                                <h4 id="dashStatCrises">0 Résolution</h4>
-                                <p>Problèmes traités</p>
+                                <h4 id="dashStatCarbone">0 kg</h4>
+                                <p>Empreinte Carbone</p>
                             </div>
                         </div>
                         <div class="dash-stat-box">
                             <span class="stat-icon">📝</span>
                             <div>
                                 <h4 id="dashStatNotes">0 Note</h4>
-                                <p>Bloc-notes</p>
+                                <p>Bloc-notes [cite: 20]</p>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <div class="card">
-                    <h3>✨ Bulle Magique ELAWS</h3>
-                    <p class="text">Touchez la sphère en haut à droite pour ouvrir le panneau de discussion et basculer instantanément entre Clavier et Voix.</p>
+                    <h3>✨ Bulle Magique ELAWS Quantum [cite: 20]</h3>
+                    <p class="text">Touchez la sphère en haut à droite pour dialoguer instantanément avec ELAWS en mode Clavier ⌨️ ou Voix 🎙️ [cite: 20].</p>
                     <div class="quick-actions">
-                        <button class="btn-action" onclick="toggleElawsChat()">Ouvrir ELAWS 🤖</button>
-                        <button class="btn-action secondary" onclick="switchTab('voyage')">Guide Voyage ✈️</button>
+                        <button class="btn-action ripple-effect" onclick="toggleElawsChat()">Ouvrir ELAWS 🤖</button>
+                        <button class="btn-action secondary ripple-effect" onclick="switchTab('succes1000')">Voir le Plan 1000% 💎</button>
                     </div>
                 </div>
             </section>
 
-            <!-- 2. Voyage -->
+            <!-- 2. Garantie Succès 1000% -->
+            <section id="tab-succes1000" class="tab-content">
+                <div class="card" style="border-left: 4px solid var(--success);">
+                    <h2>💎 Module de Garantie de Succès à 1000%</h2>
+                    <p class="text">Transformez chaque effort en un résultat maximal et incontestable. Entrez votre projet ou objectif principal pour obtenir un plan d'action quantique optimisé.</p>
+                    <div class="form-group">
+                        <label>Objectif ou Projet (Personnel / Entreprise) :</label>
+                        <input type="text" id="inputObjectif1000" class="input" placeholder="Ex: Lancer mon entreprise, Réussir une négociation...">
+                        <label>Ressources disponibles (Temps, Énergie, Capital) :</label>
+                        <input type="text" id="inputRessources1000" class="input" placeholder="Ex: 3 heures par jour, budget minimal...">
+                        <button class="btn-action ripple-effect" style="background:var(--success); color:#fff;" onclick="genererPlanSucces1000()">Générer le Plan de Succès 1000% 🚀</button>
+                    </div>
+                    <div id="resultatPlan1000" style="margin-top:20px; display:none;"></div>
+                </div>
+            </section>
+
+            <!-- 3. Synchronisation Cloud & Locale -->
+            <section id="tab-sync" class="tab-content">
+                <div class="card" style="border-left: 4px solid var(--accent);">
+                    <h2>☁️ Centre de Synchronisation & Sauvegarde</h2>
+                    <p class="text">Exportez vos données vers un fichier de sauvegarde ou importez-les sur un autre appareil pour une continuité parfaite.</p>
+                    
+                    <div style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
+                        <div>
+                            <h4 style="font-size:14px; color:var(--text-color); margin-bottom:6px;">1. Sauvegarde / Exportation Cloud Locale</h4>
+                            <p class="text" style="font-size:12px; margin-bottom:8px;">Téléchargez un fichier de sauvegarde contenant toutes vos données EVAT.</p>
+                            <button onclick="exporterDonneesCloud()" class="btn-action ripple-effect">📥 Télécharger la Sauvegarde (.json)</button>
+                        </div>
+
+                        <hr style="border:0; border-top:1px solid var(--border-color); margin:10px 0;">
+
+                        <div>
+                            <h4 style="font-size:14px; color:var(--text-color); margin-bottom:6px;">2. Restauration / Importation sur un autre appareil</h4>
+                            <p class="text" style="font-size:12px; margin-bottom:8px;">Sélectionnez votre fichier de sauvegarde pour restaurer vos projets.</p>
+                            <input type="file" id="inputFileSync" accept=".json" onchange="importerDonneesCloud(event)" class="input" style="padding:10px;">
+                        </div>
+
+                        <hr style="border:0; border-top:1px solid var(--border-color); margin:10px 0;">
+
+                        <div>
+                            <h4 style="font-size:14px; color:var(--text-color); margin-bottom:6px;">3. Synchronisation Cloud Rapide (Code ID)</h4>
+                            <p class="text" style="font-size:12px; margin-bottom:8px;">Générez un code de synchronisation universel pour copier-coller vos données.</p>
+                            <button onclick="genererCodeSync()" class="btn-action secondary ripple-effect" style="margin-bottom:8px;">Générer un Code ID 🔑</button>
+                            <textarea id="zoneCodeSync" class="input" rows="2" placeholder="Le code de synchro apparaîtra ici..."></textarea>
+                            <button onclick="restaurerParCodeSync()" class="btn-action ripple-effect" style="margin-top:6px; background:var(--success); color:#fff;">Restaurer depuis ce Code 🔄</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 4. Voyage & Éco-responsabilité -->
             <section id="tab-voyage" class="tab-content">
                 <div class="card" style="border-left: 4px solid var(--accent);">
-                    <h2>✈️ Assistant Interactif de Voyage & Démarches</h2>
-                    <p class="text">Démarrez votre projet de voyage ou de démarche administrative.</p>
+                    <h2>✈️ Assistant Voyage & Empreinte Carbone</h2>
+                    <p class="text">Planifiez votre voyage et calculez son impact écologique estimé (bilan carbone).</p>
                     <div class="form-group">
-                        <label>Destination ou Nom de la démarche :</label>
-                        <input type="text" id="voyageDestination" class="input" placeholder="Ex: Voyage en France, Passeport...">
-                        <label>Où en êtes-vous actuellement ?</label>
-                        <select id="voyageEtapeActuelle" class="input">
-                            <option value="depart">1. Rien commencé / Juste une idée</option>
-                            <option value="passeport">2. Documents d'identité (Passeport / Nationalité) en cours</option>
-                            <option value="visa">3. Formalités de Visa / Billets d'avion</option>
-                            <option value="sante">4. Santé, Vaccins & Bordereau de voyage</option>
+                        <label>Destination :</label>
+                        <input type="text" id="voyageDestination" class="input" placeholder="Ex: Paris, Accra, New York...">
+                        <label>Moyen de transport principal :</label>
+                        <select id="voyageTransport" class="input">
+                            <option value="avion">Avions (Impact élevé - ~250g CO2/km)</option>
+                            <option value="voiture">Voiture / Bus (Impact modéré - ~120g CO2/km)</option>
+                            <option value="train">Train / Électrique (Impact faible - ~40g CO2/km)</option>
                         </select>
-                        <button class="btn-action" onclick="lancerAssistantVoyage()" style="margin-top:12px;">Lancer l'Accompagnement ELAWS 🚀</button>
+                        <label>Distance estimée (en km) :</label>
+                        <input type="number" id="voyageDistance" class="input" placeholder="Ex: 5000">
+                        <button class="btn-action ripple-effect" onclick="lancerAssistantVoyageCarbone()" style="margin-top:12px;">Lancer l'Analyse ELAWS 🚀</button>
                     </div>
                     <div id="resultatAssistantVoyage" style="margin-top:20px; display:none;"></div>
                 </div>
                 <div class="card" style="margin-top: 20px;">
-                    <h3>📋 Suivi de mes Projets Actifs</h3>
+                    <h3>📋 Projets de Voyage & Bilans Actifs</h3>
                     <div id="listeProjetsVoyage" style="margin-top: 10px;">
                         <p class="text">Aucun projet en cours.</p>
                     </div>
                 </div>
             </section>
 
-            <!-- 3. Urgences -->
+            <!-- 5. Partage Collaboratif -->
+            <section id="tab-partage" class="tab-content">
+                <div class="card" style="border-left: 4px solid var(--success);">
+                    <h2>🔗 Module de Partage Collaboratif Sécurisé</h2>
+                    <p class="text">Générez un lien de partage instantané ou un résumé de vos notes et projets pour collaborer avec vos proches ou collègues.</p>
+                    <div class="form-group">
+                        <label>Sélectionner l'élément à partager :</label>
+                        <select id="selectElementPartage" class="input">
+                            <option value="profil">Profil complet EVAT</option>
+                            <option value="notes">Bloc-notes et idées</option>
+                            <option value="voyages">Projets de voyage</option>
+                        </select>
+                        <button class="btn-action ripple-effect" style="background:var(--success); color:#fff;" onclick="genererLienPartage()">Générer le Lien de Partage 🌐</button>
+                        <textarea id="zoneLienPartage" class="input" rows="2" placeholder="Le lien sécurisé apparaîtra ici..." style="margin-top:10px;"></textarea>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 6. Urgences -->
             <section id="tab-crise" class="tab-content">
                 <div class="card" style="border-left: 4px solid var(--danger);">
-                    <h2>🚨 Module de Résolution d'Urgences & Problèmes</h2>
+                    <h2>🚨 Module de Résolution d'Urgences & Problèmes [cite: 20]</h2>
                     <input type="text" id="criseDescription" class="input" placeholder="Décrivez l'urgence...">
-                    <button class="btn-action" style="background:var(--danger); color:#fff;" onclick="analyserEtResoudreCrise()">Générer une Solution ⚡</button>
+                    <button class="btn-action ripple-effect" style="background:var(--danger); color:#fff;" onclick="analyserEtResoudreCrise()">Générer une Solution ⚡</button>
                     <div id="resultatCriseContainer" style="margin-top:15px; display:none;"></div>
                 </div>
             </section>
 
-            <!-- 4. Audit Web -->
+            <!-- 7. Audit Web -->
             <section id="tab-audit" class="tab-content">
                 <div class="card" style="border-left: 4px solid var(--accent);">
                     <h2>🌐 Module Mondial d'Évaluation de Sites Web</h2>
                     <input type="url" id="auditUrl" class="input" placeholder="https://exemple.com">
-                    <button class="btn-action" onclick="lancerAuditSite()">Lancer l'Évaluation 🚀</button>
+                    <button class="btn-action ripple-effect" onclick="lancerAuditSite()">Lancer l'Évaluation 🚀</button>
                     <div id="resultatAuditContainer" style="margin-top:15px; display:none;"></div>
                 </div>
             </section>
 
-            <!-- 5. Appel Direct -->
+            <!-- 8. Appel Direct -->
             <section id="tab-appel" class="tab-content">
                 <div class="card" style="border-left: 4px solid var(--success);">
                     <h2>📞 Appel en Direct & Traduction Temps Réel</h2>
                     <input type="text" id="appelCorrespondant" class="input" placeholder="Nom du correspondant...">
-                    <button class="btn-action" style="background:var(--success); color:#fff;" onclick="demarrerAppelTraduit()">Démarrer l'Appel Live 📞</button>
+                    <button class="btn-action ripple-effect" style="background:var(--success); color:#fff;" onclick="demarrerAppelTraduit()">Démarrer l'Appel Live 📞</button>
                     <div id="ecranAppelLive" style="margin-top:15px; display:none;">
                         <div id="fluxTraductionLive" style="background:var(--bg-color); padding:10px; border-radius:8px; height:100px; overflow-y:auto;"></div>
                     </div>
                 </div>
             </section>
 
-            <!-- 6. Profil -->
+            <!-- 9. Profil -->
             <section id="tab-profil" class="tab-content">
                 <div class="card">
                     <h2>Gestion du Profil & Préférences IA</h2>
@@ -223,37 +302,37 @@
                         <option value="pedagogique">Pédagogique & Simple</option>
                         <option value="vocal_inclusif">Vocal & Accompagné</option>
                     </select>
-                    <button class="btn-action" onclick="sauvegarderProfilBase()">Enregistrer</button>
+                    <button class="btn-action ripple-effect" onclick="sauvegarderProfilBase()">Enregistrer</button>
                 </div>
             </section>
 
-            <!-- 7. Bloc-Notes -->
+            <!-- 10. Bloc-Notes -->
             <section id="tab-outils" class="tab-content">
                 <div class="card">
-                    <h2>🛠️ Bloc-Notes Intelligent</h2>
+                    <h2>🛠️ Bloc-Notes Intelligent [cite: 20]</h2>
                     <input type="text" id="noteTitre" class="input" placeholder="Titre de la note...">
                     <textarea id="noteContenu" class="input" rows="3" placeholder="Contenu..."></textarea>
-                    <button class="btn-action" onclick="ajouterNoteBlocNotes()">Enregistrer 📝</button>
+                    <button class="btn-action ripple-effect" onclick="ajouterNoteBlocNotes()">Enregistrer 📝</button>
                     <div id="listeNotesBlocNotes" style="margin-top:15px;"></div>
                 </div>
             </section>
 
-            <!-- 8. Banque -->
+            <!-- 11. Banque -->
             <section id="tab-banque" class="tab-content">
                 <div class="card">
                     <h2>Banque & Cartes Bancaires</h2>
                     <input type="text" id="inputPaysBanque" class="input" placeholder="Pays ou banque...">
-                    <button class="btn-action" onclick="rechercherBanque()">Consulter</button>
+                    <button class="btn-action ripple-effect" onclick="rechercherBanque()">Consulter</button>
                     <div id="resultatBanque" style="margin-top:15px;"></div>
                 </div>
             </section>
 
-            <!-- 9. Devises -->
+            <!-- 12. Devises -->
             <section id="tab-devises" class="tab-content">
                 <div class="card">
                     <h2>Échange & Devises</h2>
                     <input type="number" id="montantDevise" class="input" placeholder="Montant...">
-                    <button class="btn-action" onclick="convertirDevise()">Calculer</button>
+                    <button class="btn-action ripple-effect" onclick="convertirDevise()">Calculer</button>
                     <div id="resultatDevise" style="margin-top:15px;"></div>
                 </div>
             </section>
@@ -266,7 +345,7 @@
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('sw.js')
-                    .then(reg => console.log('Service Worker v3.17 enregistré !', reg.scope))
+                    .then(reg => console.log('Service Worker v3.23 enregistré !', reg.scope))
                     .catch(err => console.log('Erreur SW :', err));
             });
         }
