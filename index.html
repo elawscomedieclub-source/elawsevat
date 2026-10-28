@@ -3,46 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>EVAT & ELAWS - Écosystème Universel v3.24 Quantum</title>
+    <title>EVAT & ELAWS - Écosystème Universel v3.25 Quantum</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.webmanifest">
     <meta name="theme-color" content="#070a13">
 </head>
 <body>
     <div id="app">
-        <!-- Bannière PWA -->
-        <div id="pwaInstallBanner" class="pwa-install-banner" style="display: none;">
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <span style="font-size: 26px;">📲</span>
-                <div>
-                    <h4 style="font-size: 14px; color: var(--accent);">Installer EVAT & ELAWS v3.24</h4>
-                    <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 0;">Installation instantanée et accès hors-ligne total [cite: 20].</p>
-                </div>
-            </div>
-            <div style="display: flex; gap: 8px; margin-top: 6px;">
-                <button onclick="installerPWA()" class="btn-pwa-accept">Installer</button>
-                <button onclick="fermerBannierePWA()" class="btn-pwa-close">Plus tard</button>
-            </div>
-        </div>
-
         <!-- En-tête principal -->
         <header class="header">
             <div class="header-left">
                 <button onclick="toggleMenu(event)" class="menu-btn ripple-effect" aria-label="Menu principal">☰</button>
                 <div class="header-brand">
                     <h1 id="appTitle">EVAT</h1>
-                    <span class="brand-subtitle" id="headerLocationBadge">📍 Lomé, Togo (v3.24 Quantum) [cite: 20]</span>
+                    <span class="brand-subtitle" id="headerLocationBadge">📍 Lomé, Togo (v3.25 Quantum) [cite: 20]</span>
                 </div>
             </div>
 
-            <!-- ELAWS Widget : Bulle Magique Vocale + Bouton Clavier côte à côte -->
+            <!-- ELAWS Widget : Bouton Clavier + Bulle Vocale IA côte à côte -->
             <div id="elawsWidget" class="elaws-widget">
                 <div class="elaws-action-bar">
-                    <!-- Bouton Clavier dédié -->
                     <button onclick="ouvrirModeClavierDirect(event)" class="elaws-keyboard-btn ripple-effect" title="Écrire à ELAWS (Clavier)">
                         <span>⌨️</span>
                     </button>
-                    <!-- Sphère Vocale ELAWS (touchez pour activer la voix et le micro) -->
                     <button onclick="basculerEcouteVocaleLiveDirect(event)" class="elaws-magic-bubble ripple-effect" title="Parler à ELAWS (Micro Vocal)">
                         <div class="magic-sphere-core"></div>
                         <span class="magic-label">🎙️ ELAWS Voix</span>
@@ -54,12 +37,11 @@
                     <div class="elaws-popup-header">
                         <div style="display:flex; align-items:center; gap:8px;">
                             <span class="status-indicator"></span>
-                            <span id="elawsHeaderTitle">Assistant ELAWS • Clavier & Voix [cite: 20]</span>
+                            <span>Assistant ELAWS • Clavier & Voix [cite: 20]</span>
                         </div>
                         <button onclick="fermerElawsChat(event)" class="close-popup-btn ripple-effect" aria-label="Fermer">✕</button>
                     </div>
 
-                    <!-- Sélecteur de mode -->
                     <div class="mode-selector-bar">
                         <button id="modeBtnClavier" onclick="changerModeInteraction('clavier')" class="mode-pill ripple-effect active">⌨️ Mode Clavier</button>
                         <button id="modeBtnMicro" onclick="changerModeInteraction('micro')" class="mode-pill ripple-effect">🎙️ Mode Micro Vocal</button>
@@ -68,7 +50,6 @@
                     <div class="elaws-popup-body">
                         <div id="elawsMessages" class="elaws-messages"></div>
                         
-                        <!-- Panneau Mode Clavier -->
                         <div id="panelClavier" class="input-panel active">
                             <div class="elaws-input-area">
                                 <input type="text" id="elawsInput" placeholder="Écrivez votre message à ELAWS..." onkeypress="if(event.key==='Enter') envoyerMessageElaws()">
@@ -76,7 +57,6 @@
                             </div>
                         </div>
 
-                        <!-- Panneau Mode Micro -->
                         <div id="panelMicro" class="input-panel" style="display: none; text-align: center; padding: 10px;">
                             <p id="voiceStatusText" style="font-size: 13px; color: var(--success); margin-bottom: 10px; font-weight: 500;">Microphone actif. Parlez, ELAWS écoute... [cite: 20]</p>
                             <button onclick="basculerEcouteVocaleLive()" id="microGrandBtn" class="micro-grand-btn ripple-effect active">
@@ -110,29 +90,25 @@
                 <a href="#" onclick="switchTab('devises')" class="nav-link ripple-effect" id="link-devises">💱 Échange & Devises</a>
             </div>
             <div class="sidebar-footer">
-                <p>EVAT v3.24 • Eric Lawson & ELAWS</p>
+                <p>EVAT v3.25 • Eric Lawson & ELAWS</p>
             </div>
         </nav>
 
-        <!-- Overlay -->
         <div id="appOverlay" class="app-overlay" onclick="fermerTousLesMenus()"></div>
 
-        <!-- Contenu principal -->
         <main class="content">
-            <!-- 1. Dashboard -->
             <section id="tab-dashboard" class="tab-content active">
                 <div class="card welcome-card">
-                    <h2>Écosystème Universel EVAT v3.24 Quantum</h2>
-                    <p class="text">Bienvenue, <strong id="dashNomUser" style="color:var(--success);">Kodjo</strong>. Votre plateforme intègre l'accès direct Clavier / Voix et la Garantie de Succès à 1000% [cite: 20].</p>
+                    <h2>Écosystème Universel EVAT v3.25 Quantum</h2>
+                    <p class="text">Bienvenue, <strong id="dashNomUser" style="color:var(--success);">Kodjo</strong>. Votre application PWA est configurée pour s'ouvrir en mode natif autonome [cite: 20].</p>
                     
-                    <!-- Alerte Prédictive ELAWS -->
                     <div id="elawsPredictiveAlert" style="background:var(--bg-color); border:1px solid var(--success); padding:14px; border-radius:12px; margin-top:12px;">
-                        <h4 style="color:var(--success); font-size:13.5px; margin-bottom:4px;">💎 ELAWS Quantum • Clavier & Voix Intégrés</h4>
-                        <p id="predictiveText" style="font-size:12.5px; color:var(--text-secondary); margin-bottom:0;">Touchez le bouton ⌨️ pour écrire ou la sphère 🎙️ pour parler directement à ELAWS...</p>
+                        <h4 style="color:var(--success); font-size:13.5px; margin-bottom:4px;">💎 ELAWS Quantum • Succès à 1000%</h4>
+                        <p id="predictiveText" style="font-size:12.5px; color:var(--text-secondary); margin-bottom:0;">Mode application native actif sans barre d'adresse...</p>
                     </div>
 
                     <div style="margin-top: 15px; display:flex; gap:10px; flex-wrap:wrap;">
-                        <button onclick="installerPWA()" class="btn-action ripple-effect" style="background: var(--success); color: #fff; flex:1;">📲 Installer PWA [cite: 20]</button>
+                        <button onclick="declencherInstallationNative()" class="btn-action ripple-effect" style="background: var(--success); color: #fff; flex:1;">📲 Installer l'Application 🚀</button>
                         <button onclick="switchTab('succes1000')" class="btn-action secondary ripple-effect" style="flex:1;">💎 Booster 1000%</button>
                     </div>
 
@@ -163,7 +139,7 @@
 
                 <div class="card">
                     <h3>✨ Accès Rapide Clavier ⌨️ & Voix 🎙️ [cite: 20]</h3>
-                    <p class="text">Utilisez le bouton clavier ⌨️ en haut à droite pour écrire, ou touchez la sphère magique 🎙️ pour lancer l'écoute vocale instantanée.</p>
+                    <p class="text">Utilisez le bouton clavier ⌨️ ou touchez la sphère vocale 🎙️ en haut à droite.</p>
                     <div class="quick-actions">
                         <button class="btn-action ripple-effect" onclick="ouvrirModeClavierDirect()">Ouvrir Clavier ⌨️</button>
                         <button class="btn-action secondary ripple-effect" onclick="basculerEcouteVocaleLiveDirect()">Parler à ELAWS 🎙️</button>
@@ -171,177 +147,108 @@
                 </div>
             </section>
 
-            <!-- 2. Garantie Succès 1000% -->
             <section id="tab-succes1000" class="tab-content">
                 <div class="card" style="border-left: 4px solid var(--success);">
                     <h2>💎 Module de Garantie de Succès à 1000%</h2>
-                    <p class="text">Transformez chaque effort en un résultat maximal et incontestable. Entrez votre projet ou objectif principal pour obtenir un plan d'action quantique optimisé.</p>
+                    <p class="text">Transformez chaque effort en un résultat maximal et incontestable.</p>
                     <div class="form-group">
                         <label>Objectif ou Projet (Personnel / Entreprise) :</label>
-                        <input type="text" id="inputObjectif1000" class="input" placeholder="Ex: Lancer mon entreprise, Réussir une négociation...">
-                        <label>Ressources disponibles (Temps, Énergie, Capital) :</label>
-                        <input type="text" id="inputRessources1000" class="input" placeholder="Ex: 3 heures par jour, budget minimal...">
-                        <button class="btn-action ripple-effect" style="background:var(--success); color:#fff;" onclick="genererPlanSucces1000()">Générer le Plan de Succès 1000% 🚀</button>
+                        <input type="text" id="inputObjectif1000" class="input" placeholder="Ex: Lancer mon entreprise...">
+                        <label>Ressources disponibles :</label>
+                        <input type="text" id="inputRessources1000" class="input" placeholder="Ex: Temps, Énergie...">
+                        <button class="btn-action ripple-effect" style="background:var(--success); color:#fff;" onclick="genererPlanSucces1000()">Générer le Plan 🚀</button>
                     </div>
                     <div id="resultatPlan1000" style="margin-top:20px; display:none;"></div>
                 </div>
             </section>
 
-            <!-- 3. Synchronisation Cloud & Locale -->
             <section id="tab-sync" class="tab-content">
                 <div class="card" style="border-left: 4px solid var(--accent);">
                     <h2>☁️ Centre de Synchronisation & Sauvegarde</h2>
-                    <p class="text">Exportez vos données vers un fichier de sauvegarde ou importez-les sur un autre appareil pour une continuité parfaite.</p>
-                    
-                    <div style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
-                        <div>
-                            <h4 style="font-size:14px; color:var(--text-color); margin-bottom:6px;">1. Sauvegarde / Exportation Cloud Locale</h4>
-                            <p class="text" style="font-size:12px; margin-bottom:8px;">Téléchargez un fichier de sauvegarde contenant toutes vos données EVAT.</p>
-                            <button onclick="exporterDonneesCloud()" class="btn-action ripple-effect">📥 Télécharger la Sauvegarde (.json)</button>
-                        </div>
-
-                        <hr style="border:0; border-top:1px solid var(--border-color); margin:10px 0;">
-
-                        <div>
-                            <h4 style="font-size:14px; color:var(--text-color); margin-bottom:6px;">2. Restauration / Importation sur un autre appareil</h4>
-                            <p class="text" style="font-size:12px; margin-bottom:8px;">Sélectionnez votre fichier de sauvegarde pour restaurer vos projets.</p>
-                            <input type="file" id="inputFileSync" accept=".json" onchange="importerDonneesCloud(event)" class="input" style="padding:10px;">
-                        </div>
-
-                        <hr style="border:0; border-top:1px solid var(--border-color); margin:10px 0;">
-
-                        <div>
-                            <h4 style="font-size:14px; color:var(--text-color); margin-bottom:6px;">3. Synchronisation Cloud Rapide (Code ID)</h4>
-                            <p class="text" style="font-size:12px; margin-bottom:8px;">Générez un code de synchronisation universel pour copier-coller vos données.</p>
-                            <button onclick="genererCodeSync()" class="btn-action secondary ripple-effect" style="margin-bottom:8px;">Générer un Code ID 🔑</button>
-                            <textarea id="zoneCodeSync" class="input" rows="2" placeholder="Le code de synchro apparaîtra ici..."></textarea>
-                            <button onclick="restaurerParCodeSync()" class="btn-action ripple-effect" style="margin-top:6px; background:var(--success); color:#fff;">Restaurer depuis ce Code 🔄</button>
-                        </div>
-                    </div>
+                    <button onclick="exporterDonneesCloud()" class="btn-action ripple-effect">📥 Télécharger la Sauvegarde (.json)</button>
                 </div>
             </section>
 
-            <!-- 4. Voyage & Éco-responsabilité -->
             <section id="tab-voyage" class="tab-content">
                 <div class="card" style="border-left: 4px solid var(--accent);">
                     <h2>✈️ Assistant Voyage & Empreinte Carbone</h2>
-                    <p class="text">Planifiez votre voyage et calculez son impact écologique estimé (bilan carbone).</p>
-                    <div class="form-group">
-                        <label>Destination :</label>
-                        <input type="text" id="voyageDestination" class="input" placeholder="Ex: Paris, Accra, New York...">
-                        <label>Moyen de transport principal :</label>
-                        <select id="voyageTransport" class="input">
-                            <option value="avion">Avions (Impact élevé - ~250g CO2/km)</option>
-                            <option value="voiture">Voiture / Bus (Impact modéré - ~120g CO2/km)</option>
-                            <option value="train">Train / Électrique (Impact faible - ~40g CO2/km)</option>
-                        </select>
-                        <label>Distance estimée (en km) :</label>
-                        <input type="number" id="voyageDistance" class="input" placeholder="Ex: 5000">
-                        <button class="btn-action ripple-effect" onclick="lancerAssistantVoyageCarbone()" style="margin-top:12px;">Lancer l'Analyse ELAWS 🚀</button>
-                    </div>
+                    <input type="text" id="voyageDestination" class="input" placeholder="Destination...">
+                    <select id="voyageTransport" class="input">
+                        <option value="avion">Avion</option>
+                        <option value="voiture">Voiture</option>
+                        <option value="train">Train</option>
+                    </select>
+                    <input type="number" id="voyageDistance" class="input" placeholder="Distance en km">
+                    <button class="btn-action ripple-effect" onclick="lancerAssistantVoyageCarbone()">Analyser 🚀</button>
                     <div id="resultatAssistantVoyage" style="margin-top:20px; display:none;"></div>
                 </div>
-                <div class="card" style="margin-top: 20px;">
-                    <h3>📋 Projets de Voyage & Bilans Actifs</h3>
-                    <div id="listeProjetsVoyage" style="margin-top: 10px;">
-                        <p class="text">Aucun projet en cours.</p>
-                    </div>
+                <div class="card" style="margin-top:20px;">
+                    <h3>📋 Projets de Voyage</h3>
+                    <div id="listeProjetsVoyage"></div>
                 </div>
             </section>
 
-            <!-- 5. Partage Collaboratif -->
             <section id="tab-partage" class="tab-content">
                 <div class="card" style="border-left: 4px solid var(--success);">
-                    <h2>🔗 Module de Partage Collaboratif Sécurisé</h2>
-                    <p class="text">Générez un lien de partage instantané ou un résumé de vos notes et projets pour collaborer avec vos proches ou collègues.</p>
-                    <div class="form-group">
-                        <label>Sélectionner l'élément à partager :</label>
-                        <select id="selectElementPartage" class="input">
-                            <option value="profil">Profil complet EVAT</option>
-                            <option value="notes">Bloc-notes et idées</option>
-                            <option value="voyages">Projets de voyage</option>
-                        </select>
-                        <button class="btn-action ripple-effect" style="background:var(--success); color:#fff;" onclick="genererLienPartage()">Générer le Lien de Partage 🌐</button>
-                        <textarea id="zoneLienPartage" class="input" rows="2" placeholder="Le lien sécurisé apparaîtra ici..." style="margin-top:10px;"></textarea>
-                    </div>
+                    <h2>🔗 Partage Collaboratif Sécurisé</h2>
+                    <button class="btn-action ripple-effect" style="background:var(--success); color:#fff;" onclick="genererLienPartage()">Générer Lien 🌐</button>
+                    <textarea id="zoneLienPartage" class="input" rows="2" style="margin-top:10px;"></textarea>
                 </div>
             </section>
 
-            <!-- 6. Urgences -->
             <section id="tab-crise" class="tab-content">
                 <div class="card" style="border-left: 4px solid var(--danger);">
-                    <h2>🚨 Module de Résolution d'Urgences & Problèmes [cite: 20]</h2>
-                    <input type="text" id="criseDescription" class="input" placeholder="Décrivez l'urgence...">
-                    <button class="btn-action ripple-effect" style="background:var(--danger); color:#fff;" onclick="analyserEtResoudreCrise()">Générer une Solution ⚡</button>
+                    <h2>🚨 Résolution d'Urgences [cite: 20]</h2>
+                    <input type="text" id="criseDescription" class="input" placeholder="Urgence...">
+                    <button class="btn-action ripple-effect" style="background:var(--danger); color:#fff;" onclick="analyserEtResoudreCrise()">Résoudre ⚡</button>
                     <div id="resultatCriseContainer" style="margin-top:15px; display:none;"></div>
                 </div>
             </section>
 
-            <!-- 7. Audit Web -->
             <section id="tab-audit" class="tab-content">
-                <div class="card" style="border-left: 4px solid var(--accent);">
-                    <h2>🌐 Module Mondial d'Évaluation de Sites Web</h2>
-                    <input type="url" id="auditUrl" class="input" placeholder="https://exemple.com">
-                    <button class="btn-action ripple-effect" onclick="lancerAuditSite()">Lancer l'Évaluation 🚀</button>
+                <div class="card">
+                    <h2>🌐 Audit Web</h2>
+                    <input type="url" id="auditUrl" class="input" placeholder="https://...">
+                    <button class="btn-action ripple-effect" onclick="lancerAuditSite()">Évaluer</button>
                     <div id="resultatAuditContainer" style="margin-top:15px; display:none;"></div>
                 </div>
             </section>
 
-            <!-- 8. Appel Direct -->
             <section id="tab-appel" class="tab-content">
-                <div class="card" style="border-left: 4px solid var(--success);">
-                    <h2>📞 Appel en Direct & Traduction Temps Réel</h2>
-                    <input type="text" id="appelCorrespondant" class="input" placeholder="Nom du correspondant...">
-                    <button class="btn-action ripple-effect" style="background:var(--success); color:#fff;" onclick="demarrerAppelTraduit()">Démarrer l'Appel Live 📞</button>
+                <div class="card">
+                    <h2>📞 Appel Direct</h2>
+                    <input type="text" id="appelCorrespondant" class="input" placeholder="Nom...">
+                    <button class="btn-action ripple-effect" onclick="demarrerAppelTraduit()">Démarrer</button>
                     <div id="ecranAppelLive" style="margin-top:15px; display:none;">
-                        <div id="fluxTraductionLive" style="background:var(--bg-color); padding:10px; border-radius:8px; height:100px; overflow-y:auto;"></div>
+                        <div id="fluxTraductionLive" style="background:var(--bg-color); padding:10px; border-radius:8px;"></div>
                     </div>
                 </div>
             </section>
 
-            <!-- 9. Profil -->
             <section id="tab-profil" class="tab-content">
                 <div class="card">
-                    <h2>Gestion du Profil & Préférences IA</h2>
-                    <input type="text" id="inputNom" class="input" placeholder="Ton nom...">
-                    <select id="selectTonIa" class="input">
-                        <option value="standard">Standard & Professionnel</option>
-                        <option value="pedagogique">Pédagogique & Simple</option>
-                        <option value="vocal_inclusif">Vocal & Accompagné</option>
-                    </select>
+                    <h2>Profil</h2>
+                    <input type="text" id="inputNom" class="input" placeholder="Nom...">
                     <button class="btn-action ripple-effect" onclick="sauvegarderProfilBase()">Enregistrer</button>
                 </div>
             </section>
 
-            <!-- 10. Bloc-Notes -->
             <section id="tab-outils" class="tab-content">
                 <div class="card">
-                    <h2>🛠️ Bloc-Notes Intelligent [cite: 20]</h2>
-                    <input type="text" id="noteTitre" class="input" placeholder="Titre de la note...">
-                    <textarea id="noteContenu" class="input" rows="3" placeholder="Contenu..."></textarea>
-                    <button class="btn-action ripple-effect" onclick="ajouterNoteBlocNotes()">Enregistrer 📝</button>
+                    <h2>🛠️ Bloc-Notes [cite: 20]</h2>
+                    <input type="text" id="noteTitre" class="input" placeholder="Titre...">
+                    <textarea id="noteContenu" class="input" placeholder="Contenu..."></textarea>
+                    <button class="btn-action ripple-effect" onclick="ajouterNoteBlocNotes()">Enregistrer</button>
                     <div id="listeNotesBlocNotes" style="margin-top:15px;"></div>
                 </div>
             </section>
 
-            <!-- 11. Banque -->
             <section id="tab-banque" class="tab-content">
-                <div class="card">
-                    <h2>Banque & Cartes Bancaires</h2>
-                    <input type="text" id="inputPaysBanque" class="input" placeholder="Pays ou banque...">
-                    <button class="btn-action ripple-effect" onclick="rechercherBanque()">Consulter</button>
-                    <div id="resultatBanque" style="margin-top:15px;"></div>
-                </div>
+                <div class="card"><h2>Banque</h2></div>
             </section>
 
-            <!-- 12. Devises -->
             <section id="tab-devises" class="tab-content">
-                <div class="card">
-                    <h2>Échange & Devises</h2>
-                    <input type="number" id="montantDevise" class="input" placeholder="Montant...">
-                    <button class="btn-action ripple-effect" onclick="convertirDevise()">Calculer</button>
-                    <div id="resultatDevise" style="margin-top:15px;"></div>
-                </div>
+                <div class="card"><h2>Devises</h2></div>
             </section>
         </main>
     </div>
@@ -352,8 +259,7 @@
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('sw.js')
-                    .then(reg => console.log('Service Worker v3.24 enregistré !', reg.scope))
-                    .catch(err => console.log('Erreur SW :', err));
+                    .then(reg => console.log('SW v3.25 enregistré', reg.scope));
             });
         }
     </script>

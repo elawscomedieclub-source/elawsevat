@@ -1,1 +1,16 @@
-{"name": "EVAT & ELAWS Quantum", "short_name": "EVAT Quantum", "start_url": "index.html", "display": "standalone", "background_color": "#070a13", "theme_color": "#22c55e"}
+{
+  "name": "EVAT & ELAWS Quantum",
+  "short_name": "EVAT",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#070a13",
+  "theme_color": "#22c55e",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}
