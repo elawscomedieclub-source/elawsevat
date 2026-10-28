@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>EVAT & ELAWS - Écosystème Universel v3.23 Quantum</title>
+    <title>EVAT & ELAWS - Écosystème Universel v3.24 Quantum</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.webmanifest">
     <meta name="theme-color" content="#070a13">
@@ -15,7 +15,7 @@
             <div style="display: flex; align-items: center; gap: 10px;">
                 <span style="font-size: 26px;">📲</span>
                 <div>
-                    <h4 style="font-size: 14px; color: var(--accent);">Installer EVAT & ELAWS v3.23</h4>
+                    <h4 style="font-size: 14px; color: var(--accent);">Installer EVAT & ELAWS v3.24</h4>
                     <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 0;">Installation instantanée et accès hors-ligne total [cite: 20].</p>
                 </div>
             </div>
@@ -31,31 +31,38 @@
                 <button onclick="toggleMenu(event)" class="menu-btn ripple-effect" aria-label="Menu principal">☰</button>
                 <div class="header-brand">
                     <h1 id="appTitle">EVAT</h1>
-                    <span class="brand-subtitle" id="headerLocationBadge">📍 Lomé, Togo (v3.23 Quantum) [cite: 20]</span>
+                    <span class="brand-subtitle" id="headerLocationBadge">📍 Lomé, Togo (v3.24 Quantum) [cite: 20]</span>
                 </div>
             </div>
 
-            <!-- ELAWS : Bulle Magique interactive -->
+            <!-- ELAWS Widget : Bulle Magique Vocale + Bouton Clavier côte à côte -->
             <div id="elawsWidget" class="elaws-widget">
-                <button onclick="toggleElawsChat(event)" class="elaws-magic-bubble ripple-effect" title="Discuter avec ELAWS">
-                    <div class="magic-sphere-core"></div>
-                    <span class="magic-label">🤖 ELAWS Quantum</span>
-                </button>
+                <div class="elaws-action-bar">
+                    <!-- Bouton Clavier dédié -->
+                    <button onclick="ouvrirModeClavierDirect(event)" class="elaws-keyboard-btn ripple-effect" title="Écrire à ELAWS (Clavier)">
+                        <span>⌨️</span>
+                    </button>
+                    <!-- Sphère Vocale ELAWS (touchez pour activer la voix et le micro) -->
+                    <button onclick="basculerEcouteVocaleLiveDirect(event)" class="elaws-magic-bubble ripple-effect" title="Parler à ELAWS (Micro Vocal)">
+                        <div class="magic-sphere-core"></div>
+                        <span class="magic-label">🎙️ ELAWS Voix</span>
+                    </button>
+                </div>
                 
                 <!-- Popup de discussion ELAWS -->
                 <div id="elawsPopup" class="elaws-popup" style="display: none;" onclick="event.stopPropagation()">
                     <div class="elaws-popup-header">
                         <div style="display:flex; align-items:center; gap:8px;">
                             <span class="status-indicator"></span>
-                            <span>Assistant ELAWS • Succès 1000% & Futur [cite: 20]</span>
+                            <span id="elawsHeaderTitle">Assistant ELAWS • Clavier & Voix [cite: 20]</span>
                         </div>
-                        <button onclick="toggleElawsChat(event)" class="close-popup-btn ripple-effect" aria-label="Fermer">✕</button>
+                        <button onclick="fermerElawsChat(event)" class="close-popup-btn ripple-effect" aria-label="Fermer">✕</button>
                     </div>
 
                     <!-- Sélecteur de mode -->
                     <div class="mode-selector-bar">
-                        <button id="modeBtnClavier" onclick="changerModeInteraction('clavier')" class="mode-pill ripple-effect active">⌨️ Clavier</button>
-                        <button id="modeBtnMicro" onclick="changerModeInteraction('micro')" class="mode-pill ripple-effect">🎙️ Micro Vocal</button>
+                        <button id="modeBtnClavier" onclick="changerModeInteraction('clavier')" class="mode-pill ripple-effect active">⌨️ Mode Clavier</button>
+                        <button id="modeBtnMicro" onclick="changerModeInteraction('micro')" class="mode-pill ripple-effect">🎙️ Mode Micro Vocal</button>
                     </div>
 
                     <div class="elaws-popup-body">
@@ -64,17 +71,17 @@
                         <!-- Panneau Mode Clavier -->
                         <div id="panelClavier" class="input-panel active">
                             <div class="elaws-input-area">
-                                <input type="text" id="elawsInput" placeholder="Écrivez votre message..." onkeypress="if(event.key==='Enter') envoyerMessageElaws()">
+                                <input type="text" id="elawsInput" placeholder="Écrivez votre message à ELAWS..." onkeypress="if(event.key==='Enter') envoyerMessageElaws()">
                                 <button onclick="envoyerMessageElaws()" class="btn-envoyer-chat ripple-effect">Envoyer</button>
                             </div>
                         </div>
 
                         <!-- Panneau Mode Micro -->
                         <div id="panelMicro" class="input-panel" style="display: none; text-align: center; padding: 10px;">
-                            <p id="voiceStatusText" style="font-size: 13px; color: var(--accent); margin-bottom: 10px; font-weight: 500;">Touchez pour parler à ELAWS [cite: 20] :</p>
-                            <button onclick="basculerEcouteVocaleLive()" id="microGrandBtn" class="micro-grand-btn ripple-effect">
+                            <p id="voiceStatusText" style="font-size: 13px; color: var(--success); margin-bottom: 10px; font-weight: 500;">Microphone actif. Parlez, ELAWS écoute... [cite: 20]</p>
+                            <button onclick="basculerEcouteVocaleLive()" id="microGrandBtn" class="micro-grand-btn ripple-effect active">
                                 <span class="mic-icon">🎙️</span>
-                                <span id="microLabelState">Commencer à parler</span>
+                                <span id="microLabelState">Écoute en cours...</span>
                             </button>
                         </div>
                     </div>
@@ -103,7 +110,7 @@
                 <a href="#" onclick="switchTab('devises')" class="nav-link ripple-effect" id="link-devises">💱 Échange & Devises</a>
             </div>
             <div class="sidebar-footer">
-                <p>EVAT v3.23 • Eric Lawson & ELAWS</p>
+                <p>EVAT v3.24 • Eric Lawson & ELAWS</p>
             </div>
         </nav>
 
@@ -115,13 +122,13 @@
             <!-- 1. Dashboard -->
             <section id="tab-dashboard" class="tab-content active">
                 <div class="card welcome-card">
-                    <h2>Écosystème Universel EVAT v3.23 Quantum</h2>
-                    <p class="text">Bienvenue, <strong id="dashNomUser" style="color:var(--accent);">Kodjo</strong>. Votre plateforme intègre la Garantie de Succès à 1000% pour propulser vos ambitions [cite: 20].</p>
+                    <h2>Écosystème Universel EVAT v3.24 Quantum</h2>
+                    <p class="text">Bienvenue, <strong id="dashNomUser" style="color:var(--success);">Kodjo</strong>. Votre plateforme intègre l'accès direct Clavier / Voix et la Garantie de Succès à 1000% [cite: 20].</p>
                     
                     <!-- Alerte Prédictive ELAWS -->
                     <div id="elawsPredictiveAlert" style="background:var(--bg-color); border:1px solid var(--success); padding:14px; border-radius:12px; margin-top:12px;">
-                        <h4 style="color:var(--success); font-size:13.5px; margin-bottom:4px;">💎 ELAWS Quantum • Booster Succès 1000%</h4>
-                        <p id="predictiveText" style="font-size:12.5px; color:var(--text-secondary); margin-bottom:0;">Analyse quantique des projets en cours pour éliminer toute friction...</p>
+                        <h4 style="color:var(--success); font-size:13.5px; margin-bottom:4px;">💎 ELAWS Quantum • Clavier & Voix Intégrés</h4>
+                        <p id="predictiveText" style="font-size:12.5px; color:var(--text-secondary); margin-bottom:0;">Touchez le bouton ⌨️ pour écrire ou la sphère 🎙️ pour parler directement à ELAWS...</p>
                     </div>
 
                     <div style="margin-top: 15px; display:flex; gap:10px; flex-wrap:wrap;">
@@ -155,11 +162,11 @@
                 </div>
 
                 <div class="card">
-                    <h3>✨ Bulle Magique ELAWS Quantum [cite: 20]</h3>
-                    <p class="text">Touchez la sphère en haut à droite pour dialoguer instantanément avec ELAWS en mode Clavier ⌨️ ou Voix 🎙️ [cite: 20].</p>
+                    <h3>✨ Accès Rapide Clavier ⌨️ & Voix 🎙️ [cite: 20]</h3>
+                    <p class="text">Utilisez le bouton clavier ⌨️ en haut à droite pour écrire, ou touchez la sphère magique 🎙️ pour lancer l'écoute vocale instantanée.</p>
                     <div class="quick-actions">
-                        <button class="btn-action ripple-effect" onclick="toggleElawsChat()">Ouvrir ELAWS 🤖</button>
-                        <button class="btn-action secondary ripple-effect" onclick="switchTab('succes1000')">Voir le Plan 1000% 💎</button>
+                        <button class="btn-action ripple-effect" onclick="ouvrirModeClavierDirect()">Ouvrir Clavier ⌨️</button>
+                        <button class="btn-action secondary ripple-effect" onclick="basculerEcouteVocaleLiveDirect()">Parler à ELAWS 🎙️</button>
                     </div>
                 </div>
             </section>
@@ -345,7 +352,7 @@
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('sw.js')
-                    .then(reg => console.log('Service Worker v3.23 enregistré !', reg.scope))
+                    .then(reg => console.log('Service Worker v3.24 enregistré !', reg.scope))
                     .catch(err => console.log('Erreur SW :', err));
             });
         }

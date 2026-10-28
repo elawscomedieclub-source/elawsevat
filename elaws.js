@@ -8,7 +8,7 @@ const ELAWS_BRAIN = {
         if (ton === "vocal_inclusif") prefixe = "🗣️ [Mode Vocal] ";
 
         if(t.includes('bonjour') || t.includes('salut')) {
-            return `${prefixe}Bonjour ${profil.nom} ! ELAWS Quantum est opérationnel. Chaque effort investi avec EVAT est garanti pour aboutir à un résultat de 1000%.`;
+            return `${prefixe}Bonjour ${profil.nom} ! ELAWS Quantum est opérationnel. Utilisez le clavier ⌨️ ou le micro 🎙️ à tout moment pour échanger.`;
         }
         if(t.includes('succès') || t.includes('1000') || t.includes('objectif')) {
             return `${prefixe}Rendez-vous dans le module **Garantie Succès 1000%** pour structurer votre projet et maximiser votre rendement !`;
@@ -19,6 +19,6 @@ const ELAWS_BRAIN = {
         if(t.includes('urgence') || t.includes('crise')) {
             return `${prefixe}Rendez-vous dans l'onglet **Urgences & Solutions** pour une résolution immédiate et sans faille.`;
         }
-        return `${prefixe}Message bien reçu : "${texte}". EVAT v3.23 Quantum est à votre service pour vous mener au sommet !`;
+        return `${prefixe}Message bien reçu : "${texte}". EVAT v3.24 Quantum garantit votre succès à 1000% !`;
     }
 };

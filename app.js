@@ -8,7 +8,7 @@ let utilisateur = JSON.parse(localStorage.getItem('evat_profil')) || {
         { nom: "Service Client ELAWS", tel: "+22898231402", email: "support@evat-elaws.net" }
     ],
     notes: [
-        { titre: "Lancement v3.23 Quantum", contenu: "Garantie Succès 1000% activée pour la population mondiale." }
+        { titre: "Lancement v3.24 Quantum", contenu: "Clavier direct et Voix automatique activés." }
     ],
     voyages: [],
     crises: [],
@@ -206,6 +206,42 @@ function changerModeInteraction(mode) {
         btnClavier.classList.remove('active');
         panelMicro.style.display = 'block';
         panelClavier.style.display = 'none';
+        basculerEcouteVocaleLive();
+    }
+}
+
+// Bouton Clavier direct à côté de l'IA
+function ouvrirModeClavierDirect(event) {
+    if (event) event.stopPropagation();
+    const popup = document.getElementById('elawsPopup');
+    const overlay = document.getElementById('appOverlay');
+    
+    popup.style.display = 'flex';
+    overlay.classList.add('active');
+    changerModeInteraction('clavier');
+    
+    const chat = document.getElementById('elawsMessages');
+    if(chat && chat.children.length === 0) {
+        const accueilMsg = `Bonjour ${utilisateur.nom || 'ami'} ! ⌨️ Mode Clavier actif. Écrivez votre message à ELAWS.`;
+        ajouterBulleElaws(accueilMsg, 'elaws');
+    }
+    document.getElementById('elawsInput').focus();
+}
+
+// Bulle IA Vocale directe : s'ouvre et active le micro automatiquement
+function basculerEcouteVocaleLiveDirect(event) {
+    if (event) event.stopPropagation();
+    const popup = document.getElementById('elawsPopup');
+    const overlay = document.getElementById('appOverlay');
+    
+    popup.style.display = 'flex';
+    overlay.classList.add('active');
+    changerModeInteraction('micro');
+    
+    const chat = document.getElementById('elawsMessages');
+    if(chat && chat.children.length === 0) {
+        const accueilMsg = `Bonjour ${utilisateur.nom || 'ami'} ! 🎙️ ELAWS écoute... Parlez, le micro est actif.`;
+        ajouterBulleElaws(accueilMsg, 'elaws');
     }
 }
 
@@ -249,26 +285,11 @@ function arreterEcouteVocale() {
     }
 }
 
-function toggleElawsChat(event) {
+function fermerElawsChat(event) {
     if (event) event.stopPropagation();
-    const popup = document.getElementById('elawsPopup');
-    const overlay = document.getElementById('appOverlay');
-    
-    if(popup.style.display === 'none' || popup.style.display === '') {
-        popup.style.display = 'flex';
-        overlay.classList.add('active');
-        
-        const chat = document.getElementById('elawsMessages');
-        if(chat && chat.children.length === 0) {
-            const accueilMsg = `Bonjour ${utilisateur.nom || 'ami'} ! ✨ ELAWS Quantum est prêt à garantir votre succès à 1000%. Mode Clavier ⌨️ ou Micro 🎙️ actif.`;
-            ajouterBulleElaws(accueilMsg, 'elaws');
-            lireVocalement(accueilMsg);
-        }
-    } else {
-        popup.style.display = 'none';
-        overlay.classList.remove('active');
-        arreterEcouteVocale();
-    }
+    document.getElementById('elawsPopup').style.display = 'none';
+    document.getElementById('appOverlay').classList.remove('active');
+    arreterEcouteVocale();
 }
 
 function envoyerMessageElaws() {
