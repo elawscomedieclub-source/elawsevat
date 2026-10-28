@@ -16,20 +16,16 @@ let recognition = null;
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
-    console.log("Événement beforeinstallprompt capturé avec succès.");
 });
 
 function declencherInstallationNative() {
     if (deferredPrompt) {
         deferredPrompt.prompt();
         deferredPrompt.userChoice.then((choiceResult) => {
-            if (choiceResult.outcome === 'accepted') {
-                console.log('Utilisateur a accepté l\'installation PWA');
-            }
             deferredPrompt = null;
         });
     } else {
-        alert("L'application est prête. Si l'installation automatique ne s'ouvre pas, ouvrez le menu de votre navigateur (3 points) et sélectionnez 'Installer l'application' ou 'Ajouter à l'écran d'accueil'.");
+        alert("L'application est prête. Ouvrez le menu de votre navigateur (3 points) et sélectionnez 'Installer l'application'.");
     }
 }
 
@@ -61,66 +57,92 @@ function lireVocalement(texte) {
     }
 }
 
-function exporterDonneesCloud() {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(utilisateur, null, 2));
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", `evat_elaws_quantum_backup_${new Date().toISOString().slice(0,10)}.json`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
+// Gestion dynamique des contacts et lecture du répertoire
+function ajouterContactManuel() {
+    const nom = document.getElementById('contactNomInput').value.trim();
+    const tel = document.getElementById('contactTelInput').value.trim();
+    const email = document.getElementById('contactEmailInput').value.trim();
+    
+    if(!nom || !tel) {
+        alert("Veuillez entrer au moins un nom et un numéro de téléphone.");
+        return;
+    }
+    
+    if(!utilisateur.contacts) utilisateur.contacts = [];
+    utilisateur.contacts.unshift({ nom, tel, email: email || 'non renseigné' });
+    localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
+    
+    document.getElementById('contactNomInput').value = '';
+    document.getElementById('contactTelInput').value = '';
+    document.getElementById('contactEmailInput').value = '';
+    
+    actualiserListeContacts();
+    alert("Contact ajouté avec succès !");
 }
 
-function importerDonneesCloud(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = function(e) {
+async function importerContactsTelephone() {
+    if ('contacts' in navigator && 'Select' in navigator.contacts) {
         try {
-            const importedData = JSON.parse(e.target.result);
-            if (importedData && importedData.nom) {
-                utilisateur = importedData;
+            const props = ['name', 'tel', 'email'];
+            const opts = { multiple: true };
+            const results = await navigator.contacts.select(props, opts);
+            
+            if (results && results.length > 0) {
+                if(!utilisateur.contacts) utilisateur.contacts = [];
+                results.forEach(c => {
+                    utilisateur.contacts.push({
+                        nom: c.name ? c.name[0] : 'Inconnu',
+                        tel: c.tel ? c.tel[0] : '',
+                        email: c.email ? c.email[0] : 'non renseigné'
+                    });
+                });
                 localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
-                actualiserDashboard();
-                alert("Données synchronisées et restaurées !");
-                switchTab('dashboard');
+                actualiserListeContacts();
+                alert(`${results.length} contact(s) importé(s) depuis votre téléphone !`);
             }
-        } catch(err) { alert("Erreur fichier JSON."); }
-    };
-    reader.readAsText(file);
-}
-
-function genererCodeSync() {
-    const codeJson = btoa(unescape(encodeURIComponent(JSON.stringify(utilisateur))));
-    document.getElementById('zoneCodeSync').value = codeJson;
-}
-
-function restaurerParCodeSync() {
-    const codeJson = document.getElementById('zoneCodeSync').value.trim();
-    if (!codeJson) return;
-    try {
-        const decodedData = JSON.parse(decodeURIComponent(escape(atob(codeJson))));
-        if (decodedData && decodedData.nom) {
-            utilisateur = decodedData;
-            localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
-            actualiserDashboard();
-            alert("Restauration réussie !");
-            switchTab('dashboard');
+        } catch (ex) {
+            alert("L'accès au carnet d'adresses a été annulé ou n'est pas supporté sur ce navigateur. Utilisez l'ajout manuel ci-dessous.");
         }
-    } catch(err) { alert("Code invalide."); }
+    } else {
+        alert("L'API de sélection des contacts natifs nécessite un smartphone compatible (Android/Chrome). Utilisez le formulaire d'ajout manuel ci-dessous pour enregistrer vos contacts instantanément.");
+    }
 }
 
-function genererLienPartage() {
-    const choix = document.getElementById('selectElementPartage') ? document.getElementById('selectElementPartage').value : 'profil';
-    const tokenPartage = btoa(unescape(encodeURIComponent(JSON.stringify({nom: utilisateur.nom, metiers: utilisateur.metiers}))));
-    const lien = `https://evat-elaws.net/sync?share=${tokenPartage}`;
-    document.getElementById('zoneLienPartage').value = lien;
-    alert("Lien de partage généré !");
+function actualiserListeContacts() {
+    const container = document.getElementById('listeContactsContainer');
+    if(!container) return;
+    
+    if(!utilisateur.contacts || utilisateur.contacts.length === 0) {
+        container.innerHTML = `<p style="color:var(--text-secondary); font-size:13px;">Aucun contact enregistré pour le moment.</p>`;
+        return;
+    }
+    
+    let html = '';
+    utilisateur.contacts.forEach((c, index) => {
+        html += `
+            <div style="background:var(--bg-color); border:1px solid var(--border-color); padding:12px; border-radius:12px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <strong style="color:var(--text-color); font-size:13.5px;">👤 ${c.nom}</strong>
+                    <p style="color:var(--accent); font-size:12px; margin:2px 0;">📞 ${c.tel}</p>
+                    <p style="color:var(--text-secondary); font-size:11px; margin:0;">✉️ ${c.email || 'Pas d\'email'}</p>
+                </div>
+                <button onclick="supprimerContact(${index})" style="background:none; border:none; color:var(--danger); cursor:pointer; font-size:16px;" title="Supprimer">🗑️</button>
+            </div>
+        `;
+    });
+    container.innerHTML = html;
+}
+
+function supprimerContact(index) {
+    if(confirm("Voulez-vous supprimer ce contact ?")) {
+        utilisateur.contacts.splice(index, 1);
+        localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
+        actualiserListeContacts();
+    }
 }
 
 function genererPlanSucces1000() {
     const obj = document.getElementById('inputObjectif1000').value.trim();
-    const res = document.getElementById('inputRessources1000').value.trim();
     const container = document.getElementById('resultatPlan1000');
     if(!obj) { alert("Entrez un objectif."); return; }
 
@@ -133,7 +155,7 @@ function genererPlanSucces1000() {
             { titre: "Phase 2 : Amplification par l'IA", detail: "Automatisation et exécution rapide." },
             { titre: "Phase 3 : Rendement de concrétisation à 1000%", detail: "Validation et impact absolu." }
         ];
-        const record = { objectif: obj, ressources: res, etapes: etapesQuantiques, date: new Date().toLocaleDateString() };
+        const record = { objectif: obj, etapes: etapesQuantiques, date: new Date().toLocaleDateString() };
         if(!utilisateur.objectifs1000) utilisateur.objectifs1000 = [];
         utilisateur.objectifs1000.unshift(record);
         localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
@@ -246,42 +268,6 @@ function ajouterBulleElaws(txt, exp) {
     chat.scrollTop = chat.scrollHeight;
 }
 
-function lancerAssistantVoyageCarbone() {
-    const dest = document.getElementById('voyageDestination').value.trim();
-    const transport = document.getElementById('voyageTransport').value;
-    const distance = parseFloat(document.getElementById('voyageDistance').value) || 1000;
-    const container = document.getElementById('resultatAssistantVoyage');
-    if(!dest) return;
-    const emission = Math.round(distance * (transport === 'avion' ? 0.25 : transport === 'voiture' ? 0.12 : 0.04));
-    container.style.display = 'block';
-    container.innerHTML = `<div style="background:var(--bg-color); padding:15px; border-radius:12px; border:1px solid var(--success);"><h4 style="color:var(--success);">✈️ ${dest}</h4><p style="color:var(--success); margin:0;">🌱 Empreinte : ${emission} kg CO2</p></div>`;
-    utilisateur.voyages.unshift({ destination: dest, carbone: emission });
-    localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
-    actualiserDashboard();
-}
-
-function analyserEtResoudreCrise() {
-    const desc = document.getElementById('criseDescription').value.trim();
-    if(!desc) return;
-    document.getElementById('resultatCriseContainer').style.display = 'block';
-    document.getElementById('resultatCriseContainer').innerHTML = `<div style="background:var(--bg-color); padding:10px;"><h4 style="color:var(--danger);">🚨 Solution Générée</h4></div>`;
-}
-
-function lancerAuditSite() { document.getElementById('resultatAuditContainer').style.display = 'block'; document.getElementById('resultatAuditContainer').innerHTML = "Score : 100/100"; }
-function demarrerAppelTraduit() { document.getElementById('ecranAppelLive').style.display = 'block'; }
-
-function ajouterNoteBlocNotes() {
-    const titre = document.getElementById('noteTitre').value.trim();
-    const contenu = document.getElementById('noteContenu').value.trim();
-    if(!titre || !contenu) return;
-    utilisateur.notes.unshift({ titre, contenu });
-    localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
-    document.getElementById('noteTitre').value = '';
-    document.getElementById('noteContenu').value = '';
-    actualiserDashboard();
-    alert("Note enregistrée !");
-}
-
 function sauvegarderProfilBase() {
     utilisateur.nom = document.getElementById('inputNom').value.trim() || "Utilisateur";
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
@@ -289,11 +275,22 @@ function sauvegarderProfilBase() {
     alert("Profil enregistré !");
 }
 
+function exporterDonneesCloud() {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(utilisateur, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `evat_elaws_quantum_backup_${new Date().toISOString().slice(0,10)}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+}
+
 function actualiserDashboard() {
-    document.getElementById('dashNomUser').innerText = utilisateur.nom || "Mon Ami";
-    document.getElementById('dashStatNotes').innerText = `${(utilisateur.notes || []).length} Note`;
+    const nomElem = document.getElementById('dashNomUser');
+    if(nomElem) nomElem.innerText = utilisateur.nom || "Mon Ami";
     const badge = document.getElementById('sidebarUserRole');
-    if(badge) badge.innerText = `${utilisateur.nom} • Succès 1000%`;
+    if(badge) badge.innerText = `${utilisateur.nom} • Quantum`;
+    actualiserListeContacts();
 }
 
 function toggleMenu(event) {
@@ -322,4 +319,9 @@ function switchTab(tabId) {
     actualiserDashboard();
 }
 
-document.addEventListener('DOMContentLoaded', () => { actualiserDashboard(); });
+document.addEventListener('DOMContentLoaded', () => { 
+    if(document.getElementById('inputNom')) {
+        document.getElementById('inputNom').value = utilisateur.nom || "";
+    }
+    actualiserDashboard(); 
+});

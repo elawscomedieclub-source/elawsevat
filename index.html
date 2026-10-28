@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>EVAT | ELAWS Quantum v3.32</title>
+    <title>EVAT | ELAWS Quantum v3.34</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.webmanifest">
     <meta name="theme-color" content="#070a13">
@@ -17,7 +17,7 @@
                 <div class="header-brand" style="display:flex; flex-direction:row; align-items:center; gap:10px;">
                     <img src="logo_evat.png" alt="Logo" style="width:32px; height:32px; border-radius:50%; border:1px solid var(--accent);">
                     <div>
-                        <h1 id="appTitle">EVAT <span style="font-weight:300; font-size:13px; color:var(--text-secondary);">| ELAWS Quantum v3.32</span></h1>
+                        <h1 id="appTitle">EVAT <span style="font-weight:300; font-size:13px; color:var(--text-secondary);">| ELAWS Quantum v3.34</span></h1>
                     </div>
                 </div>
             </div>
@@ -89,7 +89,7 @@
                 <a href="#" onclick="switchTab('outils')" class="nav-link ripple-effect" id="link-outils">🛠️ Bloc-Notes</a>
             </div>
             <div class="sidebar-footer">
-                <p>EVAT v3.32 • Eric Lawson & ELAWS</p>
+                <p>EVAT v3.34 • Eric Lawson & ELAWS</p>
             </div>
         </nav>
 
@@ -193,7 +193,7 @@
                     <div style="background:var(--bg-color); padding:10px; border-radius:10px; border:1px solid var(--border-color); display:flex; align-items:center; gap:10px; margin-bottom:12px;">
                         <span style="font-size:20px;">🛡️</span>
                         <div>
-                            <strong style="font-size:12.5px; color:var(--text-color);">Nexus v3.32 Model</strong>
+                            <strong style="font-size:12.5px; color:var(--text-color);">Nexus v3.34 Model</strong>
                             <p style="font-size:11px; color:var(--text-secondary);">Post-Quantum Algorithm v4</p>
                         </div>
                     </div>
@@ -218,7 +218,40 @@
             <section id="tab-crise" class="tab-content"><div class="card"><h2>Urgences</h2></div></section>
             <section id="tab-audit" class="tab-content"><div class="card"><h2>Audit Web</h2></div></section>
             <section id="tab-appel" class="tab-content"><div class="card"><h2>Appel Direct</h2></div></section>
-            <section id="tab-profil" class="tab-content"><div class="card"><h2>Profil</h2><input type="text" id="inputNom" class="input" placeholder="Nom..."><button class="btn-action" onclick="sauvegarderProfilBase()">Enregistrer</button></div></section>
+            
+<section id="tab-profil" class="tab-content">
+    <div class="card" style="border-left: 4px solid var(--accent);">
+        <h2>👤 Gestion du Profil & Contacts</h2>
+        <p style="color:var(--text-secondary); font-size:13px; margin-bottom:15px;">Configurez votre identité et gérez votre carnet de contacts synchronisé dans l'écosystème ELAWS.</p>
+        
+        <label>Votre Nom / Pseudonyme :</label>
+        <input type="text" id="inputNom" class="input" placeholder="Ex: Kodjo Marceline">
+        <button class="btn-action ripple-effect" onclick="sauvegarderProfilBase()" style="margin-bottom:20px;">Enregistrer le Profil</button>
+
+        <hr style="border:0; border-top:1px solid var(--border-color); margin:20px 0;">
+
+        <h3 style="font-size:15px; color:var(--text-color); margin-bottom:10px;">📖 Carnet de Contacts & Répertoire</h3>
+        <p style="color:var(--text-secondary); font-size:12.5px; margin-bottom:12px;">Importez les contacts de votre téléphone ou ajoutez-les manuellement pour les lier au réseau mondial.</p>
+
+        <div style="display:flex; gap:8px; margin-bottom:15px;">
+            <button class="btn-action ripple-effect" onclick="importerContactsTelephone()" style="background:var(--card-hover); border:1px solid var(--accent); color:var(--text-color); flex:1; font-size:12.5px;">📥 Importer du Téléphone</button>
+        </div>
+
+        <div style="background:var(--bg-color); padding:14px; border-radius:14px; border:1px solid var(--border-color); margin-bottom:15px;">
+            <h4 style="font-size:13px; color:var(--accent); margin-bottom:8px;">➕ Ajouter un contact manuellement</h4>
+            <input type="text" id="contactNomInput" class="input" placeholder="Nom du contact" style="margin-bottom:8px; font-size:13px; padding:10px;">
+            <input type="text" id="contactTelInput" class="input" placeholder="Numéro de téléphone (ex: +228...)" style="margin-bottom:8px; font-size:13px; padding:10px;">
+            <input type="text" id="contactEmailInput" class="input" placeholder="Adresse Email (optionnel)" style="margin-bottom:10px; font-size:13px; padding:10px;">
+            <button class="btn-action ripple-effect" onclick="ajouterContactManuel()" style="padding:10px; font-size:13px;">Enregistrer le contact</button>
+        </div>
+
+        <h4 style="font-size:13px; color:var(--text-color); margin-bottom:8px;">📋 Contacts enregistrés :</h4>
+        <div id="listeContactsContainer">
+            <!-- Rempli dynamiquement -->
+        </div>
+    </div>
+</section>
+
             <section id="tab-outils" class="tab-content"><div class="card"><h2>Bloc-Notes</h2></div></section>
         </main>
     </div>
