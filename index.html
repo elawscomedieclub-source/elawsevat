@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>EVAT & ELAWS - Écosystème Universel v3.25 Quantum</title>
+    <title>EVAT & ELAWS - Écosystème Universel v3.26 Quantum</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.webmanifest">
     <meta name="theme-color" content="#070a13">
@@ -16,7 +16,7 @@
                 <button onclick="toggleMenu(event)" class="menu-btn ripple-effect" aria-label="Menu principal">☰</button>
                 <div class="header-brand">
                     <h1 id="appTitle">EVAT</h1>
-                    <span class="brand-subtitle" id="headerLocationBadge">📍 Lomé, Togo (v3.25 Quantum) [cite: 20]</span>
+                    <span class="brand-subtitle" id="headerLocationBadge">📍 Lomé, Togo (v3.26 Quantum) [cite: 20]</span>
                 </div>
             </div>
 
@@ -37,7 +37,7 @@
                     <div class="elaws-popup-header">
                         <div style="display:flex; align-items:center; gap:8px;">
                             <span class="status-indicator"></span>
-                            <span>Assistant ELAWS • Clavier & Voix [cite: 20]</span>
+                            <span>Assistant ELAWS • Conversation Humaine [cite: 20]</span>
                         </div>
                         <button onclick="fermerElawsChat(event)" class="close-popup-btn ripple-effect" aria-label="Fermer">✕</button>
                     </div>
@@ -90,7 +90,7 @@
                 <a href="#" onclick="switchTab('devises')" class="nav-link ripple-effect" id="link-devises">💱 Échange & Devises</a>
             </div>
             <div class="sidebar-footer">
-                <p>EVAT v3.25 • Eric Lawson & ELAWS</p>
+                <p>EVAT v3.26 • Eric Lawson & ELAWS</p>
             </div>
         </nav>
 
@@ -99,16 +99,11 @@
         <main class="content">
             <section id="tab-dashboard" class="tab-content active">
                 <div class="card welcome-card">
-                    <h2>Écosystème Universel EVAT v3.25 Quantum</h2>
-                    <p class="text">Bienvenue, <strong id="dashNomUser" style="color:var(--success);">Kodjo</strong>. Votre application PWA est configurée pour s'ouvrir en mode natif autonome [cite: 20].</p>
+                    <h2>Écosystème Universel EVAT v3.26 Quantum</h2>
+                    <p class="text">Bienvenue, <strong id="dashNomUser" style="color:var(--success);">Kodjo</strong>. Votre application intègre le logo mondial d'impact et une IA conversationnelle naturelle [cite: 20].</p>
                     
-                    <div id="elawsPredictiveAlert" style="background:var(--bg-color); border:1px solid var(--success); padding:14px; border-radius:12px; margin-top:12px;">
-                        <h4 style="color:var(--success); font-size:13.5px; margin-bottom:4px;">💎 ELAWS Quantum • Succès à 1000%</h4>
-                        <p id="predictiveText" style="font-size:12.5px; color:var(--text-secondary); margin-bottom:0;">Mode application native actif sans barre d'adresse...</p>
-                    </div>
-
                     <div style="margin-top: 15px; display:flex; gap:10px; flex-wrap:wrap;">
-                        <button onclick="declencherInstallationNative()" class="btn-action ripple-effect" style="background: var(--success); color: #fff; flex:1;">📲 Installer l'Application 🚀</button>
+                        <button onclick="declencherInstallationNative()" class="btn-action ripple-effect" style="background: var(--success); color: #fff; flex:1;">📲 Installer l'Application (Logo Officiel)</button>
                         <button onclick="switchTab('succes1000')" class="btn-action secondary ripple-effect" style="flex:1;">💎 Booster 1000%</button>
                     </div>
 
@@ -139,7 +134,7 @@
 
                 <div class="card">
                     <h3>✨ Accès Rapide Clavier ⌨️ & Voix 🎙️ [cite: 20]</h3>
-                    <p class="text">Utilisez le bouton clavier ⌨️ ou touchez la sphère vocale 🎙️ en haut à droite.</p>
+                    <p class="text">Touchez le bouton clavier ⌨️ ou la sphère vocale 🎙️ pour discuter naturellement avec ELAWS.</p>
                     <div class="quick-actions">
                         <button class="btn-action ripple-effect" onclick="ouvrirModeClavierDirect()">Ouvrir Clavier ⌨️</button>
                         <button class="btn-action secondary ripple-effect" onclick="basculerEcouteVocaleLiveDirect()">Parler à ELAWS 🎙️</button>
@@ -150,106 +145,40 @@
             <section id="tab-succes1000" class="tab-content">
                 <div class="card" style="border-left: 4px solid var(--success);">
                     <h2>💎 Module de Garantie de Succès à 1000%</h2>
-                    <p class="text">Transformez chaque effort en un résultat maximal et incontestable.</p>
-                    <div class="form-group">
-                        <label>Objectif ou Projet (Personnel / Entreprise) :</label>
-                        <input type="text" id="inputObjectif1000" class="input" placeholder="Ex: Lancer mon entreprise...">
-                        <label>Ressources disponibles :</label>
-                        <input type="text" id="inputRessources1000" class="input" placeholder="Ex: Temps, Énergie...">
-                        <button class="btn-action ripple-effect" style="background:var(--success); color:#fff;" onclick="genererPlanSucces1000()">Générer le Plan 🚀</button>
-                    </div>
+                    <input type="text" id="inputObjectif1000" class="input" placeholder="Ex: Lancer mon entreprise...">
+                    <input type="text" id="inputRessources1000" class="input" placeholder="Ressources disponibles...">
+                    <button class="btn-action ripple-effect" style="background:var(--success); color:#fff;" onclick="genererPlanSucces1000()">Générer le Plan 🚀</button>
                     <div id="resultatPlan1000" style="margin-top:20px; display:none;"></div>
                 </div>
             </section>
 
             <section id="tab-sync" class="tab-content">
-                <div class="card" style="border-left: 4px solid var(--accent);">
-                    <h2>☁️ Centre de Synchronisation & Sauvegarde</h2>
+                <div class="card">
+                    <h2>☁️ Synchronisation Cloud</h2>
                     <button onclick="exporterDonneesCloud()" class="btn-action ripple-effect">📥 Télécharger la Sauvegarde (.json)</button>
                 </div>
             </section>
 
             <section id="tab-voyage" class="tab-content">
-                <div class="card" style="border-left: 4px solid var(--accent);">
-                    <h2>✈️ Assistant Voyage & Empreinte Carbone</h2>
+                <div class="card">
+                    <h2>✈️ Assistant Voyage & Carbone</h2>
                     <input type="text" id="voyageDestination" class="input" placeholder="Destination...">
-                    <select id="voyageTransport" class="input">
-                        <option value="avion">Avion</option>
-                        <option value="voiture">Voiture</option>
-                        <option value="train">Train</option>
-                    </select>
-                    <input type="number" id="voyageDistance" class="input" placeholder="Distance en km">
+                    <select id="voyageTransport" class="input"><option value="avion">Avion</option><option value="voiture">Voiture</option></select>
+                    <input type="number" id="voyageDistance" class="input" placeholder="Distance km">
                     <button class="btn-action ripple-effect" onclick="lancerAssistantVoyageCarbone()">Analyser 🚀</button>
-                    <div id="resultatAssistantVoyage" style="margin-top:20px; display:none;"></div>
+                    <div id="resultatAssistantVoyage" style="margin-top:15px; display:none;"></div>
                 </div>
-                <div class="card" style="margin-top:20px;">
-                    <h3>📋 Projets de Voyage</h3>
-                    <div id="listeProjetsVoyage"></div>
-                </div>
+                <div class="card" style="margin-top:15px;"><div id="listeProjetsVoyage"></div></div>
             </section>
 
-            <section id="tab-partage" class="tab-content">
-                <div class="card" style="border-left: 4px solid var(--success);">
-                    <h2>🔗 Partage Collaboratif Sécurisé</h2>
-                    <button class="btn-action ripple-effect" style="background:var(--success); color:#fff;" onclick="genererLienPartage()">Générer Lien 🌐</button>
-                    <textarea id="zoneLienPartage" class="input" rows="2" style="margin-top:10px;"></textarea>
-                </div>
-            </section>
-
-            <section id="tab-crise" class="tab-content">
-                <div class="card" style="border-left: 4px solid var(--danger);">
-                    <h2>🚨 Résolution d'Urgences [cite: 20]</h2>
-                    <input type="text" id="criseDescription" class="input" placeholder="Urgence...">
-                    <button class="btn-action ripple-effect" style="background:var(--danger); color:#fff;" onclick="analyserEtResoudreCrise()">Résoudre ⚡</button>
-                    <div id="resultatCriseContainer" style="margin-top:15px; display:none;"></div>
-                </div>
-            </section>
-
-            <section id="tab-audit" class="tab-content">
-                <div class="card">
-                    <h2>🌐 Audit Web</h2>
-                    <input type="url" id="auditUrl" class="input" placeholder="https://...">
-                    <button class="btn-action ripple-effect" onclick="lancerAuditSite()">Évaluer</button>
-                    <div id="resultatAuditContainer" style="margin-top:15px; display:none;"></div>
-                </div>
-            </section>
-
-            <section id="tab-appel" class="tab-content">
-                <div class="card">
-                    <h2>📞 Appel Direct</h2>
-                    <input type="text" id="appelCorrespondant" class="input" placeholder="Nom...">
-                    <button class="btn-action ripple-effect" onclick="demarrerAppelTraduit()">Démarrer</button>
-                    <div id="ecranAppelLive" style="margin-top:15px; display:none;">
-                        <div id="fluxTraductionLive" style="background:var(--bg-color); padding:10px; border-radius:8px;"></div>
-                    </div>
-                </div>
-            </section>
-
-            <section id="tab-profil" class="tab-content">
-                <div class="card">
-                    <h2>Profil</h2>
-                    <input type="text" id="inputNom" class="input" placeholder="Nom...">
-                    <button class="btn-action ripple-effect" onclick="sauvegarderProfilBase()">Enregistrer</button>
-                </div>
-            </section>
-
-            <section id="tab-outils" class="tab-content">
-                <div class="card">
-                    <h2>🛠️ Bloc-Notes [cite: 20]</h2>
-                    <input type="text" id="noteTitre" class="input" placeholder="Titre...">
-                    <textarea id="noteContenu" class="input" placeholder="Contenu..."></textarea>
-                    <button class="btn-action ripple-effect" onclick="ajouterNoteBlocNotes()">Enregistrer</button>
-                    <div id="listeNotesBlocNotes" style="margin-top:15px;"></div>
-                </div>
-            </section>
-
-            <section id="tab-banque" class="tab-content">
-                <div class="card"><h2>Banque</h2></div>
-            </section>
-
-            <section id="tab-devises" class="tab-content">
-                <div class="card"><h2>Devises</h2></div>
-            </section>
+            <section id="tab-partage" class="tab-content"><div class="card"><h2>🔗 Partage</h2></div></section>
+            <section id="tab-crise" class="tab-content"><div class="card"><h2>🚨 Urgences</h2></div></section>
+            <section id="tab-audit" class="tab-content"><div class="card"><h2>🌐 Audit</h2></div></section>
+            <section id="tab-appel" class="tab-content"><div class="card"><h2>📞 Appel</h2></div></section>
+            <section id="tab-profil" class="tab-content"><div class="card"><h2>Profil</h2><input type="text" id="inputNom" class="input" placeholder="Nom..."><button class="btn-action ripple-effect" onclick="sauvegarderProfilBase()">Enregistrer</button></div></section>
+            <section id="tab-outils" class="tab-content"><div class="card"><h2>Bloc-notes</h2></div></section>
+            <section id="tab-banque" class="tab-content"><div class="card"><h2>Banque</h2></div></section>
+            <section id="tab-devises" class="tab-content"><div class="card"><h2>Devises</h2></div></section>
         </main>
     </div>
 
@@ -257,10 +186,7 @@
     <script src="app.js"></script>
     <script>
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js')
-                    .then(reg => console.log('SW v3.25 enregistré', reg.scope));
-            });
+            window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js'); });
         }
     </script>
 </body>
