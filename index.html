@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>EVAT | ELAWS Quantum v3.57</title>
+    <title>EVAT | ELAWS Quantum v3.59</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" href="logo_evat.svg" type="image/svg+xml">
@@ -16,8 +16,8 @@
             <div style="display:flex; justify-content:center; margin-bottom:12px;">
                 <img src="logo_evat.svg" alt="Logo de l'application" style="width:72px; height:72px; border-radius:50%; box-shadow:0 0 25px var(--accent); border:2px solid var(--accent);">
             </div>
-            <h2 style="color:var(--accent); font-size:17px; margin-bottom:6px;">EVAT Quantum v3.57</h2>
-            <p style="font-size:12.5px; color:var(--text-secondary); margin-bottom:14px;">Appel Audio & Vidéo WebRTC activé.</p>
+            <h2 style="color:var(--accent); font-size:17px; margin-bottom:6px;">EVAT Quantum v3.59</h2>
+            <p style="font-size:12.5px; color:var(--text-secondary); margin-bottom:14px;">Messagerie locale & Stockage fichiers téléphone.</p>
             
             <div style="text-align:left; margin-bottom:14px;">
                 <label style="font-size:11.5px; color:var(--text-color);">Votre Nom :</label>
@@ -34,7 +34,7 @@
                     <option value="technique">💻 Expert Technique / Code</option>
                 </select>
             </div>
-            <button onclick="sauvegarderProfilBase()" class="btn-action ripple-effect" style="font-size:13.5px; padding:10px;">🚀 Démarrer ELAWS 3.57 (+50 Qubits)</button>
+            <button onclick="sauvegarderProfilBase()" class="btn-action ripple-effect" style="font-size:13.5px; padding:10px;">🚀 Démarrer ELAWS 3.59 (+50 Qubits)</button>
         </div>
     </div>
 
@@ -45,7 +45,7 @@
                 <div class="header-brand" style="display:flex; align-items:center; gap:10px;">
                     <img src="logo_evat.svg" alt="Logo App" class="quantum-logo-app" onclick="basculerLogoInterchangeable(event)" title="Changer de Logo">
                     <div>
-                        <h1 id="appTitle">EVAT <span style="font-weight:300; font-size:12px; color:var(--text-secondary);">| Quantum v3.57</span></h1>
+                        <h1 id="appTitle">EVAT <span style="font-weight:300; font-size:12px; color:var(--text-secondary);">| Quantum v3.59</span></h1>
                     </div>
                 </div>
             </div>
@@ -55,7 +55,7 @@
                     <button onclick="ouvrirModeClavierDirect(event)" class="elaws-keyboard-btn ripple-effect" title="Clavier"><span>⌨️</span></button>
                     <button onclick="basculerEcouteVocaleLiveDirect(event)" class="elaws-magic-bubble ripple-effect" title="Voix">
                         <div class="magic-sphere-core"></div>
-                        <span class="magic-label">🎙️ ELAWS 3.57</span>
+                        <span class="magic-label">🎙️ ELAWS 3.59</span>
                     </button>
                 </div>
                 
@@ -63,7 +63,7 @@
                     <div class="elaws-popup-header">
                         <div style="display:flex; align-items:center; gap:6px;">
                             <span class="status-indicator"></span>
-                            <span>ELAWS 3.57 • IA Hyper-Renforcée</span>
+                            <span>ELAWS 3.59 • IA Hyper-Renforcée</span>
                         </div>
                         <button onclick="fermerElawsChat(event)" class="close-popup-btn ripple-effect">✕</button>
                     </div>
@@ -105,6 +105,7 @@
             </div>
             <div class="sidebar-links">
                 <a href="#" onclick="switchTab('dashboard')" class="nav-link ripple-effect active" id="link-dashboard">📊 Dashboard Quantum</a>
+                <a href="#" onclick="switchTab('messagerie')" class="nav-link ripple-effect" id="link-messagerie">💬 Messagerie & Fichiers Tél</a>
                 <a href="#" onclick="switchTab('quetes')" class="nav-link ripple-effect" id="link-quetes">⚡ Quêtes & Qubits</a>
                 <a href="#" onclick="switchTab('succes1000')" class="nav-link ripple-effect" id="link-succes1000">💎 Garantie Succès 1000%</a>
                 <a href="#" onclick="switchTab('sync')" class="nav-link ripple-effect" id="link-sync">☁️ Cloud & Synchro</a>
@@ -114,7 +115,7 @@
                 <a href="#" onclick="switchTab('outils')" class="nav-link ripple-effect" id="link-outils">🛠️ Boîte à Outils</a>
             </div>
             <div class="sidebar-footer">
-                <p>EVAT v3.57 • Eric Lawson</p>
+                <p>EVAT v3.59 • Eric Lawson</p>
             </div>
         </nav>
 
@@ -134,7 +135,7 @@
 
                         <div class="card" style="border-left: 4px solid var(--accent);">
                             <h3 style="font-size:13.5px; color:var(--text-color); font-weight:700; margin-bottom:4px;">Global Quantum Network Status</h3>
-                            <p style="font-size:11.5px; color:var(--text-secondary); margin-bottom:10px;">Network Integrity | <strong style="color:var(--success);">100% Active (Audio & Vidéo WebRTC)</strong></p>
+                            <p style="font-size:11.5px; color:var(--text-secondary); margin-bottom:10px;">Network Integrity | <strong style="color:var(--success);">100% Active (Messagerie & Fichiers Tél)</strong></p>
                             
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
                                 <div style="display:flex; gap:6px;">
@@ -156,9 +157,32 @@
                                 <img src="logo_evat.png" alt="Logo Actif" class="quantum-logo-app" style="width:76px; height:76px; border-radius:50%; object-fit:cover; cursor:pointer;" onclick="basculerLogoInterchangeable(event)" title="Alterner Logo 1 / Logo 2">
                             </div>
                             <h3 style="font-size:16px; color:var(--accent); margin-bottom:6px;">EVAT & ELAWS Quantum</h3>
-                            <p style="font-size:12px; color:var(--text-secondary); margin-bottom:14px;">Appel Audio & Vidéo par Numéro (GSM & Email supprimés).</p>
+                            <p style="font-size:12px; color:var(--text-secondary); margin-bottom:14px;">Stockage local des messages dans les fichiers du téléphone.</p>
                             <button onclick="declencherInstallationNative()" class="btn-action ripple-effect" style="background:var(--success); color:#fff; font-size:13px; padding:10px;">📲 Installer l'Application (PWA)</button>
                         </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- MESSAGERIE LOCALE ET ACCES FICHIERS TELEPHONE -->
+            <section id="tab-messagerie" class="tab-content">
+                <div class="card" style="border-left: 4px solid var(--success);">
+                    <h2>💬 Messagerie Locale & Fichiers du Téléphone</h2>
+                    <p style="color:var(--text-secondary); font-size:12.5px; margin:6px 0 14px 0;">Les messages échangés sont stockés directement dans la mémoire de votre téléphone (dossier local sécurisé).</p>
+                    
+                    <div style="background:var(--bg-color); padding:12px; border-radius:10px; border:1px solid var(--accent); margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <strong style="font-size:13px; color:var(--text-color);">📁 Accès Fichiers Téléphone</strong>
+                            <div id="fileAccessStatus" style="font-size:11.5px; color:var(--text-secondary); margin-top:2px;">Aucun dossier lié (stockage interne navigateur actif).</div>
+                        </div>
+                        <button onclick="selectionnerDossierStockageTelephone()" class="btn-action ripple-effect" style="width:auto; padding:8px 12px; font-size:12px; background:var(--accent); color:#030712;">Lier Dossier</button>
+                    </div>
+
+                    <div id="listeMessagesLocaux" style="background:var(--bg-color); border:1px solid var(--border-color); border-radius:10px; padding:12px; height:240px; overflow-y:auto; margin-bottom:12px; display:flex; flex-direction:column; gap:8px;"></div>
+
+                    <div style="display:flex; gap:8px;">
+                        <input type="text" id="chatLocalInput" class="input" placeholder="Écrire un message local..." style="margin-bottom:0;" onkeypress="if(event.key==='Enter') envoyerMessageChatLocal()">
+                        <button onclick="envoyerMessageChatLocal()" class="btn-action ripple-effect" style="width:auto; padding:0 20px; font-size:13px; background:var(--success); color:#fff;">Envoyer</button>
                     </div>
                 </div>
             </section>
@@ -257,7 +281,7 @@
             </section>
 
             <footer style="text-align: center; padding: 20px 0; color: var(--text-secondary); font-size: 11.5px;">
-                <p>EVAT v3.57 Quantum • Conçu par Eric Lawson</p>
+                <p>EVAT v3.59 Quantum • Conçu par Eric Lawson</p>
             </footer>
         </main>
     </div>

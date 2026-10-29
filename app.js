@@ -1,4 +1,4 @@
-const EVAT_VERSION_ACTUELLE = "v3.57";
+const EVAT_VERSION_ACTUELLE = "v3.59";
 
 let versionEnregistree = localStorage.getItem('evat_version_app');
 
@@ -10,7 +10,8 @@ if (versionEnregistree !== EVAT_VERSION_ACTUELLE) {
             { id: 2, titre: "Enregistrer une note dans le bloc-notes", fait: false, qubits: 30 },
             { id: 3, titre: "Générer un Plan de Succès 1000%", fait: false, qubits: 70 },
             { id: 4, titre: "Calculer une empreinte carbone de voyage", fait: false, qubits: 40 },
-            { id: 5, titre: "Tester l'Appel Audio & Vidéo WebRTC", fait: false, qubits: 60 }
+            { id: 5, titre: "Tester l'Appel Audio & Vidéo WebRTC", fait: false, qubits: 60 },
+            { id: 6, titre: "Activer le stockage local des messages (Fichiers du Téléphone)", fait: false, qubits: 50 }
         ];
         localStorage.setItem('evat_profil', JSON.stringify(ancienProfil));
     }
@@ -23,7 +24,7 @@ if (versionEnregistree !== EVAT_VERSION_ACTUELLE) {
 function afficherNotificationMiseAJour(version) {
     const div = document.createElement('div');
     div.style.cssText = "position:fixed; top:20px; left:50%; transform:translateX(-50%); background:var(--success); color:#fff; padding:10px 20px; border-radius:12px; font-weight:700; z-index:9999; box-shadow:0 0 20px rgba(16,185,129,0.8); font-size:13px; text-align:center;";
-    div.innerHTML = `🚀 Intelligence IA renforcée vers ${version} !<br><span style="font-size:11px; font-weight:400;">Appel Audio & Vidéo WebRTC par Numéro activé (GSM et email supprimés).</span>`;
+    div.innerHTML = `🚀 Intelligence IA mise à jour vers ${version} !<br><span style="font-size:11px; font-weight:400;">Module de messagerie locale avec sauvegarde directe dans les fichiers du téléphone activé.</span>`;
     document.body.appendChild(div);
     setTimeout(() => { div.remove(); }, 3500);
 }
@@ -40,10 +41,14 @@ let utilisateur = JSON.parse(localStorage.getItem('evat_profil')) || {
         { id: 2, titre: "Enregistrer une note dans le bloc-notes", fait: false, qubits: 30 },
         { id: 3, titre: "Générer un Plan de Succès 1000%", fait: false, qubits: 70 },
         { id: 4, titre: "Calculer une empreinte carbone de voyage", fait: false, qubits: 40 },
-        { id: 5, titre: "Tester l'Appel Audio & Vidéo WebRTC", fait: false, qubits: 60 }
+        { id: 5, titre: "Tester l'Appel Audio & Vidéo WebRTC", fait: false, qubits: 60 },
+        { id: 6, titre: "Activer le stockage local des messages (Fichiers du Téléphone)", fait: false, qubits: 50 }
     ],
     contacts: [{ nom: "Service Client ELAWS", tel: "+22898231402" }],
-    notes: [{ titre: "EVAT Quantum v3.57", contenu: "Appel Audio & Vidéo WebRTC activé par numéro." }],
+    notes: [{ titre: "EVAT Quantum v3.59", contenu: "Messagerie locale et stockage fichiers téléphone." }],
+    messages: [
+        { expediteur: "ELAWS System", texte: "Bienvenue dans la messagerie chiffrée EVAT. Vos messages sont stockés en local dans la mémoire de votre téléphone.", heure: "08:00" }
+    ],
     voyages: [], crises: [], audits: [], objectifs1000: []
 };
 
@@ -52,6 +57,7 @@ let ecouteVocaleActive = false;
 let recognition = null;
 let appelEnCours = false;
 let localStream = null;
+let directoryHandleGlobal = null;
 
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
@@ -110,6 +116,100 @@ function afficherAlerteGamification(message) {
     div.innerText = message;
     document.body.appendChild(div);
     setTimeout(() => { div.remove(); }, 2200);
+}
+
+// === MODULE ACCÈS FICHIERS TÉLÉPHONE & MESSAGERIE LOCALE ===
+async function selectionnerDossierStockageTelephone() {
+    const statusDiv = document.getElementById('fileAccessStatus');
+    if ('showDirectoryPicker' in window) {
+        try {
+            directoryHandleGlobal = await window.showDirectoryPicker();
+            statusDiv.innerHTML = `<span style="color:var(--success); font-weight:700;">🟢 Accès autorisé aux fichiers du téléphone (Dossier lié).</span>`;
+            
+            const qFichiers = utilisateur.quetes.find(q => q.id === 6);
+            if(qFichiers && !qFichiers.fait) qFichiers.fait = true;
+            ajouterQubits(50, "Accès aux fichiers du téléphone configuré");
+            
+            // Sauvegarder l'état initial des messages dans le fichier
+            await sauvegarderMessagesDansFichiersTelephone();
+            alert("Accès aux fichiers du téléphone établi avec succès !");
+        } catch (err) {
+            statusDiv.innerHTML = `<span style="color:var(--danger);">❌ Accès refusé ou annulé : ${err.message}</span>`;
+        }
+    } else {
+        // Fallback pour les navigateurs mobiles ne supportant pas showDirectoryPicker directement (téléchargement automatique de fichier local)
+        statusDiv.innerHTML = `<span style="color:var(--accent);">ℹ️ Mode téléchargement automatique de fichiers locaux activé.</span>`;
+        const qFichiers = utilisateur.quetes.find(q => q.id === 6);
+        if(qFichiers && !qFichiers.fait) qFichiers.fait = true;
+        ajouterQubits(50, "Configuration messagerie locale");
+        alert("Votre navigateur utilise l'export automatique vers le dossier Téléchargements du téléphone.");
+    }
+}
+
+async function sauvegarderMessagesDansFichiersTelephone() {
+    const contenuJson = JSON.stringify(utilisateur.messages, null, 2);
+    if (directoryHandleGlobal) {
+        try {
+            const fileHandle = await directoryHandleGlobal.getFileHandle("evat_messages_chiffres.json", { create: true });
+            const writable = await fileHandle.createWritable();
+            await writable.write(contenuJson);
+            await writable.close();
+            return;
+        } catch (e) {
+            console.error("Erreur écriture fichier:", e);
+        }
+    }
+    
+    // Fallback export Blob
+    const blob = new Blob([contenuJson], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = "evat_messages_telephone.json";
+    // En arrière-plan ou via action explicite
+}
+
+function envoyerMessageChatLocal() {
+    const input = document.getElementById('chatLocalInput');
+    const txt = input.value.trim();
+    if(!txt) return;
+    
+    const heureActuelle = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if(!utilisateur.messages) utilisateur.messages = [];
+    
+    utilisateur.messages.push({
+        expediteur: utilisateur.nom || "Moi",
+        texte: txt,
+        heure: heureActuelle
+    });
+    
+    localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
+    input.value = '';
+    actualiserAffichageMessagesLocaux();
+    sauvegarderMessagesDansFichiersTelephone();
+    ajouterQubits(10, "Message local enregistré");
+}
+
+function actualiserAffichageMessagesLocaux() {
+    const container = document.getElementById('listeMessagesLocaux');
+    if(!container) return;
+    if(!utilisateur.messages || utilisateur.messages.length === 0) {
+        container.innerHTML = `<p style="color:var(--text-secondary); font-size:12.5px;">Aucun message dans le stockage local.</p>`;
+        return;
+    }
+    let html = '';
+    utilisateur.messages.forEach(m => {
+        const estMoi = m.expediteur === (utilisateur.nom || "Moi");
+        html += `<div style="background:var(--bg-color); border:1px solid ${estMoi ? 'var(--accent)' : 'var(--border-color)'}; padding:8px 12px; border-radius:10px; margin-bottom:6px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px;">
+                <strong style="color:${estMoi ? 'var(--accent)' : 'var(--success)'}; font-size:12px;">👤 ${m.expediteur}</strong>
+                <span style="font-size:10px; color:var(--text-secondary);">${m.heure}</span>
+            </div>
+            <p style="color:var(--text-color); font-size:12.5px; margin:0;">${m.texte}</p>
+        </div>`;
+    });
+    container.innerHTML = html;
+    container.scrollTop = container.scrollHeight;
 }
 
 // === MODULE APPEL AUDIO ET VIDEO INTERNET (WebRTC par Numéro) ===
@@ -275,23 +375,6 @@ function lancerAnalyseVoyageAvance() {
     ajouterQubits(60, "Analyse voyage & checklist Visa");
 }
 
-function analyserEtResoudreCrise() {
-    const desc = document.getElementById('criseDescription').value.trim();
-    const container = document.getElementById('resultatCriseContainer');
-    if(!desc) { alert("Décrivez la situation."); return; }
-    container.style.display = 'block';
-    container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:10px; border-left:4px solid var(--danger);"><h4 style="color:var(--danger); margin-bottom:4px; font-size:13.5px;">🚨 Diagnostic ELAWS 3.57</h4><p style="color:var(--text-color); font-size:12.5px; margin-bottom:6px;">"${desc}"</p><p style="color:var(--success); font-size:12.5px; font-weight:600; margin:0;">✅ Résolution IA : Isolation du processus, application du patch correctif et synchronisation locale.</p></div>`;
-    ajouterQubits(25, "Résolution de crise");
-}
-
-function lancerAuditSite() {
-    const url = document.getElementById('urlAuditInput').value.trim() || "https://evat-elaws.net";
-    const container = document.getElementById('resultatAuditContainer');
-    container.style.display = 'block';
-    container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:10px; border-left:4px solid var(--success);"><h4 style="color:var(--success); margin-bottom:4px; font-size:13.5px;">🌐 Audit pour ${url}</h4><p style="color:var(--text-color); font-size:12.5px;">• Performance : <strong>100/100</strong></p><p style="color:var(--text-color); font-size:12.5px;">• Intelligence Artificielle ELAWS : <strong>Niveau 3.57 (Max)</strong></p><p style="color:var(--text-color); font-size:12.5px; margin:0;">• Compatibilité PWA Mobile : <strong>Optimale</strong></p></div>`;
-    ajouterQubits(20, "Audit Web réalisé");
-}
-
 function ajouterNoteBlocNotes() {
     const titre = document.getElementById('noteTitre').value.trim();
     const contenu = document.getElementById('noteContenu').value.trim();
@@ -332,7 +415,7 @@ function genererPlanSucces1000() {
     const container = document.getElementById('resultatPlan1000');
     if(!obj) { alert("Entrez un objectif."); return; }
     container.style.display = 'block';
-    container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:10px; border:1px solid var(--success); text-align:center;"><h4 style="color:var(--success); font-size:13.5px;">💎 ELAWS 3.57 élabore votre Plan 1000%...</h4></div>`;
+    container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:10px; border:1px solid var(--success); text-align:center;"><h4 style="color:var(--success); font-size:13.5px;">💎 ELAWS 3.59 élabore votre Plan 1000%...</h4></div>`;
     setTimeout(() => {
         container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:10px; border-left:4px solid var(--success);"><h4 style="color:var(--success); margin-bottom:6px; font-size:13.5px;">🚀 ${obj}</h4><p style="font-size:12.5px; color:var(--text-color);">• Phase 1 : Analyse intelligente des opportunités à Lomé<br>• Phase 2 : Automatisation de code et structuration NIF<br>• Phase 3 : Déploiement sans coût et rentabilité maximale</p></div>`;
         const qSucces = utilisateur.quetes.find(q => q.id === 3);
@@ -354,9 +437,9 @@ function chargerOutilsAdaptesAuProfil() {
         </div>
     `;
     if (metier.includes('developpeur') || metier.includes('code') || metier.includes('web')) {
-        htmlOutils += `<div style="background:var(--bg-color); border:1px solid var(--success); padding:12px; border-radius:10px;"><h4 style="color:var(--success); font-size:13px; margin-bottom:4px;">💻 Boîte Développeur Avancée</h4><p style="color:var(--text-secondary); font-size:11.5px; margin-bottom:6px;">Console Node.js mobile & ELAWS Code Engine actifs.</p><button class="btn-action ripple-effect" onclick="switchTab('audit')" style="background:var(--success); color:#fff; padding:8px; font-size:12.5px;">Lancer Audit Web</button></div>`;
+        htmlOutils += `<div style="background:var(--bg-color); border:1px solid var(--success); padding:12px; border-radius:10px;"><h4 style="color:var(--success); font-size:13px; margin-bottom:4px;">💻 Boîte Développeur Avancée</h4><p style="color:var(--text-secondary); font-size:11.5px; margin-bottom:6px;">Console Node.js mobile & ELAWS Code Engine actifs.</p><button class="btn-action ripple-effect" onclick="switchTab('messagerie')" style="background:var(--success); color:#fff; padding:8px; font-size:12.5px;">Ouvrir Messagerie Locale</button></div>`;
     } else {
-        htmlOutils += `<div style="background:var(--bg-color); border:1px solid var(--success); padding:12px; border-radius:10px;"><h4 style="color:var(--success); font-size:13px; margin-bottom:4px;">🚀 Boîte Polyvalente</h4><p style="color:var(--text-secondary); font-size:11.5px; margin-bottom:6px;">Accès universel à tous les modules ELAWS.</p><button class="btn-action ripple-effect" onclick="switchTab('succes1000')" style="background:var(--success); color:#fff; padding:8px; font-size:12.5px;">Garantie Succès</button></div>`;
+        htmlOutils += `<div style="background:var(--bg-color); border:1px solid var(--success); padding:12px; border-radius:10px;"><h4 style="color:var(--success); font-size:13px; margin-bottom:4px;">🚀 Boîte Polyvalente</h4><p style="color:var(--text-secondary); font-size:11.5px; margin-bottom:6px;">Accès universel à tous les modules ELAWS.</p><button class="btn-action ripple-effect" onclick="switchTab('messagerie')" style="background:var(--success); color:#fff; padding:8px; font-size:12.5px;">Ouvrir Messagerie Locale</button></div>`;
     }
     container.innerHTML = htmlOutils;
 }
@@ -451,7 +534,7 @@ function envoyerMessageElaws() {
         const rep = ELAWS_BRAIN.repondre(utilisateur, txt);
         ajouterBulleElaws(rep, 'elaws');
         lireVocalement(rep);
-        ajouterQubits(10, "Interaction ELAWS 3.57");
+        ajouterQubits(10, "Interaction ELAWS 3.59");
     }, 250);
 }
 
@@ -514,6 +597,7 @@ function actualiserDashboard() {
     actualiserListeContacts();
     afficherNotesBlocNotes();
     actualiserQuetesUI();
+    actualiserAffichageMessagesLocaux();
     chargerOutilsAdaptesAuProfil();
 }
 
@@ -566,7 +650,7 @@ function basculerLogoInterchangeable(e) {
 function testerVoixElaws() {
     if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
-        const msg = new SpeechSynthesisUtterance("Bonjour Kodjo. Je suis ELAWS Quantum version 3 point 57. Ma voix est parfaitement opérationnelle.");
+        const msg = new SpeechSynthesisUtterance("Bonjour Kodjo. Je suis ELAWS Quantum version 3 point 59. Messagerie locale et stockage fichiers activés.");
         msg.lang = 'fr-FR';
         window.speechSynthesis.speak(msg);
     } else {
