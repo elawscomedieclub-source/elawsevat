@@ -1,12 +1,21 @@
 
 let utilisateur = JSON.parse(localStorage.getItem('evat_profil')) || {
-    nom: "Kodjo Marceline",
+    nom: "",
+    metier: "",
     type: "adulte",
     sousType: "Travailleur",
-    metier: "Entrepreneur / Développeur",
+    iaTon: "standard",
+    qubits: 120,
+    niveauGamification: 1,
+    quetes: [
+        { id: 1, titre: "Configurer le profil & le métier", fait: true, qubits: 50 },
+        { id: 2, titre: "Enregistrer une note dans le bloc-notes", fait: false, qubits: 30 },
+        { id: 3, titre: "Générer un Plan de Succès 1000%", fait: false, qubits: 70 },
+        { id: 4, titre: "Calculer une empreinte carbone de voyage", fait: false, qubits: 40 }
+    ],
     contacts: [{ nom: "Service Client ELAWS", tel: "+22898231402", email: "support@evat-elaws.net" }],
-    notes: [{ titre: "Lancement v3.25 Quantum", contenu: "Installation native forcée et mode autonome." }],
-    voyages: [], crises: [], audits: [], objectifs1000: [], iaTon: "standard"
+    notes: [{ titre: "Bienvenue dans EVAT Quantum v3.41", contenu: "Gamification et Qubits d'énergie activés." }],
+    voyages: [], crises: [], audits: [], objectifs1000: []
 };
 
 let deferredPrompt = null;
@@ -57,6 +66,55 @@ function lireVocalement(texte) {
     }
 }
 
+// Gamification & Qubits management
+function ajouterQubits(quantite, raison) {
+    if(!utilisateur.qubits) utilisateur.qubits = 100;
+    utilisateur.qubits += quantite;
+    
+    // Calcul du niveau (tous les 300 qubits = +1 niveau)
+    utilisateur.niveauGamification = Math.floor(utilisateur.qubits / 300) + 1;
+    localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
+    actualiserDashboard();
+    
+    // Notification visuelle
+    afficherAlerteGamification(`⚡ +${quantite} Qubits ! (${raison})`);
+}
+
+function afficherAlerteGamification(message) {
+    const div = document.createElement('div');
+    div.style.cssText = "position:fixed; top:20px; left:50%; transform:translateX(-50%); background:var(--success); color:#fff; padding:10px 20px; border-radius:12px; font-weight:700; z-index:9999; box-shadow:0 0 20px rgba(16,185,129,0.7); font-size:13px; animation: fadeInOut 2.5s forwards;";
+    div.innerText = message;
+    document.body.appendChild(div);
+    setTimeout(() => { div.remove(); }, 2500);
+}
+
+function validerQuete(id) {
+    const q = utilisateur.quetes.find(item => item.id === id);
+    if(q && !q.fait) {
+        q.fait = true;
+        ajouterQubits(q.qubits, `Quête validée : ${q.titre}`);
+        actualiserQuetesUI();
+    }
+}
+
+function actualiserQuetesUI() {
+    const container = document.getElementById('quetesContainer');
+    if(!container) return;
+    if(!utilisateur.quetes) utilisateur.quetes = [];
+    
+    let html = '';
+    utilisateur.quetes.forEach(q => {
+        html += `<div style="background:var(--bg-color); border:1px solid ${q.fait ? 'var(--success)' : 'var(--border-color)'}; padding:12px; border-radius:12px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+                <strong style="color:var(--text-color); font-size:13px;">${q.fait ? '✅' : '⏳'} ${q.titre}</strong>
+                <p style="color:var(--accent); font-size:11.5px; margin:2px 0;">Récompense : +${q.qubits} Qubits</p>
+            </div>
+            ${!q.fait ? `<button onclick="validerQuete(${q.id})" class="btn-action ripple-effect" style="width:auto; padding:8px 12px; font-size:12px; background:var(--success); color:#fff;">Valider</button>` : `<span style="color:var(--success); font-size:12px; font-weight:700;">Accompli</span>`}
+        </div>`;
+    });
+    container.innerHTML = html;
+}
+
 // Contacts management
 function ajouterContactManuel() {
     const nom = document.getElementById('contactNomInput').value.trim();
@@ -70,6 +128,7 @@ function ajouterContactManuel() {
     document.getElementById('contactTelInput').value = '';
     document.getElementById('contactEmailInput').value = '';
     actualiserListeContacts();
+    ajouterQubits(15, "Ajout d'un contact");
     alert("Contact ajouté !");
 }
 
@@ -109,6 +168,12 @@ function lancerAssistantVoyageCarbone() {
     if(!utilisateur.voyages) utilisateur.voyages = [];
     utilisateur.voyages.unshift({ destination: dest, carbone: emission, transport });
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
+    
+    // Valider la quête associée si présente
+    const qVoyage = utilisateur.quetes.find(q => q.id === 4);
+    if(qVoyage && !qVoyage.fait) { qVoyage.fait = true; }
+    
+    ajouterQubits(40, "Calcul d'empreinte carbone");
     lireVocalement("Calcul carbone effectué.");
 }
 
@@ -118,6 +183,7 @@ function analyserEtResoudreCrise() {
     if(!desc) { alert("Décrivez la situation."); return; }
     container.style.display = 'block';
     container.innerHTML = `<div style="background:var(--bg-color); padding:15px; border-radius:12px; border-left:4px solid var(--danger);"><h4 style="color:var(--danger); margin-bottom:6px;">🚨 Analyse d'Urgence ELAWS</h4><p style="color:var(--text-color); font-size:13px; margin-bottom:8px;">Situation : "${desc}"</p><p style="color:var(--success); font-size:13px; font-weight:600; margin:0;">✅ Recommandation : Isolation immédiate du problème, application du protocole de secours de niveau 1 et activation du plan de sauvegarde cloud.</p></div>`;
+    ajouterQubits(25, "Résolution de crise");
     lireVocalement("Solution d'urgence générée.");
 }
 
@@ -126,6 +192,7 @@ function lancerAuditSite() {
     const container = document.getElementById('resultatAuditContainer');
     container.style.display = 'block';
     container.innerHTML = `<div style="background:var(--bg-color); padding:15px; border-radius:12px; border-left:4px solid var(--success);"><h4 style="color:var(--success); margin-bottom:6px;">🌐 Rapport d'Audit pour ${url}</h4><p style="color:var(--text-color); font-size:13px;">• Performance : <strong>98/100</strong></p><p style="color:var(--text-color); font-size:13px;">• Sécurité HTTPS & Post-Quantum : <strong>100/100</strong></p><p style="color:var(--text-color); font-size:13px; margin:0;">• Compatibilité Mobile PWA : <strong>Parfaite</strong></p></div>`;
+    ajouterQubits(20, "Audit Web réalisé");
     lireVocalement("Audit du site terminé avec succès.");
 }
 
@@ -138,8 +205,13 @@ function ajouterNoteBlocNotes() {
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
     document.getElementById('noteTitre').value = '';
     document.getElementById('noteContenu').value = '';
+    
+    const qNote = utilisateur.quetes.find(q => q.id === 2);
+    if(qNote && !qNote.fait) qNote.fait = true;
+    
     afficherNotesBlocNotes();
-    alert("Note enregistrée !");
+    ajouterQubits(30, "Ajout d'une note");
+    alert("Note enregistrée ! +30 Qubits");
 }
 
 function afficherNotesBlocNotes() {
@@ -176,6 +248,11 @@ function genererPlanSucces1000() {
             htmlEtapes += `<div style="background:var(--card-bg); padding:10px; border-radius:8px; margin-bottom:6px; border-left:3px solid var(--success);"><strong style="color:var(--success);">${e.titre}</strong><p style="font-size:12px; color:var(--text-secondary); margin:0;">${e.detail}</p></div>`;
         });
         container.innerHTML = `<div style="background:var(--bg-color); padding:15px; border-radius:12px; border-left:4px solid var(--success);"><h4 style="color:var(--success); margin-bottom:6px;">🚀 ${obj}</h4>${htmlEtapes}</div>`;
+        
+        const qSucces = utilisateur.quetes.find(q => q.id === 3);
+        if(qSucces && !qSucces.fait) qSucces.fait = true;
+        
+        ajouterQubits(70, "Plan de succès généré");
         lireVocalement("Plan de succès généré.");
     }, 600);
 }
@@ -232,19 +309,6 @@ function chargerOutilsAdaptesAuProfil() {
     }
 
     container.innerHTML = htmlOutils;
-}
-
-function ajouterNoteDepuisOutils() {
-    const titre = document.getElementById('noteTitreOutils').value.trim();
-    const contenu = document.getElementById('noteContenuOutils').value.trim();
-    if(!titre || !contenu) { alert("Titre et contenu requis."); return; }
-    if(!utilisateur.notes) utilisateur.notes = [];
-    utilisateur.notes.unshift({ titre, contenu });
-    localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
-    document.getElementById('noteTitreOutils').value = '';
-    document.getElementById('noteContenuOutils').value = '';
-    afficherNotesBlocNotes();
-    alert("Note enregistrée dans l'écosystème !");
 }
 
 function changerModeInteraction(mode) {
@@ -329,6 +393,7 @@ function envoyerMessageElaws() {
         const rep = ELAWS_BRAIN.repondre(utilisateur, txt);
         ajouterBulleElaws(rep, 'elaws');
         lireVocalement(rep);
+        ajouterQubits(10, "Interaction avec ELAWS");
     }, 300);
 }
 
@@ -345,9 +410,29 @@ function ajouterBulleElaws(txt, exp) {
 function sauvegarderProfilBase() {
     utilisateur.nom = document.getElementById('inputNom').value.trim() || "Utilisateur";
     utilisateur.metier = document.getElementById('inputMetierProfil').value.trim() || "Polyvalent";
+    const selectTon = document.getElementById('inputIaTon');
+    if(selectTon) utilisateur.iaTon = selectTon.value;
+    
+    const qProfil = utilisateur.quetes.find(q => q.id === 1);
+    if(qProfil) qProfil.fait = true;
+    
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
     actualiserDashboard();
-    alert("Profil et métier enregistrés ! Les outils adaptés ont été mis à jour.");
+    
+    const modal = document.getElementById('welcomeModal');
+    if(modal) modal.style.display = 'none';
+    
+    alert("Profil et paramètres enregistrés ! Bienvenue dans EVAT Quantum v3.41.");
+}
+
+function verifierPremierLancement() {
+    if(!utilisateur.nom || utilisateur.nom === "") {
+        const modal = document.getElementById('welcomeModal');
+        if(modal) modal.style.display = 'flex';
+    } else {
+        const modal = document.getElementById('welcomeModal');
+        if(modal) modal.style.display = 'none';
+    }
 }
 
 function exporterDonneesCloud() {
@@ -364,9 +449,17 @@ function actualiserDashboard() {
     const nomElem = document.getElementById('dashNomUser');
     if(nomElem) nomElem.innerText = utilisateur.nom || "Mon Ami";
     const badge = document.getElementById('sidebarUserRole');
-    if(badge) badge.innerText = `${utilisateur.nom} • Quantum`;
+    if(badge) badge.innerText = `${utilisateur.nom || 'Visiteur'} • Niveau ${utilisateur.niveauGamification || 1}`;
+    
+    const qubitsElem = document.getElementById('dashQubitsScore');
+    if(qubitsElem) qubitsElem.innerText = utilisateur.qubits || 120;
+    
+    const niveauElem = document.getElementById('dashNiveauScore');
+    if(niveauElem) niveauElem.innerText = utilisateur.niveauGamification || 1;
+
     actualiserListeContacts();
     afficherNotesBlocNotes();
+    actualiserQuetesUI();
     chargerOutilsAdaptesAuProfil();
 }
 
@@ -404,5 +497,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if(document.getElementById('inputMetierProfil')) {
         document.getElementById('inputMetierProfil').value = utilisateur.metier || "";
     }
-    actualiserDashboard(); 
+    if(document.getElementById('inputIaTon')) {
+        document.getElementById('inputIaTon').value = utilisateur.iaTon || "standard";
+    }
+    actualiserDashboard();
+    verifierPremierLancement();
 });

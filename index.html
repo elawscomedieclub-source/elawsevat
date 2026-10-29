@@ -3,12 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>EVAT | ELAWS Quantum v3.38</title>
+    <title>EVAT | ELAWS Quantum v3.41</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.webmanifest">
     <meta name="theme-color" content="#070a13">
 </head>
 <body>
+    <!-- Modale de Bienvenue / Tutoriel Premier Lancement -->
+    <div id="welcomeModal" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(5,8,20,0.92); z-index:9000; display:none; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(8px);">
+        <div class="card" style="max-width:440px; width:100%; border:2px solid var(--accent); box-shadow:0 0 50px rgba(56,189,248,0.5); text-align:center; padding:24px;">
+            <img src="logo_evat.png" alt="Logo" style="width:54px; height:54px; border-radius:50%; border:2px solid var(--accent); margin-bottom:12px;">
+            <h2 style="color:var(--accent); font-size:18px; margin-bottom:8px;">Bienvenue dans EVAT & ELAWS v3.41</h2>
+            <p style="font-size:13px; color:var(--text-secondary); margin-bottom:16px;">Gagnez des Qubits d'énergie et accomplissez vos quêtes de productivité.</p>
+            
+            <div style="text-align:left; margin-bottom:15px;">
+                <label style="font-size:12px; color:var(--text-color);">Votre Nom / Pseudonyme :</label>
+                <input type="text" id="inputNom" class="input" placeholder="Ex: Kodjo Marceline" style="margin-bottom:8px; font-size:13px; padding:10px;">
+                
+                <label style="font-size:12px; color:var(--text-color);">Votre Métier / Domaine :</label>
+                <input type="text" id="inputMetierProfil" class="input" placeholder="Ex: Développeur, Entrepreneur, Étudiant..." style="margin-bottom:8px; font-size:13px; padding:10px;">
+
+                <label style="font-size:12px; color:var(--text-color);">Profil de Ton ELAWS :</label>
+                <select id="inputIaTon" class="input" style="background:var(--bg-color); color:var(--text-color); font-size:13px; padding:10px; margin-bottom:15px;">
+                    <option value="standard">🤖 Standard Quantum</option>
+                    <option value="pedagogique">💡 Tuteur / Pédagogique (Idéal pour Étudiants)</option>
+                    <option value="business">🚀 Stratège Business (Idéal pour Entrepreneurs)</option>
+                    <option value="technique">💻 Expert Technique / Code (Idéal pour Développeurs)</option>
+                </select>
+            </div>
+
+            <button onclick="sauvegarderProfilBase()" class="btn-action ripple-effect" style="font-size:14px; padding:12px;">🚀 Démarrer avec +50 Qubits</button>
+        </div>
+    </div>
+
     <div id="app">
         <!-- En-tête principal -->
         <header class="header">
@@ -17,7 +44,7 @@
                 <div class="header-brand" style="display:flex; flex-direction:row; align-items:center; gap:10px;">
                     <img src="logo_evat.png" alt="Logo" style="width:32px; height:32px; border-radius:50%; border:1px solid var(--accent);">
                     <div>
-                        <h1 id="appTitle">EVAT <span style="font-weight:300; font-size:13px; color:var(--text-secondary);">| ELAWS Quantum v3.38</span></h1>
+                        <h1 id="appTitle">EVAT <span style="font-weight:300; font-size:13px; color:var(--text-secondary);">| Quantum v3.41</span></h1>
                     </div>
                 </div>
             </div>
@@ -38,7 +65,7 @@
                     <div class="elaws-popup-header">
                         <div style="display:flex; align-items:center; gap:8px;">
                             <span class="status-indicator"></span>
-                            <span>Assistant ELAWS Quantum • Live</span>
+                            <span>Assistant ELAWS 2.0 • Live</span>
                         </div>
                         <button onclick="fermerElawsChat(event)" class="close-popup-btn ripple-effect">✕</button>
                     </div>
@@ -74,10 +101,11 @@
         <nav id="sidebar" class="sidebar" onclick="event.stopPropagation()">
             <div class="sidebar-header">
                 <h3>Navigation EVAT</h3>
-                <span id="sidebarUserRole" class="sidebar-badge">Kodjo • Quantum</span>
+                <span id="sidebarUserRole" class="sidebar-badge">Kodjo • Niveau 1</span>
             </div>
             <div class="sidebar-links">
                 <a href="#" onclick="switchTab('dashboard')" class="nav-link ripple-effect active" id="link-dashboard">📊 Dashboard Quantum</a>
+                <a href="#" onclick="switchTab('quetes')" class="nav-link ripple-effect" id="link-quetes">⚡ Quêtes & Qubits</a>
                 <a href="#" onclick="switchTab('succes1000')" class="nav-link ripple-effect" id="link-succes1000">💎 Garantie Succès 1000%</a>
                 <a href="#" onclick="switchTab('sync')" class="nav-link ripple-effect" id="link-sync">☁️ Cloud & Synchro</a>
                 <a href="#" onclick="switchTab('voyage')" class="nav-link ripple-effect" id="link-voyage">✈️ Guide Voyage & Carbone</a>
@@ -85,11 +113,11 @@
                 <a href="#" onclick="switchTab('crise')" class="nav-link ripple-effect" id="link-crise">🚨 Urgences & Solutions</a>
                 <a href="#" onclick="switchTab('audit')" class="nav-link ripple-effect" id="link-audit">🌐 Évaluation Web</a>
                 <a href="#" onclick="switchTab('appel')" class="nav-link ripple-effect" id="link-appel">📞 Appel Direct</a>
-                <a href="#" onclick="switchTab('profil')" class="nav-link ripple-effect" id="link-profil">👤 Profil & Métier</a>
+                <a href="#" onclick="switchTab('profil')" class="nav-link ripple-effect" id="link-profil">👤 Profil & Ton IA</a>
                 <a href="#" onclick="switchTab('outils')" class="nav-link ripple-effect" id="link-outils">🛠️ Boîte à Outils</a>
             </div>
             <div class="sidebar-footer">
-                <p>EVAT v3.38 • Eric Lawson & ELAWS</p>
+                <p>EVAT v3.41 • Eric Lawson & ELAWS</p>
             </div>
         </nav>
 
@@ -99,6 +127,17 @@
 
             <!-- DASHBOARD QUANTIQUE -->
             <section id="tab-dashboard" class="tab-content active">
+                <div class="card" style="border-left: 4px solid var(--success); background: linear-gradient(135deg, var(--card-bg), rgba(16,185,129,0.1));">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <span style="font-size:12px; color:var(--success); font-weight:700; text-transform:uppercase;">⚡ Énergie Qubit Active</span>
+                            <h2 style="font-size:26px; color:var(--text-color); margin:4px 0;"><span id="dashQubitsScore">120</span> <span style="font-size:14px; color:var(--accent);">Qubits</span></h2>
+                            <p style="font-size:12px; color:var(--text-secondary);">Niveau Actuel : <strong style="color:var(--text-color);">Niveau <span id="dashNiveauScore">1</span></strong></p>
+                        </div>
+                        <button onclick="switchTab('quetes')" class="btn-action ripple-effect" style="width:auto; padding:10px 16px; font-size:12.5px; background:var(--success); color:#fff;">Voir les Quêtes 🎯</button>
+                    </div>
+                </div>
+
                 <div class="card" style="border-left: 4px solid var(--accent); position:relative;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                         <h3 style="font-size:14px; color:var(--text-color); font-weight:700;">Global Quantum Network Status</h3>
@@ -130,16 +169,17 @@
                     </div>
                 </div>
 
-                <div class="card" style="border-left: 4px solid var(--success);">
-                    <h3 style="font-size:14px; color:var(--text-color); font-weight:700; margin-bottom:8px;">Quantum Processing Metrics</h3>
-                    <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-secondary);">
-                        <span>Qubit Capacity : <strong style="color:var(--text-color);">128 Stable</strong></span>
-                        <span>Compute Power : <strong style="color:var(--text-color);">100 TFLOPS</strong></span>
-                    </div>
-                </div>
-
                 <div style="margin-top: 15px;">
                     <button onclick="declencherInstallationNative()" class="btn-action ripple-effect" style="background: var(--success); color: #fff;">📲 Installer l'Application (Modèle Maquette)</button>
+                </div>
+            </section>
+
+            <!-- ⚡ QUÊTES & QUBITS (GAMIFICATION) -->
+            <section id="tab-quetes" class="tab-content">
+                <div class="card" style="border-left: 4px solid var(--success);">
+                    <h2>⚡ Centre de Quêtes & Productivité</h2>
+                    <p style="color:var(--text-secondary); font-size:13px; margin-bottom:15px;">Accomplissez des actions dans l'application pour gagner des Qubits d'énergie et progresser en niveau !</p>
+                    <div id="quetesContainer"></div>
                 </div>
             </section>
 
@@ -231,19 +271,27 @@
                 </div>
             </section>
 
-            <!-- 👤 PROFIL & MÉTIER -->
+            <!-- 👤 PROFIL & TON IA -->
             <section id="tab-profil" class="tab-content">
                 <div class="card" style="border-left: 4px solid var(--accent);">
-                    <h2>👤 Gestion du Profil & Métier</h2>
-                    <p style="color:var(--text-secondary); font-size:13px; margin-bottom:15px;">Configurez votre identité et votre domaine d'activité pour adapter automatiquement vos outils.</p>
+                    <h2>👤 Gestion du Profil & ELAWS 2.0</h2>
+                    <p style="color:var(--text-secondary); font-size:13px; margin-bottom:15px;">Configurez votre identité, votre métier et le style de communication de votre assistant ELAWS.</p>
                     
                     <label>Votre Nom / Pseudonyme :</label>
                     <input type="text" id="inputNom" class="input" placeholder="Ex: Kodjo Marceline" style="margin-bottom:10px;">
                     
-                    <label>Votre Métier / Domaine d'activité (Ex: Développeur, Entrepreneur, Étudiant...) :</label>
-                    <input type="text" id="inputMetierProfil" class="input" placeholder="Ex: Développeur Web / Entrepreneur" style="margin-bottom:12px;">
+                    <label>Votre Métier / Domaine d'activité :</label>
+                    <input type="text" id="inputMetierProfil" class="input" placeholder="Ex: Développeur Web / Entrepreneur" style="margin-bottom:10px;">
+
+                    <label>Profil de Ton ELAWS :</label>
+                    <select id="inputIaTon" class="input" style="background:var(--bg-color); color:var(--text-color); margin-bottom:15px;">
+                        <option value="standard">🤖 Standard Quantum</option>
+                        <option value="pedagogique">💡 Tuteur / Pédagogique (Idéal pour Étudiants)</option>
+                        <option value="business">🚀 Stratège Business (Idéal pour Entrepreneurs)</option>
+                        <option value="technique">💻 Expert Technique / Code (Idéal pour Développeurs)</option>
+                    </select>
                     
-                    <button class="btn-action ripple-effect" onclick="sauvegarderProfilBase()" style="margin-bottom:20px;">Enregistrer le Profil & Adapter les Outils</button>
+                    <button class="btn-action ripple-effect" onclick="sauvegarderProfilBase()" style="margin-bottom:20px;">Enregistrer le Profil & le Ton IA</button>
 
                     <hr style="border:0; border-top:1px solid var(--border-color); margin:20px 0;">
 
