@@ -1,5 +1,5 @@
 {
-  "name": "EVAT & ELAWS Quantum v3.45",
+  "name": "EVAT & ELAWS Quantum v3.47",
   "short_name": "EVAT",
   "start_url": "./index.html",
   "scope": "./",
@@ -8,9 +8,9 @@
   "theme_color": "#0ea5e9",
   "icons": [
     {
-      "src": "logo_evat.png",
-      "sizes": "192x192",
-      "type": "image/png"
+      "src": "logo_evat.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
     },
     {
       "src": "logo_evat.png",

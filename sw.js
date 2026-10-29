@@ -1,10 +1,12 @@
-const CACHE_NAME = 'evat-elaws-v345-quantum-cache';
+const CACHE_NAME = 'evat-elaws-v347-quantum-cache';
 const urlsToCache = [
   'index.html',
   'style.css',
   'app.js',
   'elaws.js',
-  'manifest.webmanifest'
+  'manifest.webmanifest',
+  'logo_evat.svg',
+  'logo_evat.png'
 ];
 
 self.addEventListener('install', event => {

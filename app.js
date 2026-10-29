@@ -1,4 +1,4 @@
-const EVAT_VERSION_ACTUELLE = "v3.45";
+const EVAT_VERSION_ACTUELLE = "v3.47";
 
 let versionEnregistree = localStorage.getItem('evat_version_app');
 
@@ -23,7 +23,7 @@ if (versionEnregistree !== EVAT_VERSION_ACTUELLE) {
 function afficherNotificationMiseAJour(version) {
     const div = document.createElement('div');
     div.style.cssText = "position:fixed; top:20px; left:50%; transform:translateX(-50%); background:var(--success); color:#fff; padding:10px 20px; border-radius:12px; font-weight:700; z-index:9999; box-shadow:0 0 20px rgba(16,185,129,0.8); font-size:13px; text-align:center;";
-    div.innerHTML = `🚀 Application mise à jour vers ${version} !<br><span style="font-size:11px; font-weight:400;">Interface multi-appareils & anti-écho activées.</span>`;
+    div.innerHTML = `🚀 Application mise à jour vers ${version} !<br><span style="font-size:11px; font-weight:400;">Logo quantique intégré avec éclat.</span>`;
     document.body.appendChild(div);
     setTimeout(() => { div.remove(); }, 3500);
 }
@@ -34,7 +34,7 @@ let utilisateur = JSON.parse(localStorage.getItem('evat_profil')) || {
     type: "adulte",
     sousType: "Travailleur",
     iaTon: "standard",
-    qubits: 150,
+    qubits: 170,
     niveauGamification: 1,
     quetes: [
         { id: 1, titre: "Configurer le profil & le métier", fait: true, qubits: 50 },
@@ -44,7 +44,7 @@ let utilisateur = JSON.parse(localStorage.getItem('evat_profil')) || {
         { id: 5, titre: "Utiliser l'assistant Visa & Billets d'avion", fait: false, qubits: 60 }
     ],
     contacts: [{ nom: "Service Client ELAWS", tel: "+22898231402", email: "support@evat-elaws.net" }],
-    notes: [{ titre: "Bienvenue dans EVAT Quantum v3.45", contenu: "Mise à jour multi-appareils & anti-écho activées." }],
+    notes: [{ titre: "Bienvenue dans EVAT Quantum v3.47", contenu: "Logo quantique intégré à l'application." }],
     voyages: [], crises: [], audits: [], objectifs1000: []
 };
 
@@ -84,7 +84,6 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
     recognition.onend = () => { arreterEcouteVocale(); };
 }
 
-// ANTI-ÉCHO : Stoppe toute synthèse vocale précédente avant de parler
 function lireVocalement(texte) {
     if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
@@ -447,7 +446,7 @@ function actualiserDashboard() {
     const badge = document.getElementById('sidebarUserRole');
     if(badge) badge.innerText = `${utilisateur.nom || 'Visiteur'} • Niveau ${utilisateur.niveauGamification || 1}`;
     const qubitsElem = document.getElementById('dashQubitsScore');
-    if(qubitsElem) qubitsElem.innerText = utilisateur.qubits || 150;
+    if(qubitsElem) qubitsElem.innerText = utilisateur.qubits || 170;
     const niveauElem = document.getElementById('dashNiveauScore');
     if(niveauElem) niveauElem.innerText = utilisateur.niveauGamification || 1;
 
