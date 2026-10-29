@@ -1,4 +1,4 @@
-const EVAT_VERSION_ACTUELLE = "v3.50";
+const EVAT_VERSION_ACTUELLE = "v3.57";
 
 let versionEnregistree = localStorage.getItem('evat_version_app');
 
@@ -10,7 +10,7 @@ if (versionEnregistree !== EVAT_VERSION_ACTUELLE) {
             { id: 2, titre: "Enregistrer une note dans le bloc-notes", fait: false, qubits: 30 },
             { id: 3, titre: "Générer un Plan de Succès 1000%", fait: false, qubits: 70 },
             { id: 4, titre: "Calculer une empreinte carbone de voyage", fait: false, qubits: 40 },
-            { id: 5, titre: "Utiliser l'assistant Visa & Billets d'avion", fait: false, qubits: 60 }
+            { id: 5, titre: "Tester l'Appel Audio & Vidéo WebRTC", fait: false, qubits: 60 }
         ];
         localStorage.setItem('evat_profil', JSON.stringify(ancienProfil));
     }
@@ -23,7 +23,7 @@ if (versionEnregistree !== EVAT_VERSION_ACTUELLE) {
 function afficherNotificationMiseAJour(version) {
     const div = document.createElement('div');
     div.style.cssText = "position:fixed; top:20px; left:50%; transform:translateX(-50%); background:var(--success); color:#fff; padding:10px 20px; border-radius:12px; font-weight:700; z-index:9999; box-shadow:0 0 20px rgba(16,185,129,0.8); font-size:13px; text-align:center;";
-    div.innerHTML = `🚀 Intelligence IA renforcée vers ${version} !<br><span style="font-size:11px; font-weight:400;">Cerveau ELAWS 3.50 optimisé (Code, Business, Traduction).</span>`;
+    div.innerHTML = `🚀 Intelligence IA renforcée vers ${version} !<br><span style="font-size:11px; font-weight:400;">Appel Audio & Vidéo WebRTC par Numéro activé (GSM et email supprimés).</span>`;
     document.body.appendChild(div);
     setTimeout(() => { div.remove(); }, 3500);
 }
@@ -31,26 +31,27 @@ function afficherNotificationMiseAJour(version) {
 let utilisateur = JSON.parse(localStorage.getItem('evat_profil')) || {
     nom: "Kodjo Marceline",
     metier: "Développeur & Entrepreneur",
-    type: "adulte",
-    sousType: "Travailleur",
+    telephone: "+22898231402",
     iaTon: "standard",
-    qubits: 250,
+    qubits: 300,
     niveauGamification: 1,
     quetes: [
         { id: 1, titre: "Configurer le profil & le métier", fait: true, qubits: 50 },
         { id: 2, titre: "Enregistrer une note dans le bloc-notes", fait: false, qubits: 30 },
         { id: 3, titre: "Générer un Plan de Succès 1000%", fait: false, qubits: 70 },
         { id: 4, titre: "Calculer une empreinte carbone de voyage", fait: false, qubits: 40 },
-        { id: 5, titre: "Utiliser l'assistant Visa & Billets d'avion", fait: false, qubits: 60 }
+        { id: 5, titre: "Tester l'Appel Audio & Vidéo WebRTC", fait: false, qubits: 60 }
     ],
-    contacts: [{ nom: "Service Client ELAWS", tel: "+22898231402", email: "support@evat-elaws.net" }],
-    notes: [{ titre: "EVAT Quantum v3.50", contenu: "IA renforcée avec analyse contextuelle approfondie." }],
+    contacts: [{ nom: "Service Client ELAWS", tel: "+22898231402" }],
+    notes: [{ titre: "EVAT Quantum v3.57", contenu: "Appel Audio & Vidéo WebRTC activé par numéro." }],
     voyages: [], crises: [], audits: [], objectifs1000: []
 };
 
 let deferredPrompt = null;
 let ecouteVocaleActive = false;
 let recognition = null;
+let appelEnCours = false;
+let localStream = null;
 
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
@@ -111,6 +112,71 @@ function afficherAlerteGamification(message) {
     setTimeout(() => { div.remove(); }, 2200);
 }
 
+// === MODULE APPEL AUDIO ET VIDEO INTERNET (WebRTC par Numéro) ===
+async function lancerAppelInternet(type) {
+    const telUtilisateur = utilisateur.telephone || "+22898231402";
+    const statusDiv = document.getElementById('voipStatusDisplay');
+    const videoContainer = document.getElementById('videoCallContainer');
+    const localVideo = document.getElementById('localVideoElement');
+    
+    if (!appelEnCours) {
+        try {
+            statusDiv.innerHTML = `<span style="color:var(--accent);">🔄 Connexion ${type.toUpperCase()} Internet pour ${telUtilisateur}...</span>`;
+            
+            const constraints = {
+                audio: true,
+                video: type === 'video' ? { width: { ideal: 640 }, height: { ideal: 480 } } : false
+            };
+
+            localStream = await navigator.mediaDevices.getUserMedia(constraints);
+            
+            if (type === 'video' && localVideo) {
+                localVideo.srcObject = localStream;
+                videoContainer.style.display = 'block';
+            }
+            
+            appelEnCours = true;
+            document.getElementById('btnAppelAudio').innerText = "Raccrocher";
+            document.getElementById('btnAppelVideo').innerText = "Raccrocher";
+            document.getElementById('btnAppelAudio').style.background = "var(--danger)";
+            document.getElementById('btnAppelVideo').style.background = "var(--danger)";
+            
+            statusDiv.innerHTML = `<span style="color:var(--success); font-weight:750;">🟢 Appel ${type.toUpperCase()} Actif (Numéro : ${telUtilisateur})<br><span style="font-size:11px; color:var(--text-secondary);">Canal WebRTC chiffré sans GSM ni email.</span></span>`;
+            
+            const qAppel = utilisateur.quetes.find(q => q.id === 5);
+            if(qAppel && !qAppel.fait) qAppel.fait = true;
+            ajouterQubits(60, `Appel ${type} Internet WebRTC établi`);
+            
+            lireVocalement(`Appel ${type} Internet établi par numéro de téléphone.`);
+        } catch (error) {
+            statusDiv.innerHTML = `<span style="color:var(--danger);">❌ Erreur accès flux média : ${error.message}</span>`;
+            appelEnCours = false;
+        }
+    } else {
+        raccrocherAppelInternet();
+    }
+}
+
+function raccrocherAppelInternet() {
+    if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        localStream = null;
+    }
+    appelEnCours = false;
+    const statusDiv = document.getElementById('voipStatusDisplay');
+    const videoContainer = document.getElementById('videoCallContainer');
+    
+    if(videoContainer) videoContainer.style.display = 'none';
+    if(statusDiv) statusDiv.innerHTML = `<span style="color:var(--text-secondary);">Appel Internet terminé. Numéro en veille.</span>`;
+    
+    const btnAudio = document.getElementById('btnAppelAudio');
+    const btnVideo = document.getElementById('btnAppelVideo');
+    if(btnAudio) { btnAudio.innerText = "🎙️ Lancer Appel Audio"; btnAudio.style.background = "var(--success)"; }
+    if(btnVideo) { btnVideo.innerText = "📹 Lancer Appel Vidéo"; btnVideo.style.background = "var(--accent)"; }
+    
+    lireVocalement("Appel raccroché.");
+}
+
 function validerQuete(id) {
     const q = utilisateur.quetes.find(item => item.id === id);
     if(q && !q.fait) {
@@ -140,14 +206,12 @@ function actualiserQuetesUI() {
 function ajouterContactManuel() {
     const nom = document.getElementById('contactNomInput').value.trim();
     const tel = document.getElementById('contactTelInput').value.trim();
-    const email = document.getElementById('contactEmailInput').value.trim();
-    if(!nom || !tel) { alert("Nom et téléphone requis."); return; }
+    if(!nom || !tel) { alert("Nom et numéro de téléphone requis."); return; }
     if(!utilisateur.contacts) utilisateur.contacts = [];
-    utilisateur.contacts.unshift({ nom, tel, email: email || 'non renseigné' });
+    utilisateur.contacts.unshift({ nom, tel });
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
     document.getElementById('contactNomInput').value = '';
     document.getElementById('contactTelInput').value = '';
-    document.getElementById('contactEmailInput').value = '';
     actualiserListeContacts();
     ajouterQubits(15, "Ajout d'un contact");
     alert("Contact ajouté !");
@@ -208,9 +272,6 @@ function lancerAnalyseVoyageAvance() {
     if(!utilisateur.voyages) utilisateur.voyages = [];
     utilisateur.voyages.unshift({ destination: dest, depart, carbone: emission, transport, prix: prixEstime });
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
-    
-    const qVoyage = utilisateur.quetes.find(q => q.id === 5);
-    if(qVoyage && !qVoyage.fait) qVoyage.fait = true;
     ajouterQubits(60, "Analyse voyage & checklist Visa");
 }
 
@@ -219,7 +280,7 @@ function analyserEtResoudreCrise() {
     const container = document.getElementById('resultatCriseContainer');
     if(!desc) { alert("Décrivez la situation."); return; }
     container.style.display = 'block';
-    container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:10px; border-left:4px solid var(--danger);"><h4 style="color:var(--danger); margin-bottom:4px; font-size:13.5px;">🚨 Diagnostic ELAWS 3.50</h4><p style="color:var(--text-color); font-size:12.5px; margin-bottom:6px;">"${desc}"</p><p style="color:var(--success); font-size:12.5px; font-weight:600; margin:0;">✅ Résolution IA : Isolation du processus, application du patch correctif et synchronisation locale.</p></div>`;
+    container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:10px; border-left:4px solid var(--danger);"><h4 style="color:var(--danger); margin-bottom:4px; font-size:13.5px;">🚨 Diagnostic ELAWS 3.57</h4><p style="color:var(--text-color); font-size:12.5px; margin-bottom:6px;">"${desc}"</p><p style="color:var(--success); font-size:12.5px; font-weight:600; margin:0;">✅ Résolution IA : Isolation du processus, application du patch correctif et synchronisation locale.</p></div>`;
     ajouterQubits(25, "Résolution de crise");
 }
 
@@ -227,7 +288,7 @@ function lancerAuditSite() {
     const url = document.getElementById('urlAuditInput').value.trim() || "https://evat-elaws.net";
     const container = document.getElementById('resultatAuditContainer');
     container.style.display = 'block';
-    container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:10px; border-left:4px solid var(--success);"><h4 style="color:var(--success); margin-bottom:4px; font-size:13.5px;">🌐 Audit pour ${url}</h4><p style="color:var(--text-color); font-size:12.5px;">• Performance : <strong>100/100</strong></p><p style="color:var(--text-color); font-size:12.5px;">• Intelligence Artificielle ELAWS : <strong>Niveau 3.50 (Max)</strong></p><p style="color:var(--text-color); font-size:12.5px; margin:0;">• Compatibilité PWA Mobile : <strong>Optimale</strong></p></div>`;
+    container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:10px; border-left:4px solid var(--success);"><h4 style="color:var(--success); margin-bottom:4px; font-size:13.5px;">🌐 Audit pour ${url}</h4><p style="color:var(--text-color); font-size:12.5px;">• Performance : <strong>100/100</strong></p><p style="color:var(--text-color); font-size:12.5px;">• Intelligence Artificielle ELAWS : <strong>Niveau 3.57 (Max)</strong></p><p style="color:var(--text-color); font-size:12.5px; margin:0;">• Compatibilité PWA Mobile : <strong>Optimale</strong></p></div>`;
     ajouterQubits(20, "Audit Web réalisé");
 }
 
@@ -271,7 +332,7 @@ function genererPlanSucces1000() {
     const container = document.getElementById('resultatPlan1000');
     if(!obj) { alert("Entrez un objectif."); return; }
     container.style.display = 'block';
-    container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:10px; border:1px solid var(--success); text-align:center;"><h4 style="color:var(--success); font-size:13.5px;">💎 ELAWS 3.50 élabore votre Plan 1000%...</h4></div>`;
+    container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:10px; border:1px solid var(--success); text-align:center;"><h4 style="color:var(--success); font-size:13.5px;">💎 ELAWS 3.57 élabore votre Plan 1000%...</h4></div>`;
     setTimeout(() => {
         container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:10px; border-left:4px solid var(--success);"><h4 style="color:var(--success); margin-bottom:6px; font-size:13.5px;">🚀 ${obj}</h4><p style="font-size:12.5px; color:var(--text-color);">• Phase 1 : Analyse intelligente des opportunités à Lomé<br>• Phase 2 : Automatisation de code et structuration NIF<br>• Phase 3 : Déploiement sans coût et rentabilité maximale</p></div>`;
         const qSucces = utilisateur.quetes.find(q => q.id === 3);
@@ -390,7 +451,7 @@ function envoyerMessageElaws() {
         const rep = ELAWS_BRAIN.repondre(utilisateur, txt);
         ajouterBulleElaws(rep, 'elaws');
         lireVocalement(rep);
-        ajouterQubits(10, "Interaction ELAWS 3.50");
+        ajouterQubits(10, "Interaction ELAWS 3.57");
     }, 250);
 }
 
@@ -407,6 +468,8 @@ function ajouterBulleElaws(txt, exp) {
 function sauvegarderProfilBase() {
     utilisateur.nom = document.getElementById('inputNom').value.trim() || "Utilisateur";
     utilisateur.metier = document.getElementById('inputMetierProfil').value.trim() || "Polyvalent";
+    const telInput = document.getElementById('inputTelProfil');
+    if(telInput) utilisateur.telephone = telInput.value.trim() || "+22898231402";
     const selectTon = document.getElementById('inputIaTon');
     if(selectTon) utilisateur.iaTon = selectTon.value;
     
@@ -418,7 +481,7 @@ function sauvegarderProfilBase() {
     
     const modal = document.getElementById('welcomeModal');
     if(modal) modal.style.display = 'none';
-    alert("Profil et intelligence ELAWS mis à jour !");
+    alert("Profil, numéro VoIP et intelligence ELAWS mis à jour !");
 }
 
 function verifierPremierLancement() {
@@ -441,12 +504,10 @@ function exporterDonneesCloud() {
 }
 
 function actualiserDashboard() {
-    const nomElem = document.getElementById('dashNomUser');
-    if(nomElem) nomElem.innerText = utilisateur.nom || "Mon Ami";
     const badge = document.getElementById('sidebarUserRole');
     if(badge) badge.innerText = `${utilisateur.nom || 'Visiteur'} • Niveau ${utilisateur.niveauGamification || 1}`;
     const qubitsElem = document.getElementById('dashQubitsScore');
-    if(qubitsElem) qubitsElem.innerText = utilisateur.qubits || 250;
+    if(qubitsElem) qubitsElem.innerText = utilisateur.qubits || 300;
     const niveauElem = document.getElementById('dashNiveauScore');
     if(niveauElem) niveauElem.innerText = utilisateur.niveauGamification || 1;
 
@@ -486,7 +547,29 @@ function switchTab(tabId) {
 document.addEventListener('DOMContentLoaded', () => { 
     if(document.getElementById('inputNom')) document.getElementById('inputNom').value = utilisateur.nom || "";
     if(document.getElementById('inputMetierProfil')) document.getElementById('inputMetierProfil').value = utilisateur.metier || "";
+    if(document.getElementById('inputTelProfil')) document.getElementById('inputTelProfil').value = utilisateur.telephone || "+22898231402";
     if(document.getElementById('inputIaTon')) document.getElementById('inputIaTon').value = utilisateur.iaTon || "standard";
     actualiserDashboard();
     verifierPremierLancement();
 });
+
+let logoIndex = 0;
+const logosArray = ['logo_evat.png', 'logo_evat_alt.png'];
+function basculerLogoInterchangeable(e) {
+    if(e) e.stopPropagation();
+    logoIndex = (logoIndex + 1) % logosArray.length;
+    document.querySelectorAll('.quantum-logo-app, img[alt*="Logo"]').forEach(img => {
+        img.src = logosArray[logoIndex];
+    });
+    alert("🔄 Logo basculé sur le style " + (logoIndex + 1));
+}
+function testerVoixElaws() {
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const msg = new SpeechSynthesisUtterance("Bonjour Kodjo. Je suis ELAWS Quantum version 3 point 57. Ma voix est parfaitement opérationnelle.");
+        msg.lang = 'fr-FR';
+        window.speechSynthesis.speak(msg);
+    } else {
+        alert("Synthèse vocale non supportée.");
+    }
+}

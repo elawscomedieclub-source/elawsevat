@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>EVAT | ELAWS Quantum v3.50</title>
+    <title>EVAT | ELAWS Quantum v3.57</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" href="logo_evat.svg" type="image/svg+xml">
@@ -16,15 +16,15 @@
             <div style="display:flex; justify-content:center; margin-bottom:12px;">
                 <img src="logo_evat.svg" alt="Logo de l'application" style="width:72px; height:72px; border-radius:50%; box-shadow:0 0 25px var(--accent); border:2px solid var(--accent);">
             </div>
-            <h2 style="color:var(--accent); font-size:17px; margin-bottom:6px;">EVAT Quantum v3.50</h2>
-            <p style="font-size:12.5px; color:var(--text-secondary); margin-bottom:14px;">Intelligence ELAWS Hyper-Renforcée.</p>
+            <h2 style="color:var(--accent); font-size:17px; margin-bottom:6px;">EVAT Quantum v3.57</h2>
+            <p style="font-size:12.5px; color:var(--text-secondary); margin-bottom:14px;">Appel Audio & Vidéo WebRTC activé.</p>
             
             <div style="text-align:left; margin-bottom:14px;">
                 <label style="font-size:11.5px; color:var(--text-color);">Votre Nom :</label>
                 <input type="text" id="inputNom" class="input" placeholder="Ex: Kodjo Marceline" style="margin-bottom:6px; font-size:12.5px; padding:8px;">
                 
-                <label style="font-size:11.5px; color:var(--text-color);">Votre Métier :</label>
-                <input type="text" id="inputMetierProfil" class="input" placeholder="Ex: Développeur, Entrepreneur..." style="margin-bottom:6px; font-size:12.5px; padding:8px;">
+                <label style="font-size:11.5px; color:var(--text-color);">Votre Numéro (ID VoIP) :</label>
+                <input type="text" id="inputTelProfil" class="input" value="+22898231402" style="margin-bottom:6px; font-size:12.5px; padding:8px;">
 
                 <label style="font-size:11.5px; color:var(--text-color);">Profil ELAWS :</label>
                 <select id="inputIaTon" class="input" style="background:var(--bg-color); color:var(--text-color); font-size:12.5px; padding:8px; margin-bottom:12px;">
@@ -34,7 +34,7 @@
                     <option value="technique">💻 Expert Technique / Code</option>
                 </select>
             </div>
-            <button onclick="sauvegarderProfilBase()" class="btn-action ripple-effect" style="font-size:13.5px; padding:10px;">🚀 Démarrer ELAWS 3.50 (+50 Qubits)</button>
+            <button onclick="sauvegarderProfilBase()" class="btn-action ripple-effect" style="font-size:13.5px; padding:10px;">🚀 Démarrer ELAWS 3.57 (+50 Qubits)</button>
         </div>
     </div>
 
@@ -43,9 +43,9 @@
             <div class="header-left">
                 <button onclick="toggleMenu(event)" class="menu-btn ripple-effect" aria-label="Menu principal">☰</button>
                 <div class="header-brand" style="display:flex; align-items:center; gap:10px;">
-                    <img src="logo_evat.svg" alt="Logo App" class="quantum-logo-app">
+                    <img src="logo_evat.svg" alt="Logo App" class="quantum-logo-app" onclick="basculerLogoInterchangeable(event)" title="Changer de Logo">
                     <div>
-                        <h1 id="appTitle">EVAT <span style="font-weight:300; font-size:12px; color:var(--text-secondary);">| Quantum v3.50</span></h1>
+                        <h1 id="appTitle">EVAT <span style="font-weight:300; font-size:12px; color:var(--text-secondary);">| Quantum v3.57</span></h1>
                     </div>
                 </div>
             </div>
@@ -55,7 +55,7 @@
                     <button onclick="ouvrirModeClavierDirect(event)" class="elaws-keyboard-btn ripple-effect" title="Clavier"><span>⌨️</span></button>
                     <button onclick="basculerEcouteVocaleLiveDirect(event)" class="elaws-magic-bubble ripple-effect" title="Voix">
                         <div class="magic-sphere-core"></div>
-                        <span class="magic-label">🎙️ ELAWS 3.50</span>
+                        <span class="magic-label">🎙️ ELAWS 3.57</span>
                     </button>
                 </div>
                 
@@ -63,7 +63,7 @@
                     <div class="elaws-popup-header">
                         <div style="display:flex; align-items:center; gap:6px;">
                             <span class="status-indicator"></span>
-                            <span>ELAWS 3.50 • IA Hyper-Renforcée</span>
+                            <span>ELAWS 3.57 • IA Hyper-Renforcée</span>
                         </div>
                         <button onclick="fermerElawsChat(event)" class="close-popup-btn ripple-effect">✕</button>
                     </div>
@@ -109,15 +109,12 @@
                 <a href="#" onclick="switchTab('succes1000')" class="nav-link ripple-effect" id="link-succes1000">💎 Garantie Succès 1000%</a>
                 <a href="#" onclick="switchTab('sync')" class="nav-link ripple-effect" id="link-sync">☁️ Cloud & Synchro</a>
                 <a href="#" onclick="switchTab('voyage')" class="nav-link ripple-effect" id="link-voyage">✈️ Guide Voyage, Visa & Billets</a>
-                <a href="#" onclick="switchTab('partage')" class="nav-link ripple-effect" id="link-partage">🔗 Partage Collaboratif</a>
-                <a href="#" onclick="switchTab('crise')" class="nav-link ripple-effect" id="link-crise">🚨 Urgences & Solutions</a>
-                <a href="#" onclick="switchTab('audit')" class="nav-link ripple-effect" id="link-audit">🌐 Évaluation Web</a>
-                <a href="#" onclick="switchTab('appel')" class="nav-link ripple-effect" id="link-appel">📞 Appel Direct</a>
-                <a href="#" onclick="switchTab('profil')" class="nav-link ripple-effect" id="link-profil">👤 Profil & Ton IA</a>
+                <a href="#" onclick="switchTab('appel')" class="nav-link ripple-effect" id="link-appel">📞 Appel Audio & Vidéo (WebRTC)</a>
+                <a href="#" onclick="switchTab('profil')" class="nav-link ripple-effect" id="link-profil">👤 Profil & VoIP</a>
                 <a href="#" onclick="switchTab('outils')" class="nav-link ripple-effect" id="link-outils">🛠️ Boîte à Outils</a>
             </div>
             <div class="sidebar-footer">
-                <p>EVAT v3.50 • Eric Lawson</p>
+                <p>EVAT v3.57 • Eric Lawson</p>
             </div>
         </nav>
 
@@ -125,19 +122,19 @@
 
         <main class="content">
 
-            <!-- DASHBOARD QUANTIQUE -->
+            <!-- DASHBOARD -->
             <section id="tab-dashboard" class="tab-content active">
                 <div class="dashboard-grid">
                     <div>
                         <div class="card" style="border-left: 4px solid var(--success); background: linear-gradient(135deg, var(--card-bg), rgba(16,185,129,0.1));">
                             <span style="font-size:11.5px; color:var(--success); font-weight:700; text-transform:uppercase;">⚡ Énergie Qubit Active</span>
-                            <h2 style="font-size:24px; color:var(--text-color); margin:4px 0;"><span id="dashQubitsScore">250</span> <span style="font-size:13px; color:var(--accent);">Qubits</span></h2>
+                            <h2 style="font-size:24px; color:var(--text-color); margin:4px 0;"><span id="dashQubitsScore">300</span> <span style="font-size:13px; color:var(--accent);">Qubits</span></h2>
                             <p style="font-size:11.5px; color:var(--text-secondary);">Niveau Actuel : <strong style="color:var(--text-color);">Niveau <span id="dashNiveauScore">1</span></strong></p>
                         </div>
 
                         <div class="card" style="border-left: 4px solid var(--accent);">
                             <h3 style="font-size:13.5px; color:var(--text-color); font-weight:700; margin-bottom:4px;">Global Quantum Network Status</h3>
-                            <p style="font-size:11.5px; color:var(--text-secondary); margin-bottom:10px;">Network Integrity | <strong style="color:var(--success);">100% Active (ELAWS 3.50)</strong></p>
+                            <p style="font-size:11.5px; color:var(--text-secondary); margin-bottom:10px;">Network Integrity | <strong style="color:var(--success);">100% Active (Audio & Vidéo WebRTC)</strong></p>
                             
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
                                 <div style="display:flex; gap:6px;">
@@ -156,10 +153,10 @@
                     <div>
                         <div class="card" style="border-left: 4px solid var(--accent); text-align:center; padding:24px;">
                             <div style="width:84px; height:84px; margin:0 auto 12px auto; border-radius:50%; background:radial-gradient(circle, #38bdf8 0%, #1d4ed8 70%); box-shadow:0 0 30px rgba(14,165,233,0.9); display:flex; align-items:center; justify-content:center; border:2px solid #fff;">
-                                <img src="logo_evat.svg" alt="Logo Application" style="width:76px; height:76px; border-radius:50%; object-fit:cover;">
+                                <img src="logo_evat.png" alt="Logo Actif" class="quantum-logo-app" style="width:76px; height:76px; border-radius:50%; object-fit:cover; cursor:pointer;" onclick="basculerLogoInterchangeable(event)" title="Alterner Logo 1 / Logo 2">
                             </div>
                             <h3 style="font-size:16px; color:var(--accent); margin-bottom:6px;">EVAT & ELAWS Quantum</h3>
-                            <p style="font-size:12px; color:var(--text-secondary); margin-bottom:14px;">Cerveau IA v3.50 hyper-renforcé et optimisé.</p>
+                            <p style="font-size:12px; color:var(--text-secondary); margin-bottom:14px;">Appel Audio & Vidéo par Numéro (GSM & Email supprimés).</p>
                             <button onclick="declencherInstallationNative()" class="btn-action ripple-effect" style="background:var(--success); color:#fff; font-size:13px; padding:10px;">📲 Installer l'Application (PWA)</button>
                         </div>
                     </div>
@@ -202,52 +199,46 @@
                 </div>
             </section>
 
-            <section id="tab-partage" class="tab-content">
-                <div class="card" style="border-left: 4px solid var(--success);">
-                    <h2>🔗 Partage Collaboratif</h2>
-                    <button class="btn-action ripple-effect" onclick="alert('Lien de partage ELAWS généré !')">Générer Lien Sécurisé</button>
-                </div>
-            </section>
-
-            <section id="tab-crise" class="tab-content">
-                <div class="card" style="border-left: 4px solid var(--danger);">
-                    <h2>🚨 Urgences & Solutions</h2>
-                    <textarea id="criseDescription" class="input" placeholder="Décrivez le problème technique..." style="height:80px;"></textarea>
-                    <button class="btn-action ripple-effect" onclick="analyserEtResoudreCrise()" style="background:var(--danger); color:#fff;">Générer Solution IA</button>
-                    <div id="resultatCriseContainer" style="margin-top:12px; display:none;"></div>
-                </div>
-            </section>
-
-            <section id="tab-audit" class="tab-content">
-                <div class="card" style="border-left: 4px solid var(--accent);">
-                    <h2>🌐 Évaluation Web</h2>
-                    <input type="text" id="urlAuditInput" class="input" value="https://evat-elaws.net">
-                    <button class="btn-action ripple-effect" onclick="lancerAuditSite()">Lancer l'Audit</button>
-                    <div id="resultatAuditContainer" style="margin-top:12px; display:none;"></div>
-                </div>
-            </section>
-
+            <!-- APPEL AUDIO ET VIDEO (WebRTC par Numéro) -->
             <section id="tab-appel" class="tab-content">
-                <div class="card" style="border-left: 4px solid var(--success); text-align:center;">
-                    <h2>📞 Appel Direct ELAWS</h2>
-                    <p style="color:var(--accent); font-size:14px; font-weight:700; margin:10px 0;">+228 98 23 14 02</p>
-                    <a href="tel:+22898231402" class="btn-action ripple-effect" style="display:inline-block; text-decoration:none;">Lancer l'Appel</a>
+                <div class="card" style="border-left: 4px solid var(--success); text-align:center; padding:24px;">
+                    <h2>📞 Appel Audio & Vidéo Internet (WebRTC)</h2>
+                    <p style="color:var(--text-secondary); font-size:12.5px; margin:8px 0 16px 0;">Le réseau GSM et les emails ont été supprimés. Choisissez un mode d'appel direct par Internet basé sur votre numéro de téléphone.</p>
+                    
+                    <div style="background:var(--bg-color); padding:16px; border-radius:12px; border:1px solid var(--accent); margin-bottom:16px;">
+                        <span style="font-size:11.5px; color:var(--text-secondary);">Identifiant Numéro Actif :</span>
+                        <div id="voipNumeroDisplay" style="color:var(--accent); font-size:18px; font-weight:800; margin-top:4px;">+228 98 23 14 02</div>
+                    </div>
+
+                    <div id="voipStatusDisplay" style="margin-bottom:16px; font-size:13px; color:var(--text-secondary);">
+                        Prêt pour appel audio ou vidéo sécurisé.
+                    </div>
+
+                    <!-- Conteneur Vidéo WebRTC -->
+                    <div id="videoCallContainer" style="display:none; margin-bottom:16px; background:#000; border-radius:12px; overflow:hidden; border:2px solid var(--accent);">
+                        <video id="localVideoElement" autoplay playsinline muted style="width:100%; max-height:260px; object-fit:cover;"></video>
+                    </div>
+
+                    <div style="display:flex; gap:10px; justify-content:center;">
+                        <button id="btnAppelAudio" onclick="lancerAppelInternet('audio')" class="btn-action ripple-effect" style="background:var(--success); color:#fff; font-size:13px; padding:12px; flex:1;">🎙️ Lancer Appel Audio</button>
+                        <button id="btnAppelVideo" onclick="lancerAppelInternet('video')" class="btn-action ripple-effect" style="background:var(--accent); color:#030712; font-size:13px; padding:12px; flex:1;">📹 Lancer Appel Vidéo</button>
+                    </div>
                 </div>
             </section>
 
             <section id="tab-profil" class="tab-content">
                 <div class="card" style="border-left: 4px solid var(--accent);">
-                    <h2>👤 Gestion du Profil</h2>
+                    <h2>👤 Gestion du Profil & VoIP</h2>
                     <label style="font-size:12px;">Nom :</label><input type="text" id="inputNom" class="input">
                     <label style="font-size:12px;">Métier :</label><input type="text" id="inputMetierProfil" class="input">
+                    <label style="font-size:12px;">Numéro Téléphone (ID VoIP) :</label><input type="text" id="inputTelProfil" class="input">
                     <label style="font-size:12px;">Ton IA :</label>
                     <select id="inputIaTon" class="input"><option value="standard">Standard Quantum</option><option value="pedagogique">Tuteur</option><option value="business">Business</option><option value="technique">Technique</option></select>
-                    <button class="btn-action ripple-effect" onclick="sauvegarderProfilBase()" style="margin-bottom:15px;">Enregistrer</button>
+                    <button class="btn-action ripple-effect" onclick="sauvegarderProfilBase()" style="margin-bottom:15px;">Enregistrer Profil</button>
                     
-                    <h3 style="font-size:14px; margin-bottom:8px;">📖 Contacts</h3>
+                    <h3 style="font-size:14px; margin-bottom:8px;">📖 Contacts VoIP</h3>
                     <input type="text" id="contactNomInput" class="input" placeholder="Nom">
-                    <input type="text" id="contactTelInput" class="input" placeholder="Téléphone">
-                    <input type="text" id="contactEmailInput" class="input" placeholder="Email">
+                    <input type="text" id="contactTelInput" class="input" placeholder="Numéro de Téléphone">
                     <button class="btn-action ripple-effect" onclick="ajouterContactManuel()" style="margin-bottom:12px;">Ajouter Contact</button>
                     <div id="listeContactsContainer"></div>
                 </div>
@@ -266,7 +257,7 @@
             </section>
 
             <footer style="text-align: center; padding: 20px 0; color: var(--text-secondary); font-size: 11.5px;">
-                <p>EVAT v3.50 Quantum • Conçu par Eric Lawson</p>
+                <p>EVAT v3.57 Quantum • Conçu par Eric Lawson</p>
             </footer>
         </main>
     </div>
