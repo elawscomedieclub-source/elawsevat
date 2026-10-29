@@ -658,3 +658,36 @@ function testerVoixElaws() {
         alert("Synthèse vocale non supportée.");
     }
 }
+
+
+
+// --- SUIVI AUTOMATIQUE DE POSITION REÇUE DANS LE CHAT ---
+function suivrePositionRecue(lat, lon, nomLieu) {
+    const iframe = document.getElementById('iframeCarteMonde');
+    if(iframe) {
+        const bboxDelta = 0.008;
+        const bbox = (lon - bboxDelta) + "," + (lat - bboxDelta) + "," + (lon + bboxDelta) + "," + (lat + bboxDelta);
+        iframe.src = "https://www.openstreetmap.org/export/embed.html?bbox=" + bbox + "&layer=mapnik&marker=" + lat + "," + lon;
+        // Basculer vers l'onglet Dashboard ou faire défiler vers la carte si nécessaire
+        switchTab('dashboard');
+        alert("📍 Itinéraire chargé vers la position de " + (nomLieu || "votre correspondant") + " ! Suivez la carte.");
+    }
+}
+
+function partagerMaPositionDansChat() {
+    if(navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(position => {
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+            const msgInput = document.getElementById('chatLocalInput');
+            if(msgInput) {
+                msgInput.value = "📍 Ma position GPS : " + lat.toFixed(5) + ", " + lon.toFixed(5);
+                envoyerMessageChatLocal();
+            }
+        }, () => {
+            alert("Impossible de récupérer votre position GPS.");
+        });
+    } else {
+        alert("Géolocalisation non supportée.");
+    }
+}

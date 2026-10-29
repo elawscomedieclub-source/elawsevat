@@ -188,43 +188,45 @@
                 </div>
             </section>
 
-                        <!-- MODULE UNIFIE COMMUNICATIONS : MESSAGERIE & APPELS -->
+                        <!-- MODULE UNIFIE COMMUNICATIONS : MESSAGERIE, APPELS & SUIVI DE POSITION -->
             <section id="tab-communications" class="tab-content">
                 <div class="card" style="border-left: 4px solid var(--success);">
-                    <h2>📞 Centre de Communications & Messagerie</h2>
-                    <p style="color:var(--text-secondary); font-size:12.5px; margin:6px 0 14px 0;">Messagerie locale sécurisée et appels audio/vidéo WebRTC regroupés.</p>
+                    <h2>📞 Centre de Communications & Position Partagée</h2>
+                    <p style="color:var(--text-secondary); font-size:12.5px; margin:6px 0 14px 0;">Appels WebRTC, messagerie locale et suivi automatique des positions reçues.</p>
                     
-                    <!-- Section Appels WebRTC -->
-                    <div style="background:var(--bg-color); padding:14px; border-radius:10px; border:1px solid var(--accent); margin-bottom:14px; text-align:center;">
-                        <span style="font-size:11.5px; color:var(--text-secondary);">Numéro / ID VoIP Actif :</span>
-                        <div id="voipNumeroDisplay" style="color:var(--accent); font-size:16px; font-weight:800; margin:4px 0 10px 0;">+228 98 23 14 02</div>
-                        <div id="voipStatusDisplay" style="margin-bottom:12px; font-size:12px; color:var(--text-secondary);">Prêt pour appel audio ou vidéo.</div>
+                    <!-- Section Appels WebRTC & ID VoIP -->
+                    <div style="background:var(--bg-color); padding:12px; border-radius:10px; border:1px solid var(--accent); margin-bottom:12px; text-align:center;">
+                        <span style="font-size:11px; color:var(--text-secondary);">ID VoIP Actif :</span>
+                        <div id="voipNumeroDisplay" style="color:var(--accent); font-size:15px; font-weight:800; margin:2px 0 8px 0;">+228 98 23 14 02</div>
                         
-                        <div id="videoCallContainer" style="display:none; margin-bottom:12px; background:#000; border-radius:8px; overflow:hidden; border:1px solid var(--accent);">
-                            <video id="localVideoElement" autoplay playsinline muted style="width:100%; max-height:200px; object-fit:cover;"></video>
+                        <div id="videoCallContainer" style="display:none; margin-bottom:8px; background:#000; border-radius:8px; overflow:hidden; border:1px solid var(--accent);">
+                            <video id="localVideoElement" autoplay playsinline muted style="width:100%; max-height:160px; object-fit:cover;"></video>
                         </div>
 
-                        <div style="display:flex; gap:8px; justify-content:center;">
-                            <button id="btnAppelAudio" onclick="lancerAppelInternet('audio')" class="btn-action ripple-effect" style="background:var(--success); color:#fff; font-size:12px; padding:10px; flex:1;">🎙️ Appel Audio</button>
-                            <button id="btnAppelVideo" onclick="lancerAppelInternet('video')" class="btn-action ripple-effect" style="background:var(--accent); color:#030712; font-size:12px; padding:10px; flex:1;">📹 Appel Vidéo</button>
+                        <div style="display:flex; gap:6px; justify-content:center;">
+                            <button id="btnAppelAudio" onclick="lancerAppelInternet('audio')" class="btn-action ripple-effect" style="background:var(--success); color:#fff; font-size:11.5px; padding:8px; flex:1;">🎙️ Audio</button>
+                            <button id="btnAppelVideo" onclick="lancerAppelInternet('video')" class="btn-action ripple-effect" style="background:var(--accent); color:#030712; font-size:11.5px; padding:8px; flex:1;">📹 Vidéo</button>
                         </div>
                     </div>
 
-                    <!-- Section Fichiers & Messagerie Locale -->
-                    <div style="background:var(--bg-color); padding:12px; border-radius:10px; border:1px solid var(--border-color); margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;">
+                    <!-- Messagerie avec Détection Automatique de Position -->
+                    <div style="background:var(--bg-color); padding:10px; border-radius:10px; border:1px solid var(--border-color); margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
                         <div>
-                            <strong style="font-size:12.5px; color:var(--text-color);">📁 Fichiers du Téléphone</strong>
-                            <div id="fileAccessStatus" style="font-size:11px; color:var(--text-secondary); margin-top:2px;">Stockage interne actif.</div>
+                            <strong style="font-size:12px; color:var(--text-color);">📁 Fichiers Tél & Chat Sécurisé</strong>
+                            <div id="fileAccessStatus" style="font-size:10.5px; color:var(--text-secondary);">Stockage interne actif.</div>
                         </div>
-                        <button onclick="selectionnerDossierStockageTelephone()" class="btn-action ripple-effect" style="width:auto; padding:8px 12px; font-size:11.5px; background:var(--accent); color:#030712;">Lier Dossier</button>
+                        <button onclick="selectionnerDossierStockageTelephone()" class="btn-action ripple-effect" style="width:auto; padding:6px 10px; font-size:11px; background:var(--accent); color:#030712;">Lier Dossier</button>
                     </div>
 
-                    <div id="listeMessagesLocaux" style="background:var(--bg-color); border:1px solid var(--border-color); border-radius:10px; padding:10px; height:200px; overflow-y:auto; margin-bottom:10px; display:flex; flex-direction:column; gap:6px;"></div>
+                    <div id="listeMessagesLocaux" style="background:var(--bg-color); border:1px solid var(--border-color); border-radius:10px; padding:8px; height:180px; overflow-y:auto; margin-bottom:8px; display:flex; flex-direction:column; gap:6px;"></div>
 
-                    <div style="display:flex; gap:8px;">
-                        <input type="text" id="chatLocalInput" class="input" placeholder="Écrire un message..." style="margin-bottom:0; font-size:13px; padding:10px;" onkeypress="if(event.key==='Enter') envoyerMessageChatLocal()">
-                        <button onclick="envoyerMessageChatLocal()" class="btn-action ripple-effect" style="width:auto; padding:0 18px; font-size:12.5px; background:var(--success); color:#fff;">Envoyer</button>
+                    <div style="display:flex; gap:6px; margin-bottom:8px;">
+                        <input type="text" id="chatLocalInput" class="input" placeholder="Message ou position GPS (ex: 6.14, 1.22)..." style="margin-bottom:0; font-size:12px; padding:8px;" onkeypress="if(event.key==='Enter') envoyerMessageChatLocal()">
+                        <button onclick="envoyerMessageChatLocal()" class="btn-action ripple-effect" style="width:auto; padding:0 14px; font-size:12px; background:var(--success); color:#fff;">Envoyer</button>
                     </div>
+
+                    <!-- Bouton rapide de partage de position GPS actuelle -->
+                    <button onclick="partagerMaPositionDansChat()" class="btn-action ripple-effect" style="width:100%; font-size:11.5px; padding:8px; background:var(--accent); color:#030712;">📍 Partager ma position GPS actuelle dans le chat</button>
                 </div>
             </section>
 
@@ -305,24 +307,73 @@
 
     <script src="elaws.js" defer></script>
     <script src="app.js" defer></script>
+    
     <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js'); });
-        }
-        function changerModeCarte(mode) {
+        function rechercherLieuCarte() {
+            const query = document.getElementById('rechercheLieuInput').value.trim();
+            if(!query) { alert("Entrez un lieu ou une boutique à rechercher."); return; }
             const iframe = document.getElementById('iframeCarteMonde');
-            const btnReel = document.getElementById('btnCarteReelle');
-            const btnSat = document.getElementById('btnCarteSatellite');
-            if(mode === 'reel') {
-                iframe.src = "https://www.openstreetmap.org/export/embed.html?bbox=1.19,6.11,1.25,6.17&amp;layer=mapnik&amp;marker=6.14,1.22";
-                btnReel.classList.add('active');
-                btnSat.classList.remove('active');
+            const statut = document.getElementById('statutGPS');
+            statut.innerText = "🔍 Recherche de '" + query + "'...";
+            
+            // Utiliser OpenStreetMap Nominatim search pour centrer la carte sur la zone recherchée
+            const searchUrl = "https://nominatim.openstreetmap.org/search?format=json&q=" + encodeURIComponent(query + ", Lomé, Togo");
+            
+            fetch(searchUrl)
+                .then(response => response.json())
+                .then(data => {
+                    if(data && data.length > 0) {
+                        const lat = parseFloat(data[0].lat);
+                        const lon = parseFloat(data[0].lon);
+                        const bboxDelta = 0.01;
+                        const bbox = (lon - bboxDelta) + "," + (lat - bboxDelta) + "," + (lon + bboxDelta) + "," + (lat + bboxDelta);
+                        iframe.src = "https://www.openstreetmap.org/export/embed.html?bbox=" + bbox + "&layer=mapnik&marker=" + lat + "," + lon;
+                        statut.innerHTML = '<span style="color:var(--success);">✅ Trouvé : ' + data[0].display_name.slice(0, 35) + '...</span>';
+                    } else {
+                        // Recherche élargie sans restriction stricte de ville si introuvable à Lomé
+                        fetch("https://nominatim.openstreetmap.org/search?format=json&q=" + encodeURIComponent(query))
+                            .then(res => res.json())
+                            .then(d2 => {
+                                if(d2 && d2.length > 0) {
+                                    const lat = parseFloat(d2[0].lat);
+                                    const lon = parseFloat(d2[0].lon);
+                                    const bboxDelta = 0.02;
+                                    const bbox = (lon - bboxDelta) + "," + (lat - bboxDelta) + "," + (lon + bboxDelta) + "," + (lat + bboxDelta);
+                                    iframe.src = "https://www.openstreetmap.org/export/embed.html?bbox=" + bbox + "&layer=mapnik&marker=" + lat + "," + lon;
+                                    statut.innerHTML = '<span style="color:var(--success);">✅ Lieu trouvé !</span>';
+                                } else {
+                                    statut.innerHTML = '<span style="color:var(--danger);">❌ Lieu introuvable.</span>';
+                                }
+                            });
+                    }
+                })
+                .catch(err => {
+                    statut.innerHTML = '<span style="color:var(--danger);">❌ Erreur de recherche.</span>';
+                });
+        }
+
+        function geolocaliserUtilisateurCarte() {
+            const statut = document.getElementById('statutGPS');
+            const iframe = document.getElementById('iframeCarteMonde');
+            if(navigator.geolocation) {
+                statut.innerText = "📍 Localisation GPS en cours...";
+                navigator.geolocation.getCurrentPosition(position => {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+                    const bboxDelta = 0.008;
+                    const bbox = (lon - bboxDelta) + "," + (lat - bboxDelta) + "," + (lon + bboxDelta) + "," + (lat + bboxDelta);
+                    iframe.src = "https://www.openstreetmap.org/export/embed.html?bbox=" + bbox + "&layer=mapnik&marker=" + lat + "," + lon;
+                    statut.innerHTML = '<span style="color:var(--success);">🟢 Position GPS fixée !</span>';
+                }, error => {
+                    // Position par défaut Lomé Kodjoviakopé si refus GPS
+                    iframe.src = "https://www.openstreetmap.org/export/embed.html?bbox=1.19,6.11,1.25,6.17&layer=mapnik&marker=6.14,1.22";
+                    statut.innerHTML = '<span style="color:var(--accent);">📍 Position par défaut (Lomé)</span>';
+                }, { timeout: 10000 });
             } else {
-                iframe.src = "https://www.openstreetmap.org/export/embed.html?bbox=1.19,6.11,1.25,6.17&amp;layer=cyclemap&amp;marker=6.14,1.22";
-                btnSat.classList.add('active');
-                btnReel.classList.remove('active');
+                alert("Géolocalisation non supportée par votre navigateur.");
             }
         }
     </script>
 </body>
+
 </html>
