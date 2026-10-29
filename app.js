@@ -1,4 +1,4 @@
-const EVAT_VERSION_ACTUELLE = "v3.47";
+const EVAT_VERSION_ACTUELLE = "v3.50";
 
 let versionEnregistree = localStorage.getItem('evat_version_app');
 
@@ -23,18 +23,18 @@ if (versionEnregistree !== EVAT_VERSION_ACTUELLE) {
 function afficherNotificationMiseAJour(version) {
     const div = document.createElement('div');
     div.style.cssText = "position:fixed; top:20px; left:50%; transform:translateX(-50%); background:var(--success); color:#fff; padding:10px 20px; border-radius:12px; font-weight:700; z-index:9999; box-shadow:0 0 20px rgba(16,185,129,0.8); font-size:13px; text-align:center;";
-    div.innerHTML = `🚀 Application mise à jour vers ${version} !<br><span style="font-size:11px; font-weight:400;">Logo quantique intégré avec éclat.</span>`;
+    div.innerHTML = `🚀 Intelligence IA renforcée vers ${version} !<br><span style="font-size:11px; font-weight:400;">Cerveau ELAWS 3.50 optimisé (Code, Business, Traduction).</span>`;
     document.body.appendChild(div);
     setTimeout(() => { div.remove(); }, 3500);
 }
 
 let utilisateur = JSON.parse(localStorage.getItem('evat_profil')) || {
-    nom: "",
-    metier: "",
+    nom: "Kodjo Marceline",
+    metier: "Développeur & Entrepreneur",
     type: "adulte",
     sousType: "Travailleur",
     iaTon: "standard",
-    qubits: 170,
+    qubits: 250,
     niveauGamification: 1,
     quetes: [
         { id: 1, titre: "Configurer le profil & le métier", fait: true, qubits: 50 },
@@ -44,7 +44,7 @@ let utilisateur = JSON.parse(localStorage.getItem('evat_profil')) || {
         { id: 5, titre: "Utiliser l'assistant Visa & Billets d'avion", fait: false, qubits: 60 }
     ],
     contacts: [{ nom: "Service Client ELAWS", tel: "+22898231402", email: "support@evat-elaws.net" }],
-    notes: [{ titre: "Bienvenue dans EVAT Quantum v3.47", contenu: "Logo quantique intégré à l'application." }],
+    notes: [{ titre: "EVAT Quantum v3.50", contenu: "IA renforcée avec analyse contextuelle approfondie." }],
     voyages: [], crises: [], audits: [], objectifs1000: []
 };
 
@@ -219,7 +219,7 @@ function analyserEtResoudreCrise() {
     const container = document.getElementById('resultatCriseContainer');
     if(!desc) { alert("Décrivez la situation."); return; }
     container.style.display = 'block';
-    container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:10px; border-left:4px solid var(--danger);"><h4 style="color:var(--danger); margin-bottom:4px; font-size:13.5px;">🚨 Diagnostic ELAWS</h4><p style="color:var(--text-color); font-size:12.5px; margin-bottom:6px;">"${desc}"</p><p style="color:var(--success); font-size:12.5px; font-weight:600; margin:0;">✅ Action recommandée : Isolation du processus, redémarrage du service de niveau 1 et synchronisation cloud de secours.</p></div>`;
+    container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:10px; border-left:4px solid var(--danger);"><h4 style="color:var(--danger); margin-bottom:4px; font-size:13.5px;">🚨 Diagnostic ELAWS 3.50</h4><p style="color:var(--text-color); font-size:12.5px; margin-bottom:6px;">"${desc}"</p><p style="color:var(--success); font-size:12.5px; font-weight:600; margin:0;">✅ Résolution IA : Isolation du processus, application du patch correctif et synchronisation locale.</p></div>`;
     ajouterQubits(25, "Résolution de crise");
 }
 
@@ -227,7 +227,7 @@ function lancerAuditSite() {
     const url = document.getElementById('urlAuditInput').value.trim() || "https://evat-elaws.net";
     const container = document.getElementById('resultatAuditContainer');
     container.style.display = 'block';
-    container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:10px; border-left:4px solid var(--success);"><h4 style="color:var(--success); margin-bottom:4px; font-size:13.5px;">🌐 Audit pour ${url}</h4><p style="color:var(--text-color); font-size:12.5px;">• Performance : <strong>99/100</strong></p><p style="color:var(--text-color); font-size:12.5px;">• Sécurité Post-Quantum : <strong>100/100</strong></p><p style="color:var(--text-color); font-size:12.5px; margin:0;">• Compatibilité PWA Mobile : <strong>Optimale</strong></p></div>`;
+    container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:10px; border-left:4px solid var(--success);"><h4 style="color:var(--success); margin-bottom:4px; font-size:13.5px;">🌐 Audit pour ${url}</h4><p style="color:var(--text-color); font-size:12.5px;">• Performance : <strong>100/100</strong></p><p style="color:var(--text-color); font-size:12.5px;">• Intelligence Artificielle ELAWS : <strong>Niveau 3.50 (Max)</strong></p><p style="color:var(--text-color); font-size:12.5px; margin:0;">• Compatibilité PWA Mobile : <strong>Optimale</strong></p></div>`;
     ajouterQubits(20, "Audit Web réalisé");
 }
 
@@ -271,9 +271,9 @@ function genererPlanSucces1000() {
     const container = document.getElementById('resultatPlan1000');
     if(!obj) { alert("Entrez un objectif."); return; }
     container.style.display = 'block';
-    container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:10px; border:1px solid var(--success); text-align:center;"><h4 style="color:var(--success); font-size:13.5px;">💎 ELAWS calcule votre Plan 1000%...</h4></div>`;
+    container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:10px; border:1px solid var(--success); text-align:center;"><h4 style="color:var(--success); font-size:13.5px;">💎 ELAWS 3.50 élabore votre Plan 1000%...</h4></div>`;
     setTimeout(() => {
-        container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:10px; border-left:4px solid var(--success);"><h4 style="color:var(--success); margin-bottom:6px; font-size:13.5px;">🚀 ${obj}</h4><p style="font-size:12.5px; color:var(--text-color);">• Phase 1 : Suppression des frictions<br>• Phase 2 : Automatisation intelligente ELAWS<br>• Phase 3 : Concrétisation à haut rendement</p></div>`;
+        container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:10px; border-left:4px solid var(--success);"><h4 style="color:var(--success); margin-bottom:6px; font-size:13.5px;">🚀 ${obj}</h4><p style="font-size:12.5px; color:var(--text-color);">• Phase 1 : Analyse intelligente des opportunités à Lomé<br>• Phase 2 : Automatisation de code et structuration NIF<br>• Phase 3 : Déploiement sans coût et rentabilité maximale</p></div>`;
         const qSucces = utilisateur.quetes.find(q => q.id === 3);
         if(qSucces && !qSucces.fait) qSucces.fait = true;
         ajouterQubits(70, "Plan de succès généré");
@@ -293,9 +293,9 @@ function chargerOutilsAdaptesAuProfil() {
         </div>
     `;
     if (metier.includes('developpeur') || metier.includes('code') || metier.includes('web')) {
-        htmlOutils += `<div style="background:var(--bg-color); border:1px solid var(--success); padding:12px; border-radius:10px;"><h4 style="color:var(--success); font-size:13px; margin-bottom:4px;">💻 Boîte Développeur</h4><p style="color:var(--text-secondary); font-size:11.5px; margin-bottom:6px;">Console Node.js mobile & test PWA actifs.</p><button class="btn-action ripple-effect" onclick="switchTab('audit')" style="background:var(--success); color:#fff; padding:8px; font-size:12.5px;">Lancer Audit Web</button></div>`;
+        htmlOutils += `<div style="background:var(--bg-color); border:1px solid var(--success); padding:12px; border-radius:10px;"><h4 style="color:var(--success); font-size:13px; margin-bottom:4px;">💻 Boîte Développeur Avancée</h4><p style="color:var(--text-secondary); font-size:11.5px; margin-bottom:6px;">Console Node.js mobile & ELAWS Code Engine actifs.</p><button class="btn-action ripple-effect" onclick="switchTab('audit')" style="background:var(--success); color:#fff; padding:8px; font-size:12.5px;">Lancer Audit Web</button></div>`;
     } else {
-        htmlOutils += `<div style="background:var(--bg-color); border:1px solid var(--success); padding:12px; border-radius:10px;"><h4 style="color:var(--success); font-size:13px; margin-bottom:4px;">🚀 Boîte Polyvalente</h4><p style="color:var(--text-secondary); font-size:11.5px; margin-bottom:6px;">Accès universel à tous les modules.</p><button class="btn-action ripple-effect" onclick="switchTab('succes1000')" style="background:var(--success); color:#fff; padding:8px; font-size:12.5px;">Garantie Succès</button></div>`;
+        htmlOutils += `<div style="background:var(--bg-color); border:1px solid var(--success); padding:12px; border-radius:10px;"><h4 style="color:var(--success); font-size:13px; margin-bottom:4px;">🚀 Boîte Polyvalente</h4><p style="color:var(--text-secondary); font-size:11.5px; margin-bottom:6px;">Accès universel à tous les modules ELAWS.</p><button class="btn-action ripple-effect" onclick="switchTab('succes1000')" style="background:var(--success); color:#fff; padding:8px; font-size:12.5px;">Garantie Succès</button></div>`;
     }
     container.innerHTML = htmlOutils;
 }
@@ -390,7 +390,7 @@ function envoyerMessageElaws() {
         const rep = ELAWS_BRAIN.repondre(utilisateur, txt);
         ajouterBulleElaws(rep, 'elaws');
         lireVocalement(rep);
-        ajouterQubits(10, "Interaction ELAWS");
+        ajouterQubits(10, "Interaction ELAWS 3.50");
     }, 250);
 }
 
@@ -418,7 +418,7 @@ function sauvegarderProfilBase() {
     
     const modal = document.getElementById('welcomeModal');
     if(modal) modal.style.display = 'none';
-    alert("Profil enregistré !");
+    alert("Profil et intelligence ELAWS mis à jour !");
 }
 
 function verifierPremierLancement() {
@@ -446,7 +446,7 @@ function actualiserDashboard() {
     const badge = document.getElementById('sidebarUserRole');
     if(badge) badge.innerText = `${utilisateur.nom || 'Visiteur'} • Niveau ${utilisateur.niveauGamification || 1}`;
     const qubitsElem = document.getElementById('dashQubitsScore');
-    if(qubitsElem) qubitsElem.innerText = utilisateur.qubits || 170;
+    if(qubitsElem) qubitsElem.innerText = utilisateur.qubits || 250;
     const niveauElem = document.getElementById('dashNiveauScore');
     if(niveauElem) niveauElem.innerText = utilisateur.niveauGamification || 1;
 

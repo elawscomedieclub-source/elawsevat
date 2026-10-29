@@ -66,18 +66,13 @@ body {
 .header-left { display: flex; align-items: center; gap: 12px; }
 .header-brand h1 { font-size: 17px; letter-spacing: 0.5px; color: var(--accent); font-weight: 800; line-height: 1.1; text-shadow: 0 0 10px rgba(14,165,233,0.4); }
 
-.quantum-logo-icon {
-    width: 36px;
-    height: 36px;
+.quantum-logo-app {
+    width: 38px;
+    height: 38px;
     border-radius: 50%;
-    box-shadow: 0 0 15px rgba(14, 165, 233, 0.6);
     border: 2px solid var(--accent);
+    box-shadow: 0 0 15px rgba(14, 165, 233, 0.7);
     object-fit: cover;
-    animation: logoGlow 3s infinite alternate;
-}
-@keyframes logoGlow {
-    0% { box-shadow: 0 0 10px rgba(14, 165, 233, 0.5); }
-    100% { box-shadow: 0 0 20px rgba(16, 185, 129, 0.8); }
 }
 
 .menu-btn { 
@@ -256,37 +251,4 @@ body {
     .dashboard-grid {
         grid-template-columns: 1fr 1fr;
     }
-}
-
-.map-node {
-    position: absolute;
-    transform: translate(-50%, -50%);
-    cursor: pointer;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-.node-pulse {
-    width: 8px;
-    height: 8px;
-    background: var(--accent);
-    border-radius: 50%;
-    box-shadow: 0 0 12px var(--accent);
-    animation: nodePulse 2s infinite;
-}
-@keyframes nodePulse {
-    0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(14,165,233,0.8); }
-    70% { transform: scale(1.4); box-shadow: 0 0 0 10px rgba(14,165,233,0); }
-    100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(14,165,233,0); }
-}
-.node-label {
-    background: rgba(3, 7, 18, 0.95);
-    border: 1px solid var(--accent);
-    color: var(--accent);
-    font-size: 9px;
-    padding: 2px 6px;
-    border-radius: 4px;
-    margin-top: 3px;
-    white-space: nowrap;
-    font-weight: 600;
 }
