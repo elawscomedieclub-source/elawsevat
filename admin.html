@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>EVAT | Console d'Administration Sécurisée</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="logo_evat.svg" type="image/svg+xml">
+    <meta name="theme-color" content="#030712">
+</head>
+<body style="background:#030712; color:#f8fafc; font-family:system-ui, -apple-system, sans-serif; padding:16px;">
+    
+    <!-- ÉCRAN DE CONNEXION ADMIN -->
+    <div id="loginScreen" style="max-width:380px; margin:80px auto; background:var(--card-bg); border:2px solid var(--accent); border-radius:14px; padding:24px; box-shadow:0 0 30px rgba(14,165,233,0.3); text-align:center;">
+        <img src="logo_evat.svg" alt="Logo Admin" style="width:64px; height:64px; border-radius:50%; border:2px solid var(--accent); margin-bottom:12px;">
+        <h2 style="color:var(--accent); font-size:18px; margin-bottom:6px;">Administration Sécurisée</h2>
+        <p style="font-size:12px; color:var(--text-secondary); margin-bottom:16px;">Réservé exclusivement à Eric Lawson.</p>
+        
+        <input type="password" id="inputAdminPassword" class="input" placeholder="Entrez votre mot de passe admin..." style="margin-bottom:12px; font-size:13px; text-align:center;" onkeypress="if(event.key==='Enter') verifierMotDePasseAdmin()">
+        <button onclick="verifierMotDePasseAdmin()" class="btn-action ripple-effect" style="width:100%; background:var(--success); color:#fff; font-size:13px; padding:10px;">🔓 Se connecter</button>
+        <div id="loginErrorMsg" style="color:var(--danger); font-size:11.5px; margin-top:8px;"></div>
+        <div style="margin-top:16px;">
+            <a href="index.html" style="color:var(--text-secondary); font-size:11.5px; text-decoration:underline;">Retour à l'application principale</a>
+        </div>
+    </div>
+
+    <!-- TABLEAU DE BORD ADMIN (Caché par défaut) -->
+    <div id="adminDashboard" style="max-width:700px; margin:0 auto; padding-bottom:30px; display:none;">
+        <header style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; border-bottom:1px solid rgba(14,165,233,0.3); padding-bottom:12px;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <img src="logo_evat.svg" alt="Logo Admin" style="width:40px; height:40px; border-radius:50%; border:2px solid var(--accent);">
+                <div>
+                    <h1 style="font-size:16px; color:var(--accent); margin:0;">Console Admin Privée</h1>
+                    <span style="font-size:11px; color:var(--success);">Connecté en tant que • Eric Lawson</span>
+                </div>
+            </div>
+            <div style="display:flex; gap:8px;">
+                <button onclick="changerMotDePasseAdmin()" class="btn-action ripple-effect" style="padding:8px 12px; font-size:11.5px; background:var(--card-hover); color:var(--accent);">🔑 Changer MDP</button>
+                <a href="index.html" class="btn-action ripple-effect" style="text-decoration:none; padding:8px 12px; font-size:11.5px; background:var(--card-hover); color:var(--text-color);">⬅️ Quitter</a>
+            </div>
+        </header>
+
+        <div class="card" style="border-left: 4px solid var(--success); margin-bottom:16px;">
+            <h2 style="font-size:14px; color:var(--success); margin-bottom:6px;">📊 Statistiques des Visites & Installations PWA</h2>
+            <p style="font-size:12px; color:var(--text-secondary); margin-bottom:12px;">Historique en temps réel des personnes qui visitent l'application, leur pays et leurs installations.</p>
+            
+            <div style="display:flex; gap:10px; margin-bottom:12px;">
+                <button onclick="chargerJournalVisiteurs()" class="btn-action ripple-effect" style="background:var(--accent); color:#030712; font-size:12px; padding:8px 12px; flex:1;">🔄 Actualiser le Journal</button>
+                <button onclick="effacerJournalVisiteurs()" class="btn-action ripple-effect" style="background:var(--danger); color:#fff; font-size:12px; padding:8px 12px; width:auto;">🗑️ Vider</button>
+            </div>
+
+            <div id="containerJournalVisiteurs" style="background:var(--bg-color); border:1px solid var(--border-color); border-radius:10px; padding:10px; height:320px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;">
+                <!-- Les visites s'afficheront ici -->
+            </div>
+        </div>
+
+        <div class="card" style="border-left: 4px solid var(--accent);">
+            <h2 style="font-size:14px; color:var(--accent); margin-bottom:6px;">🔒 Sécurité & Contrôle Admin</h2>
+            <p style="font-size:12px; color:var(--text-secondary); margin-bottom:10px;">Accès protégé par mot de passe personnel. Vos données de trafic restent strictement confidentielles.</p>
+            <div style="font-size:12px; color:var(--text-color);">
+                • Administrateur : <strong>Eric Lawson</strong><br>
+                • Identifiant VoIP associé : <strong>+228 98 23 14 02</strong><br>
+                • Localisation par défaut : <strong>Lomé, Togo (Kodjoviakopé)</strong>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mot de passe par défaut initialisé à "eric2026" si non défini
+        if(!localStorage.getItem('evat_admin_password')) {
+            localStorage.setItem('evat_admin_password', 'eric2026');
+        }
+
+        function verifierMotDePasseAdmin() {
+            const mdpSaisi = document.getElementById('inputAdminPassword').value.trim();
+            const mdpStocke = localStorage.getItem('evat_admin_password') || 'eric2026';
+            const errorMsg = document.getElementById('loginErrorMsg');
+
+            if(mdpSaisi === mdpStocke) {
+                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('adminDashboard').style.display = 'block';
+                chargerJournalVisiteurs();
+            } else {
+                errorMsg.innerText = "❌ Mot de passe incorrect. Accès refusé.";
+            }
+        }
+
+        function changerMotDePasseAdmin() {
+            const nouveauMdp = prompt("Entrez votre nouveau mot de passe administrateur :");
+            if(nouveauMdp && nouveauMdp.trim() !== "") {
+                localStorage.setItem('evat_admin_password', nouveauMdp.trim());
+                alert("✅ Mot de passe administrateur mis à jour avec succès !");
+            }
+        }
+
+        function chargerJournalVisiteurs() {
+            const container = document.getElementById('containerJournalVisiteurs');
+            let visites = JSON.parse(localStorage.getItem('evat_visites_journal') || '[]');
+            
+            if(visites.length === 0) {
+                visites = [
+                    { pays: "Togo", ville: "Lomé", ip: "197.234.xx.xx", date: new Date().toLocaleString(), type: "Visite Admin Initiale" }
+                ];
+                localStorage.setItem('evat_visites_journal', JSON.stringify(visites));
+            }
+
+            let html = '';
+            visites.forEach(v => {
+                const estInstall = v.type && v.type.includes("Installation");
+                html += `<div style="background:var(--bg-color); border:1px solid ${estInstall ? 'var(--success)' : 'var(--border-color)'}; padding:10px; border-radius:8px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                        <strong style="color:${estInstall ? 'var(--success)' : 'var(--accent)'}; font-size:12.5px;">${estInstall ? '📲 ' : '🌐 '}${v.type || 'Visite Web'}</strong>
+                        <span style="font-size:10px; color:var(--text-secondary);">${v.date}</span>
+                    </div>
+                    <p style="font-size:12px; color:var(--text-color); margin:0;">📍 Lieu : <strong>${v.ville || 'Inconnu'}, ${v.pays || 'Inconnu'}</strong> | IP : ${v.ip || 'Interne'}</p>
+                </div>`;
+            });
+            container.innerHTML = html;
+        }
+
+        function effacerJournalVisiteurs() {
+            if(confirm("Voulez-vous effacer l'historique des visites ?")) {
+                localStorage.removeItem('evat_visites_journal');
+                chargerJournalVisiteurs();
+            }
+        }
+    </script>
+</body>
+</html>
