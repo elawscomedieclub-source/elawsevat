@@ -230,6 +230,7 @@ async function lancerAppelInternet(type) {
             };
 
             localStream = await navigator.mediaDevices.getUserMedia(constraints);
+            jouerSonnerieAppel();
             
             if (type === 'video' && localVideo) {
                 localVideo.srcObject = localStream;
@@ -259,6 +260,7 @@ async function lancerAppelInternet(type) {
 }
 
 function raccrocherAppelInternet() {
+    arreterSonnerieAppel();
     if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
         localStream = null;
@@ -689,5 +691,132 @@ function partagerMaPositionDansChat() {
         });
     } else {
         alert("Géolocalisation non supportée.");
+    }
+}
+
+
+
+// --- SYNCHRONISATION DES CONTACTS DU TELEPHONE ---
+async function synchroniserContactsTelephone() {
+    if ('contacts' in navigator && 'Manager' in window) {
+        try {
+            const props = ['name', 'tel', 'email'];
+            const opts = { multiple: true };
+            const contacts = await navigator.contacts.select(props, opts);
+            
+            if(contacts && contacts.length > 0) {
+                if(!utilisateur.contacts) utilisateur.contacts = [];
+                contacts.forEach(c => {
+                    const nom = c.name ? c.name[0] : "Inconnu";
+                    const tel = c.tel ? c.tel[0] : "Pas de numéro";
+                    // Éviter les doublons
+                    if(!utilisateur.contacts.some(existing => existing.tel === tel)) {
+                        utilisateur.contacts.push({ nom, tel });
+                    }
+                });
+                localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
+                actualiserListeContacts();
+                ajouterQubits(50, "Synchronisation des contacts du téléphone");
+                alert(`✅ ${contacts.length} contact(s) synchronisé(s) avec succès !`);
+            }
+        } catch (err) {
+            console.log("Sélection de contacts annulée ou non supportée :", err);
+            // Fallback via importation de fichier vCard (.vcf) ou saisie manuelle optimisée
+            importerFichierVCardManuel();
+        }
+    } else {
+        importerFichierVCardManuel();
+    }
+}
+
+function importerFichierVCardManuel() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.vcf,.txt';
+    input.onchange = e => {
+        const file = e.target.files[0];
+        if(!file) return;
+        const reader = new FileReader();
+        reader.onload = event => {
+            const content = event.target.result;
+            // Analyse basique vCard (.vcf)
+            const lignes = content.split('\n');
+            let nb = 0;
+            let nomCourant = "Contact";
+            lignes.forEach(l => {
+                if(l.startsWith('FN:')) nomCourant = l.replace('FN:', '').trim();
+                if(l.startsWith('TEL')) {
+                    const parts = l.split(':');
+                    const telCourant = parts[parts.length - 1].trim();
+                    if(!utilisateur.contacts) utilisateur.contacts = [];
+                    if(!utilisateur.contacts.some(c => c.tel === telCourant)) {
+                        utilisateur.contacts.unshift({ nom: nomCourant, tel: telCourant });
+                        nb++;
+                    }
+                }
+            });
+            localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
+            actualiserListeContacts();
+            ajouterQubits(40, "Importation fichier vCard réussie");
+            alert(`✅ ${nb} contact(s) importé(s) depuis le fichier du téléphone !`);
+        };
+        reader.readAsText(file);
+    };
+    input.click();
+}
+
+
+
+// --- SYSTEME DE SONNERIE WEB AUDIO API ---
+let audioCtxSonnerie = null;
+let intervalSonnerie = null;
+
+function jouerSonnerieAppel() {
+    try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!audioCtxSonnerie) {
+            audioCtxSonnerie = new AudioContext();
+        }
+        if (audioCtxSonnerie.state === 'suspended') {
+            audioCtxSonnerie.resume();
+        }
+
+        // Jouer un double bip de sonnerie téléphonique classique
+        const jouerBip = () => {
+            if (!appelEnCours) return;
+            const osc = audioCtxSonnerie.createOscillator();
+            const gain = audioCtxSonnerie.createGain();
+            
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(440, audioCtxSonnerie.currentTime); // Fréquence standard tonalité
+            osc.frequency.setValueAtTime(480, audioCtxSonnerie.currentTime + 0.1);
+            
+            gain.gain.setValueAtTime(0.15, audioCtxSonnerie.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtxSonnerie.currentTime + 0.8);
+            
+            osc.connect(gain);
+            gain.connect(audioCtxSonnerie.destination);
+            
+            osc.start();
+            osc.stop(audioCtxSonnerie.currentTime + 0.9);
+        };
+
+        jouerBip();
+        intervalSonnerie = setInterval(() => {
+            if (appelEnCours) {
+                jouerBip();
+            } else {
+                clearInterval(intervalSonnerie);
+            }
+        }, 3000);
+    } catch(e) {
+        console.log("Erreur sonnerie audio:", e);
+    }
+}
+
+function arreterSonnerieAppel() {
+    if (intervalSonnerie) {
+        clearInterval(intervalSonnerie);
+        intervalSonnerie = null;
     }
 }

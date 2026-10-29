@@ -279,10 +279,14 @@
                     <select id="inputIaTon" class="input"><option value="standard">Standard Quantum</option><option value="pedagogique">Tuteur</option><option value="business">Business</option><option value="technique">Technique</option></select>
                     <button class="btn-action ripple-effect" onclick="sauvegarderProfilBase()" style="margin-bottom:15px;">Enregistrer Profil</button>
                     
-                    <h3 style="font-size:14px; margin-bottom:8px;">📖 Contacts VoIP</h3>
-                    <input type="text" id="contactNomInput" class="input" placeholder="Nom">
-                    <input type="text" id="contactTelInput" class="input" placeholder="Numéro de Téléphone">
-                    <button class="btn-action ripple-effect" onclick="ajouterContactManuel()" style="margin-bottom:12px;">Ajouter Contact</button>
+                    <h3 style="font-size:14px; margin-bottom:8px;">📖 Contacts & Synchronisation Téléphone</h3>
+                    <div style="display:flex; gap:8px; margin-bottom:10px;">
+                        <button onclick="synchroniserContactsTelephone()" class="btn-action ripple-effect" style="background:var(--success); color:#fff; font-size:12px; padding:10px; flex:1;">🔄 Sync Contacts du Tél</button>
+                    </div>
+
+                    <input type="text" id="contactNomInput" class="input" placeholder="Nom du contact">
+                    <input type="text" id="contactTelInput" class="input" placeholder="Numéro de téléphone">
+                    <button class="btn-action ripple-effect" onclick="ajouterContactManuel()" style="margin-bottom:12px;">Ajouter Contact Manuel</button>
                     <div id="listeContactsContainer"></div>
                 </div>
             </section>
