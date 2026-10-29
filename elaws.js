@@ -1,6 +1,15 @@
 const ELAWS_BRAIN = {
     memoireContexte: [],
     
+    // Optimisation performance Regex
+    _intentionsRegex: {
+        technique: /code|node|javascript|html|css|bug|erreur|script|developpeur/i,
+        business: /business|prix|client|entreprise|nif|togo|vendre|argent|xof/i,
+        voyage: /voyage|visa|avion|trajet|vol|hotel/i,
+        succes: /succès|1000|objectif|plan|stratégie/i,
+        traduction: /traduction|traduire|langue|minan|ewe|kabye/i,
+        urgence: /urgence|bloqué|secours|crise/i
+    },
     analyserIntentionProfonde: function(texte) {
         const t = texte.toLowerCase();
         let intention = "general";
@@ -19,32 +28,35 @@ const ELAWS_BRAIN = {
         const metier = profil.metier || 'Développeur & Entrepreneur';
 
         this.memoireContexte.push({ user: texte, timestamp: new Date().toISOString() });
-        if(this.memoireContexte.length > 20) this.memoireContexte.shift();
+        if(this.memoireContexte.length > 15) this.memoireContexte.shift();
 
         switch(intention) {
             case 'technique':
-                return `💻 [ELAWS 3.60 Turbo Code] : Analyse fulgurante instantanée pour ton architecture ${metier}. Pour optimiser tes scripts Node.js et tes déploiements GitHub/Vercel/Netlify sans latence, active le mode asynchrone strict et le cache local. Ton code est prêt à être compilé !`;
+                return `💻 [Expertise Code & Système - ELAWS 3.50] : Analyse de ton architecture ${metier}. Pour optimiser ton serveur Node.js sur mobile ou structurer tes fichiers PWA sans friction, vérifie les gestionnaires de routes asynchrones et l'injection du Service Worker en cache. Veux-tu que je génère un snippet de code robuste ou un correctif spécifique ?`;
             
             case 'business':
-                return `🚀 [ELAWS 3.60 Stratégie Marché] : Paramétré pour le Togo (Lomé / Kodjoviakopé). Pour maximiser tes revenus sous un NIF unique avec des devis en XOF, déploie des packs modulaires automatisés. Quelle est ta prochaine étape commerciale ?`;
+                return `🚀 [Stratégie Business & Marché - ELAWS 3.50] : Enregistré pour ton activité au Togo (Lomé / Kodjoviakopé). Pour un positionnement optimal sous un NIF unique avec des prestations tarifées en XOF, structure tes offres en forfaits modulaires (Starter, Pro, Quantum). Quelle est ta cible principale aujourd'hui ?`;
             
             case 'voyage':
-                return `✈️ [ELAWS 3.60 Global Travel] : Trajet instantané calculé. Vérifie ton passeport biométrique et ton e-Visa. Quelle est ta destination précise ?`;
+                return `✈️ [Assistant Global Voyage & Visa - ELAWS 3.50] : Calcul d'itinéraire et empreinte carbone activés. Pense à vérifier la validité de ton passeport biométrique, ton e-Visa et ta couverture sanitaire internationale. Quelle est ta destination exacte ?`;
             
             case 'succes':
-                return `💎 [Protocole Succès 1000% Boosté] : 
-1️⃣ Priorité absolue isolée et optimisée.
-2️⃣ Automatisation totale par ELAWS 3.60 en cours.
-3️⃣ Qubits injectés instantanément. On fonce !`;
+                return `💎 [Protocole Garantie Succès 1000%] : Objectif pris en charge avec rigueur quantique. 
+1️⃣ Étape 1 : Isolation de la priorité absolue.
+2️⃣ Étape 2 : Automatisation des micro-tâches via ELAWS.
+3️⃣ Étape 3 : Exécution et validation immédiate des Qubits. 
+On fonce !`;
 
             case 'traduction':
-                return `🌐 [Traduction Ultra-Rapide] : Module actif pour le français, l'anglais et les langues locales (Éwé, Mina, Kabyé). Dis-moi ce que tu veux traduire immédiatement.`;
+                return `🌐 [Traduction Native & Vocale] : Module linguistique prêt. ELAWS prend en charge les langues locales (Éwé, Mina, Kabyé, etc.) ainsi que le français et l'anglais pour une communication universelle en temps réel. Quelle phrase ou quel document dois-je traduire ?`;
 
             case 'urgence':
-                return `🚨 [Intervention d'Urgence ELAWS 3.60] : Purge du cache et réinitialisation du thread exécutées en 0.1s. Dis-moi quel composant est bloqué pour appliquer le correctif chirurgical immédiat.`;
+                return `🚨 [Cellule de Crise ELAWS] : Situation critique détectée. 
+• Action immédiate : Redémarrage propre du thread d'exécution, purge du cache local obsolète (` + '`' + `localStorage` + '`' + `) et bascule sur le protocole de secours hors-ligne. 
+Dis-moi quel composant pose problème pour appliquer la correction chirurgicale.`;
 
             default:
-                return `⚡ Bonjour ${nom} ! ELAWS Quantum v3.60 est maintenant en mode **Ultra-Réactif** (zéro latence, boost maximal). Profil (${metier}) synchronisé. Qu'est-ce qu'on déploie tout de suite ?`;
+                return `🤖 Bonjour ${nom} ! En tant qu'intelligence artificielle supérieure ELAWS Quantum v3.60 Turbo, j'ai synchronisé ton profil (${metier}). Mes capacités d'analyse, de code, de stratégie et de traduction sont à 100% de leur potentiel. Qu'est-ce qu'on déploie maintenant ?`;
         }
     }
 };

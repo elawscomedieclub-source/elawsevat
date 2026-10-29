@@ -4,10 +4,10 @@
     --card-hover: #0f1d3c;
     --text-color: #f8fafc;
     --text-secondary: #38bdf8;
-    --accent: #0ea5e9;
+    --accent: #0ea5e9; /* Cyan */
     --accent-glow: rgba(14, 165, 233, 0.5);
     --border-color: #1e3a8a;
-    --success: #10b981;
+    --success: #10b981; /* Vert */
     --danger: #ef4444;
 }
 
@@ -27,7 +27,7 @@ body {
     flex-direction: column; 
     overflow-x: hidden; 
     background-image: 
-        radial-gradient(circle at 50% 10%, rgba(30, 58, 138, 0.4) 0%, rgba(3, 7, 18, 0.98) 75%),
+        radial-gradient(circle at 50% 10%, rgba(14, 165, 233, 0.25) 0%, rgba(3, 7, 18, 0.98) 75%),
         linear-gradient(rgba(14, 165, 233, 0.03) 1px, transparent 1px),
         linear-gradient(90deg, rgba(14, 165, 233, 0.03) 1px, transparent 1px);
     background-size: 100% 100%, 30px 30px, 30px 30px;
@@ -66,7 +66,10 @@ body {
 .header-left { display: flex; align-items: center; gap: 12px; }
 .header-brand h1 { font-size: 17px; letter-spacing: 0.5px; color: var(--accent); font-weight: 800; line-height: 1.1; text-shadow: 0 0 10px rgba(14,165,233,0.4); }
 
+/* Logo Circulaire Mis à jour */
 .quantum-logo-app {
+    border: 2px solid var(--accent);
+    object-fit: cover;
     width: 38px;
     height: 38px;
     border-radius: 50%;

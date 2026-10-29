@@ -1,4 +1,4 @@
-const EVAT_VERSION_ACTUELLE = "v3.60";
+const EVAT_VERSION_ACTUELLE = "v3.60 Turbo";
 
 let versionEnregistree = localStorage.getItem('evat_version_app');
 
@@ -11,23 +11,23 @@ if (versionEnregistree !== EVAT_VERSION_ACTUELLE) {
             { id: 3, titre: "Générer un Plan de Succès 1000%", fait: false, qubits: 70 },
             { id: 4, titre: "Calculer une empreinte carbone de voyage", fait: false, qubits: 40 },
             { id: 5, titre: "Tester l'Appel Audio & Vidéo WebRTC", fait: false, qubits: 60 },
-            { id: 6, titre: "Activer le stockage local des messages (Fichiers du Téléphone)", fait: false, qubits: 50 },
-            { id: 7, titre: "Activer le Mode Turbo IA Ultra-Réactif", fait: true, qubits: 80 }
+            { id: 6, titre: "Activer le stockage local des messages (Fichiers du Téléphone)", fait: false, qubits: 50 }
         ];
         localStorage.setItem('evat_profil', JSON.stringify(ancienProfil));
     }
     localStorage.setItem('evat_version_app', EVAT_VERSION_ACTUELLE);
     window.addEventListener('DOMContentLoaded', () => {
-        setTimeout(() => { afficherNotificationMiseAJour(EVAT_VERSION_ACTUELLE); }, 200);
+        // Performance : requestAnimationFrame pour notification
+        requestAnimationFrame(() => afficherNotificationMiseAJour(EVAT_VERSION_ACTUELLE));
     });
 }
 
 function afficherNotificationMiseAJour(version) {
     const div = document.createElement('div');
     div.style.cssText = "position:fixed; top:20px; left:50%; transform:translateX(-50%); background:var(--success); color:#fff; padding:10px 20px; border-radius:12px; font-weight:700; z-index:9999; box-shadow:0 0 20px rgba(16,185,129,0.8); font-size:13px; text-align:center;";
-    div.innerHTML = `⚡ ELAWS mis à jour vers ${version} (Mode Ultra-Réactif activé) !`;
+    div.innerHTML = `🚀 Intelligence IA mise à jour vers ${version} !<br><span style="font-size:11px; font-weight:400;">Module de messagerie locale avec sauvegarde directe dans les fichiers du téléphone activé.</span>`;
     document.body.appendChild(div);
-    setTimeout(() => { div.remove(); }, 3000);
+    setTimeout(() => { div.remove(); }, 3500);
 }
 
 let utilisateur = JSON.parse(localStorage.getItem('evat_profil')) || {
@@ -35,7 +35,7 @@ let utilisateur = JSON.parse(localStorage.getItem('evat_profil')) || {
     metier: "Développeur & Entrepreneur",
     telephone: "+22898231402",
     iaTon: "standard",
-    qubits: 380,
+    qubits: 300,
     niveauGamification: 1,
     quetes: [
         { id: 1, titre: "Configurer le profil & le métier", fait: true, qubits: 50 },
@@ -43,13 +43,12 @@ let utilisateur = JSON.parse(localStorage.getItem('evat_profil')) || {
         { id: 3, titre: "Générer un Plan de Succès 1000%", fait: false, qubits: 70 },
         { id: 4, titre: "Calculer une empreinte carbone de voyage", fait: false, qubits: 40 },
         { id: 5, titre: "Tester l'Appel Audio & Vidéo WebRTC", fait: false, qubits: 60 },
-        { id: 6, titre: "Activer le stockage local des messages (Fichiers du Téléphone)", fait: false, qubits: 50 },
-        { id: 7, titre: "Activer le Mode Turbo IA Ultra-Réactif", fait: true, qubits: 80 }
+        { id: 6, titre: "Activer le stockage local des messages (Fichiers du Téléphone)", fait: false, qubits: 50 }
     ],
     contacts: [{ nom: "Service Client ELAWS", tel: "+22898231402" }],
-    notes: [{ titre: "EVAT Quantum v3.60", contenu: "IA ultra-réactive, zéro latente, stockage fichiers." }],
+    notes: [{ titre: "EVAT Quantum v3.60 Turbo", contenu: "Messagerie locale et stockage fichiers téléphone." }],
     messages: [
-        { expediteur: "ELAWS System", texte: "Mode Turbo Ultra-Réactif activé. Je réponds instantanément à vos sollicitations.", heure: "08:00" }
+        { expediteur: "ELAWS System", texte: "Bienvenue dans la messagerie chiffrée EVAT. Vos messages sont stockés en local dans la mémoire de votre téléphone.", heure: "08:00" }
     ],
     voyages: [], crises: [], audits: [], objectifs1000: []
 };
@@ -98,7 +97,7 @@ function lireVocalement(texte) {
         window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(texte);
         utterance.lang = 'fr-FR';
-        utterance.rate = 1.1; // Légèrement plus rapide pour plus de réactivité
+        utterance.rate = 1.0;
         window.speechSynthesis.speak(utterance);
     }
 }
@@ -117,10 +116,10 @@ function afficherAlerteGamification(message) {
     div.style.cssText = "position:fixed; top:20px; left:50%; transform:translateX(-50%); background:var(--success); color:#fff; padding:10px 18px; border-radius:10px; font-weight:700; z-index:9999; box-shadow:0 0 15px rgba(16,185,129,0.7); font-size:12.5px;";
     div.innerText = message;
     document.body.appendChild(div);
-    setTimeout(() => { div.remove(); }, 1800);
+    setTimeout(() => { div.remove(); }, 2200);
 }
 
-// === ACCÈS FICHIERS TÉLÉPHONE & MESSAGERIE LOCALE ===
+// === MODULE ACCÈS FICHIERS TÉLÉPHONE & MESSAGERIE LOCALE ===
 async function selectionnerDossierStockageTelephone() {
     const statusDiv = document.getElementById('fileAccessStatus');
     if ('showDirectoryPicker' in window) {
@@ -130,19 +129,21 @@ async function selectionnerDossierStockageTelephone() {
             
             const qFichiers = utilisateur.quetes.find(q => q.id === 6);
             if(qFichiers && !qFichiers.fait) qFichiers.fait = true;
-            ajouterQubits(50, "Accès fichiers téléphone configuré");
+            ajouterQubits(50, "Accès aux fichiers du téléphone configuré");
             
+            // Sauvegarder l'état initial des messages dans le fichier
             await sauvegarderMessagesDansFichiersTelephone();
             alert("Accès aux fichiers du téléphone établi avec succès !");
         } catch (err) {
             statusDiv.innerHTML = `<span style="color:var(--danger);">❌ Accès refusé ou annulé : ${err.message}</span>`;
         }
     } else {
+        // Fallback pour les navigateurs mobiles ne supportant pas showDirectoryPicker directement (téléchargement automatique de fichier local)
         statusDiv.innerHTML = `<span style="color:var(--accent);">ℹ️ Mode téléchargement automatique de fichiers locaux activé.</span>`;
         const qFichiers = utilisateur.quetes.find(q => q.id === 6);
         if(qFichiers && !qFichiers.fait) qFichiers.fait = true;
         ajouterQubits(50, "Configuration messagerie locale");
-        alert("Votre navigateur utilise l'export automatique vers le dossier Téléchargements.");
+        alert("Votre navigateur utilise l'export automatique vers le dossier Téléchargements du téléphone.");
     }
 }
 
@@ -159,11 +160,14 @@ async function sauvegarderMessagesDansFichiersTelephone() {
             console.error("Erreur écriture fichier:", e);
         }
     }
+    
+    // Fallback export Blob
     const blob = new Blob([contenuJson], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = "evat_messages_telephone.json";
+    // En arrière-plan ou via action explicite
 }
 
 function envoyerMessageChatLocal() {
@@ -209,7 +213,7 @@ function actualiserAffichageMessagesLocaux() {
     container.scrollTop = container.scrollHeight;
 }
 
-// === APPEL AUDIO ET VIDEO WEBRTC ===
+// === MODULE APPEL AUDIO ET VIDEO INTERNET (WebRTC par Numéro) ===
 async function lancerAppelInternet(type) {
     const telUtilisateur = utilisateur.telephone || "+22898231402";
     const statusDiv = document.getElementById('voipStatusDisplay');
@@ -238,15 +242,15 @@ async function lancerAppelInternet(type) {
             document.getElementById('btnAppelAudio').style.background = "var(--danger)";
             document.getElementById('btnAppelVideo').style.background = "var(--danger)";
             
-            statusDiv.innerHTML = `<span style="color:var(--success); font-weight:750;">🟢 Appel ${type.toUpperCase()} Actif (Numéro : ${telUtilisateur})</span>`;
+            statusDiv.innerHTML = `<span style="color:var(--success); font-weight:750;">🟢 Appel ${type.toUpperCase()} Actif (Numéro : ${telUtilisateur})<br><span style="font-size:11px; color:var(--text-secondary);">Canal WebRTC chiffré sans GSM ni email.</span></span>`;
             
             const qAppel = utilisateur.quetes.find(q => q.id === 5);
             if(qAppel && !qAppel.fait) qAppel.fait = true;
-            ajouterQubits(60, `Appel ${type} WebRTC établi`);
+            ajouterQubits(60, `Appel ${type} Internet WebRTC établi`);
             
-            lireVocalement(`Appel ${type} Internet établi.`);
+            lireVocalement(`Appel ${type} Internet établi par numéro de téléphone.`);
         } catch (error) {
-            statusDiv.innerHTML = `<span style="color:var(--danger);">❌ Erreur flux média : ${error.message}</span>`;
+            statusDiv.innerHTML = `<span style="color:var(--danger);">❌ Erreur accès flux média : ${error.message}</span>`;
             appelEnCours = false;
         }
     } else {
@@ -303,7 +307,7 @@ function actualiserQuetesUI() {
 function ajouterContactManuel() {
     const nom = document.getElementById('contactNomInput').value.trim();
     const tel = document.getElementById('contactTelInput').value.trim();
-    if(!nom || !tel) { alert("Nom et numéro requis."); return; }
+    if(!nom || !tel) { alert("Nom et numéro de téléphone requis."); return; }
     if(!utilisateur.contacts) utilisateur.contacts = [];
     utilisateur.contacts.unshift({ nom, tel });
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
@@ -343,7 +347,7 @@ function lancerAnalyseVoyageAvance() {
     const transport = document.getElementById('voyageTransport').value;
     const distance = parseFloat(document.getElementById('voyageDistance').value) || 1500;
     const container = document.getElementById('resultatAssistantVoyage');
-    if(!dest) { alert("Entrez une destination."); return; }
+    if(!dest) { alert("Veuillez entrer une destination."); return; }
     container.style.display = 'block';
     const emission = Math.round(distance * (transport === 'avion' ? 0.25 : transport === 'voiture' ? 0.12 : 0.04));
     let prixEstime = Math.round(distance * 355);
@@ -351,16 +355,25 @@ function lancerAnalyseVoyageAvance() {
     
     container.innerHTML = `
         <div style="background:var(--bg-color); padding:14px; border-radius:10px; border:1px solid var(--accent); margin-bottom:10px;">
-            <h4 style="color:var(--accent); margin-bottom:6px; font-size:13.5px;">✈️ Voyage : ${depart} ➔ ${dest}</h4>
+            <h4 style="color:var(--accent); margin-bottom:6px; font-size:13.5px;">✈️ Rapport de Voyage : ${depart} ➔ ${dest}</h4>
             <p style="color:var(--text-color); font-size:12.5px; margin:3px 0;">• Transport : <strong>${transport.toUpperCase()}</strong> (${distance} km)</p>
-            <p style="color:var(--success); font-size:12.5px; margin:3px 0;">• Carbone : <strong>${emission} kg CO2</strong></p>
+            <p style="color:var(--success); font-size:12.5px; margin:3px 0;">• Empreinte Carbone : <strong>${emission} kg CO2</strong></p>
             <p style="color:var(--text-color); font-size:12.5px; margin:3px 0;">• Prix estimé : <strong style="color:var(--accent);">${prixEstime.toLocaleString()} XOF</strong></p>
+        </div>
+        <div style="background:var(--bg-color); padding:14px; border-radius:10px; border:1px solid var(--success);">
+            <h4 style="color:var(--success); margin-bottom:6px; font-size:13.5px;">📋 Checklist Visa & Formalités</h4>
+            <ul style="font-size:12.5px; color:var(--text-color); padding-left:16px; display:flex; flex-direction:column; gap:4px;">
+                <li>Passeport biométrique valide (6 mois min.)</li>
+                <li>Visa / e-Visa pour ${dest}</li>
+                <li>Billets aller-retour confirmés</li>
+                <li>Certificat de vaccination (Fièvre jaune)</li>
+            </ul>
         </div>`;
     
     if(!utilisateur.voyages) utilisateur.voyages = [];
     utilisateur.voyages.unshift({ destination: dest, depart, carbone: emission, transport, prix: prixEstime });
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
-    ajouterQubits(60, "Analyse voyage");
+    ajouterQubits(60, "Analyse voyage & checklist Visa");
 }
 
 function ajouterNoteBlocNotes() {
@@ -385,7 +398,7 @@ function afficherNotesBlocNotes() {
     const container = document.getElementById('listeNotesContainer');
     if(!container) return;
     if(!utilisateur.notes || utilisateur.notes.length === 0) {
-        container.innerHTML = `<p style="color:var(--text-secondary); font-size:12.5px;">Aucune note.</p>`;
+        container.innerHTML = `<p style="color:var(--text-secondary); font-size:12.5px;">Aucune note enregistrée.</p>`;
         return;
     }
     let html = '';
@@ -403,13 +416,13 @@ function genererPlanSucces1000() {
     const container = document.getElementById('resultatPlan1000');
     if(!obj) { alert("Entrez un objectif."); return; }
     container.style.display = 'block';
-    container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:10px; border:1px solid var(--success); text-align:center;"><h4 style="color:var(--success); font-size:13.5px;">💎 ELAWS 3.60 élabore le plan instantané...</h4></div>`;
+    container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:10px; border:1px solid var(--success); text-align:center;"><h4 style="color:var(--success); font-size:13.5px;">💎 ELAWS 3.59 élabore votre Plan 1000%...</h4></div>`;
     setTimeout(() => {
-        container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:10px; border-left:4px solid var(--success);"><h4 style="color:var(--success); margin-bottom:6px; font-size:13.5px;">🚀 ${obj}</h4><p style="font-size:12.5px; color:var(--text-color);">• Phase 1 : Coconception immédiate à Lomé<br>• Phase 2 : Automatisation de code & NIF<br>• Phase 3 : Déploiement instantané sans frais</p></div>`;
+        container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:10px; border-left:4px solid var(--success);"><h4 style="color:var(--success); margin-bottom:6px; font-size:13.5px;">🚀 ${obj}</h4><p style="font-size:12.5px; color:var(--text-color);">• Phase 1 : Analyse intelligente des opportunités à Lomé<br>• Phase 2 : Automatisation de code et structuration NIF<br>• Phase 3 : Déploiement sans coût et rentabilité maximale</p></div>`;
         const qSucces = utilisateur.quetes.find(q => q.id === 3);
         if(qSucces && !qSucces.fait) qSucces.fait = true;
-        ajouterQubits(70, "Plan succès généré");
-    }, 200);
+        ajouterQubits(70, "Plan de succès généré");
+    }, 500);
 }
 
 function chargerOutilsAdaptesAuProfil() {
@@ -420,14 +433,14 @@ function chargerOutilsAdaptesAuProfil() {
         <div style="background:var(--bg-color); border:1px solid var(--accent); padding:12px; border-radius:10px; margin-bottom:10px;">
             <h4 style="color:var(--accent); font-size:13px; margin-bottom:6px;">📌 Bloc-Notes Rapide</h4>
             <input type="text" id="noteTitreOutils" class="input" placeholder="Titre..." style="margin-bottom:6px; font-size:12.5px; padding:8px;">
-            <textarea id="noteContenuOutils" class="input" placeholder="Idée..." style="height:50px; resize:vertical; font-size:12.5px; padding:8px; margin-bottom:6px;"></textarea>
+            <textarea id="noteContenuOutils" class="input" placeholder="Idée clé..." style="height:50px; resize:vertical; font-size:12.5px; padding:8px; margin-bottom:6px;"></textarea>
             <button class="btn-action ripple-effect" onclick="ajouterNoteDepuisOutils()" style="padding:8px; font-size:12.5px;">Enregistrer</button>
         </div>
     `;
     if (metier.includes('developpeur') || metier.includes('code') || metier.includes('web')) {
-        htmlOutils += `<div style="background:var(--bg-color); border:1px solid var(--success); padding:12px; border-radius:10px;"><h4 style="color:var(--success); font-size:13px; margin-bottom:4px;">💻 Boîte Développeur Turbo</h4><p style="color:var(--text-secondary); font-size:11.5px; margin-bottom:6px;">Console Node.js & ELAWS Ultra-Réactif.</p><button class="btn-action ripple-effect" onclick="switchTab('messagerie')" style="background:var(--success); color:#fff; padding:8px; font-size:12.5px;">Ouvrir Messagerie Locale</button></div>`;
+        htmlOutils += `<div style="background:var(--bg-color); border:1px solid var(--success); padding:12px; border-radius:10px;"><h4 style="color:var(--success); font-size:13px; margin-bottom:4px;">💻 Boîte Développeur Avancée</h4><p style="color:var(--text-secondary); font-size:11.5px; margin-bottom:6px;">Console Node.js mobile & ELAWS Code Engine actifs.</p><button class="btn-action ripple-effect" onclick="switchTab('messagerie')" style="background:var(--success); color:#fff; padding:8px; font-size:12.5px;">Ouvrir Messagerie Locale</button></div>`;
     } else {
-        htmlOutils += `<div style="background:var(--bg-color); border:1px solid var(--success); padding:12px; border-radius:10px;"><h4 style="color:var(--success); font-size:13px; margin-bottom:4px;">🚀 Boîte Polyvalente</h4><p style="color:var(--text-secondary); font-size:11.5px; margin-bottom:6px;">Accès immédiat à tous les modules.</p><button class="btn-action ripple-effect" onclick="switchTab('messagerie')" style="background:var(--success); color:#fff; padding:8px; font-size:12.5px;">Ouvrir Messagerie Locale</button></div>`;
+        htmlOutils += `<div style="background:var(--bg-color); border:1px solid var(--success); padding:12px; border-radius:10px;"><h4 style="color:var(--success); font-size:13px; margin-bottom:4px;">🚀 Boîte Polyvalente</h4><p style="color:var(--text-secondary); font-size:11.5px; margin-bottom:6px;">Accès universel à tous les modules ELAWS.</p><button class="btn-action ripple-effect" onclick="switchTab('messagerie')" style="background:var(--success); color:#fff; padding:8px; font-size:12.5px;">Ouvrir Messagerie Locale</button></div>`;
     }
     container.innerHTML = htmlOutils;
 }
@@ -435,7 +448,7 @@ function chargerOutilsAdaptesAuProfil() {
 function ajouterNoteDepuisOutils() {
     const titre = document.getElementById('noteTitreOutils').value.trim();
     const contenu = document.getElementById('noteContenuOutils').value.trim();
-    if(!titre || !contenu) { alert("Champs requis."); return; }
+    if(!titre || !contenu) { alert("Remplissez le titre et le contenu."); return; }
     if(!utilisateur.notes) utilisateur.notes = [];
     utilisateur.notes.unshift({ titre, contenu });
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
@@ -490,8 +503,8 @@ function basculerEcouteVocaleLive() {
             recognition.start();
             ecouteVocaleActive = true;
             btnMicro.classList.add('active');
-            label.innerText = "Écoute instantanée...";
-            textStatus.innerText = "🎙️ Parlez, ELAWS écoute...";
+            label.innerText = "Écoute en cours...";
+            textStatus.innerText = "🎙️ Parlez clairement...";
         } catch(e){}
     } else { arreterEcouteVocale(); }
 }
@@ -512,19 +525,18 @@ function fermerElawsChat(event) {
     arreterEcouteVocale();
 }
 
-// === RÉACTIVITÉ INSTANTANÉE (ZÉRO LATENCE) ===
 function envoyerMessageElaws() {
     const input = document.getElementById('elawsInput');
     const txt = input.value.trim();
     if(!txt) return;
     ajouterBulleElaws(txt, 'user');
     input.value = '';
-    
-    // Réponse instantanée sans délai artificiel
-    const rep = ELAWS_BRAIN.repondre(utilisateur, txt);
-    ajouterBulleElaws(rep, 'elaws');
-    lireVocalement(rep);
-    ajouterQubits(10, "Interaction Turbo ELAWS 3.60");
+    setTimeout(() => {
+        const rep = ELAWS_BRAIN.repondre(utilisateur, txt);
+        ajouterBulleElaws(rep, 'elaws');
+        lireVocalement(rep);
+        ajouterQubits(10, "Interaction ELAWS 3.59");
+    }, 250);
 }
 
 function ajouterBulleElaws(txt, exp) {
@@ -532,7 +544,7 @@ function ajouterBulleElaws(txt, exp) {
     const isUser = exp === 'user';
     const div = document.createElement('div');
     div.style.cssText = `margin-bottom:6px; text-align:${isUser ? 'right' : 'left'};`;
-    div.innerHTML = `<span style="display:inline-block; background:${isUser ? 'var(--success)' : 'var(--card-hover)'}; color:${isUser ? '#030712' : 'var(--text-color)'}; padding:8px 12px; border-radius:12px; max-width:92%; font-size:12.5px;"><strong>${isUser ? 'Moi' : '⚡ ELAWS'} :</strong><br>${txt}</span>`;
+    div.innerHTML = `<span style="display:inline-block; background:${isUser ? 'var(--success)' : 'var(--card-hover)'}; color:${isUser ? '#030712' : 'var(--text-color)'}; padding:8px 12px; border-radius:12px; max-width:92%; font-size:12.5px;"><strong>${isUser ? 'Moi' : '🤖 ELAWS'} :</strong><br>${txt}</span>`;
     chat.appendChild(div);
     chat.scrollTop = chat.scrollHeight;
 }
@@ -553,7 +565,7 @@ function sauvegarderProfilBase() {
     
     const modal = document.getElementById('welcomeModal');
     if(modal) modal.style.display = 'none';
-    alert("Profil & Mode Turbo mis à jour !");
+    alert("Profil, numéro VoIP et intelligence ELAWS mis à jour !");
 }
 
 function verifierPremierLancement() {
@@ -579,7 +591,7 @@ function actualiserDashboard() {
     const badge = document.getElementById('sidebarUserRole');
     if(badge) badge.innerText = `${utilisateur.nom || 'Visiteur'} • Niveau ${utilisateur.niveauGamification || 1}`;
     const qubitsElem = document.getElementById('dashQubitsScore');
-    if(qubitsElem) qubitsElem.innerText = utilisateur.qubits || 380;
+    if(qubitsElem) qubitsElem.innerText = utilisateur.qubits || 300;
     const niveauElem = document.getElementById('dashNiveauScore');
     if(niveauElem) niveauElem.innerText = utilisateur.niveauGamification || 1;
 
@@ -639,7 +651,7 @@ function basculerLogoInterchangeable(e) {
 function testerVoixElaws() {
     if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
-        const msg = new SpeechSynthesisUtterance("Bonjour Kodjo. Je suis ELAWS Quantum version 3 point 60 Turbo.");
+        const msg = new SpeechSynthesisUtterance("Bonjour Kodjo. Je suis ELAWS Quantum version 3 point 59. Messagerie locale et stockage fichiers activés.");
         msg.lang = 'fr-FR';
         window.speechSynthesis.speak(msg);
     } else {

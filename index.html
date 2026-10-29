@@ -17,7 +17,7 @@
                 <img src="logo_evat.svg" alt="Logo de l'application" style="width:72px; height:72px; border-radius:50%; box-shadow:0 0 25px var(--accent); border:2px solid var(--accent);">
             </div>
             <h2 style="color:var(--accent); font-size:17px; margin-bottom:6px;">EVAT Quantum v3.60 Turbo</h2>
-            <p style="font-size:12.5px; color:var(--text-secondary); margin-bottom:14px;">IA Ultra-Réactive & Stockage Fichiers Téléphone.</p>
+            <p style="font-size:12.5px; color:var(--text-secondary); margin-bottom:14px;">Messagerie locale & Stockage fichiers téléphone.</p>
             
             <div style="text-align:left; margin-bottom:14px;">
                 <label style="font-size:11.5px; color:var(--text-color);">Votre Nom :</label>
@@ -28,13 +28,13 @@
 
                 <label style="font-size:11.5px; color:var(--text-color);">Profil ELAWS :</label>
                 <select id="inputIaTon" class="input" style="background:var(--bg-color); color:var(--text-color); font-size:12.5px; padding:8px; margin-bottom:12px;">
-                    <option value="standard">⚡ Standard Turbo</option>
+                    <option value="standard">🤖 Standard Quantum</option>
                     <option value="pedagogique">💡 Tuteur / Pédagogique</option>
                     <option value="business">🚀 Stratège Business</option>
                     <option value="technique">💻 Expert Technique / Code</option>
                 </select>
             </div>
-            <button onclick="sauvegarderProfilBase()" class="btn-action ripple-effect" style="font-size:13.5px; padding:10px;">🚀 Démarrer ELAWS 3.60 (+50 Qubits)</button>
+            <button onclick="sauvegarderProfilBase()" class="btn-action ripple-effect" style="font-size:13.5px; padding:10px;">🚀 Démarrer ELAWS 3.59 (+50 Qubits)</button>
         </div>
     </div>
 
@@ -45,7 +45,7 @@
                 <div class="header-brand" style="display:flex; align-items:center; gap:10px;">
                     <img src="logo_evat.svg" alt="Logo App" class="quantum-logo-app" onclick="basculerLogoInterchangeable(event)" title="Changer de Logo">
                     <div>
-                        <h1 id="appTitle">EVAT <span style="font-weight:300; font-size:12px; color:var(--text-secondary);">| Quantum v3.60 ⚡</span></h1>
+                        <h1 id="appTitle">EVAT <span style="font-weight:300; font-size:12px; color:var(--text-secondary);">| Quantum v3.60 Turbo</span></h1>
                     </div>
                 </div>
             </div>
@@ -55,7 +55,7 @@
                     <button onclick="ouvrirModeClavierDirect(event)" class="elaws-keyboard-btn ripple-effect" title="Clavier"><span>⌨️</span></button>
                     <button onclick="basculerEcouteVocaleLiveDirect(event)" class="elaws-magic-bubble ripple-effect" title="Voix">
                         <div class="magic-sphere-core"></div>
-                        <span class="magic-label">⚡ ELAWS Turbo</span>
+                        <span class="magic-label">🎙️ ELAWS 3.59</span>
                     </button>
                 </div>
                 
@@ -63,7 +63,7 @@
                     <div class="elaws-popup-header">
                         <div style="display:flex; align-items:center; gap:6px;">
                             <span class="status-indicator"></span>
-                            <span>ELAWS 3.60 • IA Ultra-Réactive (0 Latence)</span>
+                            <span>ELAWS 3.59 • IA Hyper-Renforcée</span>
                         </div>
                         <button onclick="fermerElawsChat(event)" class="close-popup-btn ripple-effect">✕</button>
                     </div>
@@ -78,13 +78,13 @@
                         
                         <div id="panelClavier" class="input-panel active">
                             <div class="elaws-input-area">
-                                <input type="text" id="elawsInput" placeholder="Posez votre question à ELAWS Turbo..." onkeypress="if(event.key==='Enter') envoyerMessageElaws()">
+                                <input type="text" id="elawsInput" placeholder="Interrogez ELAWS (Code, Business, Traduction)..." onkeypress="if(event.key==='Enter') envoyerMessageElaws()">
                                 <button onclick="envoyerMessageElaws()" class="btn-envoyer-chat ripple-effect">Envoyer</button>
                             </div>
                         </div>
 
                         <div id="panelMicro" class="input-panel" style="display: none; text-align: center; padding: 8px;">
-                            <p id="voiceStatusText" style="font-size: 12px; color: var(--success); margin-bottom: 8px; font-weight: 500;">Écoute instantanée...</p>
+                            <p id="voiceStatusText" style="font-size: 12px; color: var(--success); margin-bottom: 8px; font-weight: 500;">Écoute en cours...</p>
                             <button onclick="basculerEcouteVocaleLive()" id="microGrandBtn" class="micro-grand-btn ripple-effect active">
                                 <span class="mic-icon">🎙️</span>
                                 <span id="microLabelState">Parler à ELAWS</span>
@@ -115,7 +115,7 @@
                 <a href="#" onclick="switchTab('outils')" class="nav-link ripple-effect" id="link-outils">🛠️ Boîte à Outils</a>
             </div>
             <div class="sidebar-footer">
-                <p>EVAT v3.60 • Eric Lawson</p>
+                <p>EVAT v3.60 Turbo • Eric Lawson</p>
             </div>
         </nav>
 
@@ -129,13 +129,13 @@
                     <div>
                         <div class="card" style="border-left: 4px solid var(--success); background: linear-gradient(135deg, var(--card-bg), rgba(16,185,129,0.1));">
                             <span style="font-size:11.5px; color:var(--success); font-weight:700; text-transform:uppercase;">⚡ Énergie Qubit Active</span>
-                            <h2 style="font-size:24px; color:var(--text-color); margin:4px 0;"><span id="dashQubitsScore">380</span> <span style="font-size:13px; color:var(--accent);">Qubits</span></h2>
+                            <h2 style="font-size:24px; color:var(--text-color); margin:4px 0;"><span id="dashQubitsScore">300</span> <span style="font-size:13px; color:var(--accent);">Qubits</span></h2>
                             <p style="font-size:11.5px; color:var(--text-secondary);">Niveau Actuel : <strong style="color:var(--text-color);">Niveau <span id="dashNiveauScore">1</span></strong></p>
                         </div>
 
                         <div class="card" style="border-left: 4px solid var(--accent);">
                             <h3 style="font-size:13.5px; color:var(--text-color); font-weight:700; margin-bottom:4px;">Global Quantum Network Status</h3>
-                            <p style="font-size:11.5px; color:var(--text-secondary); margin-bottom:10px;">Network Integrity | <strong style="color:var(--success);">100% Ultra-Réactif (Mode Turbo)</strong></p>
+                            <p style="font-size:11.5px; color:var(--text-secondary); margin-bottom:10px;">Network Integrity | <strong style="color:var(--success);">100% Active (Messagerie & Fichiers Tél)</strong></p>
                             
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
                                 <div style="display:flex; gap:6px;">
@@ -145,7 +145,8 @@
                             </div>
 
                             <div id="worldMapContainer" style="height:220px; background:#030712; border-radius:10px; position:relative; overflow:hidden; border:1px solid rgba(14,165,233,0.4);">
-                                <iframe id="iframeCarteMonde" src="https://www.openstreetmap.org/export/embed.html?bbox=1.19,6.11,1.25,6.17&amp;layer=mapnik&amp;marker=6.14,1.22" style="width:100%; height:100%; border:none; filter:invert(90%) hue-rotate(180deg) brightness(95%);"></iframe>
+                                <!-- Carte différée pour performance -->
+                <iframe id="iframeCarteMonde" loading="lazy" src="https://www.openstreetmap.org/export/embed.html?bbox=1.19,6.11,1.25,6.17&amp;layer=mapnik&amp;marker=6.14,1.22" style="width:100%; height:100%; border:none; filter:invert(90%) hue-rotate(180deg) brightness(95%);"></iframe>
                                 <div style="position:absolute; bottom:6px; right:8px; background:rgba(3,7,18,0.85); padding:3px 8px; border-radius:6px; font-size:10px; color:var(--accent); border:1px solid rgba(14,165,233,0.3);">📍 Lomé, Kodjoviakopé</div>
                             </div>
                         </div>
@@ -154,10 +155,10 @@
                     <div>
                         <div class="card" style="border-left: 4px solid var(--accent); text-align:center; padding:24px;">
                             <div style="width:84px; height:84px; margin:0 auto 12px auto; border-radius:50%; background:radial-gradient(circle, #38bdf8 0%, #1d4ed8 70%); box-shadow:0 0 30px rgba(14,165,233,0.9); display:flex; align-items:center; justify-content:center; border:2px solid #fff;">
-                                <img src="logo_evat.png" alt="Logo Actif" class="quantum-logo-app" style="width:76px; height:76px; border-radius:50%; object-fit:cover; cursor:pointer;" onclick="basculerLogoInterchangeable(event)" title="Alterner Logo 1 / Logo 2">
+                                <img src="logo_evat.svg" alt="Logo Actif" class="quantum-logo-app" style="width:76px; height:76px; border-radius:50%; object-fit:cover; cursor:pointer;" onclick="basculerLogoInterchangeable(event)" title="Alterner Logo 1 / Logo 2">
                             </div>
-                            <h3 style="font-size:16px; color:var(--accent); margin-bottom:6px;">EVAT & ELAWS 3.60 Turbo</h3>
-                            <p style="font-size:12px; color:var(--text-secondary); margin-bottom:14px;">IA Ultra-Réactive & Stockage Fichiers Téléphone.</p>
+                            <h3 style="font-size:16px; color:var(--accent); margin-bottom:6px;">EVAT & ELAWS Quantum</h3>
+                            <p style="font-size:12px; color:var(--text-secondary); margin-bottom:14px;">Stockage local des messages dans les fichiers du téléphone.</p>
                             <button onclick="declencherInstallationNative()" class="btn-action ripple-effect" style="background:var(--success); color:#fff; font-size:13px; padding:10px;">📲 Installer l'Application (PWA)</button>
                         </div>
                     </div>
@@ -168,12 +169,12 @@
             <section id="tab-messagerie" class="tab-content">
                 <div class="card" style="border-left: 4px solid var(--success);">
                     <h2>💬 Messagerie Locale & Fichiers du Téléphone</h2>
-                    <p style="color:var(--text-secondary); font-size:12.5px; margin:6px 0 14px 0;">Les messages échangés sont stockés directement dans la mémoire de votre téléphone.</p>
+                    <p style="color:var(--text-secondary); font-size:12.5px; margin:6px 0 14px 0;">Les messages échangés sont stockés directement dans la mémoire de votre téléphone (dossier local sécurisé).</p>
                     
                     <div style="background:var(--bg-color); padding:12px; border-radius:10px; border:1px solid var(--accent); margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;">
                         <div>
                             <strong style="font-size:13px; color:var(--text-color);">📁 Accès Fichiers Téléphone</strong>
-                            <div id="fileAccessStatus" style="font-size:11.5px; color:var(--text-secondary); margin-top:2px;">Aucun dossier lié.</div>
+                            <div id="fileAccessStatus" style="font-size:11.5px; color:var(--text-secondary); margin-top:2px;">Aucun dossier lié (stockage interne navigateur actif).</div>
                         </div>
                         <button onclick="selectionnerDossierStockageTelephone()" class="btn-action ripple-effect" style="width:auto; padding:8px 12px; font-size:12px; background:var(--accent); color:#030712;">Lier Dossier</button>
                     </div>
@@ -227,7 +228,7 @@
             <section id="tab-appel" class="tab-content">
                 <div class="card" style="border-left: 4px solid var(--success); text-align:center; padding:24px;">
                     <h2>📞 Appel Audio & Vidéo Internet (WebRTC)</h2>
-                    <p style="color:var(--text-secondary); font-size:12.5px; margin:8px 0 16px 0;">Appel direct par Internet basé sur votre numéro de téléphone.</p>
+                    <p style="color:var(--text-secondary); font-size:12.5px; margin:8px 0 16px 0;">Le réseau GSM et les emails ont été supprimés. Choisissez un mode d'appel direct par Internet basé sur votre numéro de téléphone.</p>
                     
                     <div style="background:var(--bg-color); padding:16px; border-radius:12px; border:1px solid var(--accent); margin-bottom:16px;">
                         <span style="font-size:11.5px; color:var(--text-secondary);">Identifiant Numéro Actif :</span>
@@ -257,7 +258,7 @@
                     <label style="font-size:12px;">Métier :</label><input type="text" id="inputMetierProfil" class="input">
                     <label style="font-size:12px;">Numéro Téléphone (ID VoIP) :</label><input type="text" id="inputTelProfil" class="input">
                     <label style="font-size:12px;">Ton IA :</label>
-                    <select id="inputIaTon" class="input"><option value="standard">Standard Turbo</option><option value="pedagogique">Tuteur</option><option value="business">Business</option><option value="technique">Technique</option></select>
+                    <select id="inputIaTon" class="input"><option value="standard">Standard Quantum</option><option value="pedagogique">Tuteur</option><option value="business">Business</option><option value="technique">Technique</option></select>
                     <button class="btn-action ripple-effect" onclick="sauvegarderProfilBase()" style="margin-bottom:15px;">Enregistrer Profil</button>
                     
                     <h3 style="font-size:14px; margin-bottom:8px;">📖 Contacts VoIP</h3>
@@ -281,13 +282,13 @@
             </section>
 
             <footer style="text-align: center; padding: 20px 0; color: var(--text-secondary); font-size: 11.5px;">
-                <p>EVAT v3.60 Turbo • Conçu par Eric Lawson</p>
+                <p>EVAT v3.60 Turbo Quantum • Conçu par Eric Lawson</p>
             </footer>
         </main>
     </div>
 
-    <script src="elaws.js"></script>
-    <script src="app.js"></script>
+    <script src="elaws.js" defer></script>
+    <script src="app.js" defer></script>
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js'); });
