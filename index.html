@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>EVAT | ELAWS Quantum v3.35</title>
+    <title>EVAT | ELAWS Quantum v3.38</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.webmanifest">
     <meta name="theme-color" content="#070a13">
@@ -17,7 +17,7 @@
                 <div class="header-brand" style="display:flex; flex-direction:row; align-items:center; gap:10px;">
                     <img src="logo_evat.png" alt="Logo" style="width:32px; height:32px; border-radius:50%; border:1px solid var(--accent);">
                     <div>
-                        <h1 id="appTitle">EVAT <span style="font-weight:300; font-size:13px; color:var(--text-secondary);">| ELAWS Quantum v3.35</span></h1>
+                        <h1 id="appTitle">EVAT <span style="font-weight:300; font-size:13px; color:var(--text-secondary);">| ELAWS Quantum v3.38</span></h1>
                     </div>
                 </div>
             </div>
@@ -85,21 +85,20 @@
                 <a href="#" onclick="switchTab('crise')" class="nav-link ripple-effect" id="link-crise">🚨 Urgences & Solutions</a>
                 <a href="#" onclick="switchTab('audit')" class="nav-link ripple-effect" id="link-audit">🌐 Évaluation Web</a>
                 <a href="#" onclick="switchTab('appel')" class="nav-link ripple-effect" id="link-appel">📞 Appel Direct</a>
-                <a href="#" onclick="switchTab('profil')" class="nav-link ripple-effect" id="link-profil">👤 Profil & Voix</a>
-                <a href="#" onclick="switchTab('outils')" class="nav-link ripple-effect" id="link-outils">🛠️ Bloc-Notes</a>
+                <a href="#" onclick="switchTab('profil')" class="nav-link ripple-effect" id="link-profil">👤 Profil & Métier</a>
+                <a href="#" onclick="switchTab('outils')" class="nav-link ripple-effect" id="link-outils">🛠️ Boîte à Outils</a>
             </div>
             <div class="sidebar-footer">
-                <p>EVAT v3.35 • Eric Lawson & ELAWS</p>
+                <p>EVAT v3.38 • Eric Lawson & ELAWS</p>
             </div>
         </nav>
 
         <div id="appOverlay" class="app-overlay" onclick="fermerTousLesMenus()"></div>
 
         <main class="content">
-            <!-- DASHBOARD QUANTIQUE FIDÈLE AU MODÈLE -->
+
+            <!-- DASHBOARD QUANTIQUE -->
             <section id="tab-dashboard" class="tab-content active">
-                
-                <!-- 1. Global Quantum Network Status avec carte du monde intégrale -->
                 <div class="card" style="border-left: 4px solid var(--accent); position:relative;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                         <h3 style="font-size:14px; color:var(--text-color); font-weight:700;">Global Quantum Network Status</h3>
@@ -109,12 +108,10 @@
                     
                     <div style="background:var(--bg-color); padding:12px; border-radius:12px; border:1px solid var(--border-color); text-align:center; margin-bottom:12px;">
                         <div style="font-size:11px; color:var(--accent); margin-bottom:6px; text-transform:uppercase; letter-spacing:1px; display:flex; justify-content:space-between;">
-                            <span>🌍 World Node Map (Modèle Intégral)</span>
+                            <span>🌍 World Node Map</span>
                             <span style="color:var(--success);">Sync Live</span>
                         </div>
                         
-
-                        <!-- Barre de basculement Carte Réelle / Satellite -->
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                             <div style="display:flex; gap:6px;">
                                 <button onclick="changerModeCarte('reel')" id="btnCarteReelle" class="mode-pill active" style="padding:6px 12px; font-size:11px;">🗺️ Carte Réelle</button>
@@ -123,79 +120,21 @@
                             <span style="font-size:11px; color:var(--success);" id="statutModeCarte">Mode Actif : Plan Réel</span>
                         </div>
 
-                        <!-- Conteneur de carte dynamique géolocalisée -->
                         <div id="worldMapContainer" style="height:220px; background:#071228; border-radius:10px; position:relative; overflow:hidden; border:1px solid rgba(56,189,248,0.4);">
                             <iframe id="iframeCarteMonde" src="https://www.openstreetmap.org/export/embed.html?bbox=1.1,6.1,1.3,6.2&amp;layer=mapnik" style="width:100%; height:100%; border:none; filter:invert(90%) hue-rotate(180deg) brightness(95%);"></iframe>
-                            
-                            <!-- Nœud Lomé, Togo (Utilisateur) -->
                             <div class="map-node" style="top:60%; left:50%; z-index:10;" title="Lomé, Togo (Vous)">
                                 <div class="node-pulse"></div>
                                 <span class="node-label">Lomé (Togo) 📍</span>
                             </div>
                         </div>
-
-
-                        <!-- Recherche et géolocalisation de contact -->
-                        <div style="margin-top:10px; display:flex; gap:6px;">
-                            <input type="text" id="inputRechercheContact" class="input" placeholder="Rechercher contact ou pays..." style="margin-bottom:0; font-size:12px; padding:10px;">
-                            <button onclick="rechercherPositionContact()" class="btn-action ripple-effect" style="width:auto; padding:10px 14px; font-size:12px;">Localiser</button>
-                        </div>
-                    </div>
-
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <div>
-                            <h2 style="font-size:18px; color:var(--success); font-weight:800;">1,475</h2>
-                            <p style="font-size:11.5px; color:var(--text-secondary);">Precision Impact Points</p>
-                        </div>
-                        <button onclick="switchTab('succes1000')" class="btn-action ripple-effect" style="width:auto; padding:8px 14px; font-size:12px;">Visual Map</button>
                     </div>
                 </div>
 
-                <!-- 2. Quantum Processing Metrics -->
                 <div class="card" style="border-left: 4px solid var(--success);">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                        <h3 style="font-size:14px; color:var(--text-color); font-weight:700;">Quantum Processing Metrics</h3>
-                        <span style="color:var(--text-secondary); font-size:16px;">•••</span>
-                    </div>
-
-                    <div style="background:var(--bg-color); padding:12px; border-radius:12px; border:1px solid var(--border-color); text-align:center; margin-bottom:12px;">
-                        <div style="height:45px; display:flex; align-items:center; justify-content:center; gap:3px;">
-                            <div style="width:3px; height:20px; background:var(--accent); border-radius:2px;"></div>
-                            <div style="width:3px; height:35px; background:var(--success); border-radius:2px;"></div>
-                            <div style="width:3px; height:15px; background:var(--accent); border-radius:2px;"></div>
-                            <div style="width:3px; height:45px; background:#ffffff; border-radius:2px;"></div>
-                            <div style="width:25px; height:25px; background:var(--success); border-radius:50%; box-shadow:0 0 12px var(--success); margin:0 6px;"></div>
-                            <div style="width:3px; height:45px; background:#ffffff; border-radius:2px;"></div>
-                            <div style="width:3px; height:25px; background:var(--accent); border-radius:2px;"></div>
-                            <div style="width:3px; height:35px; background:var(--success); border-radius:2px;"></div>
-                        </div>
-                    </div>
-
+                    <h3 style="font-size:14px; color:var(--text-color); font-weight:700; margin-bottom:8px;">Quantum Processing Metrics</h3>
                     <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-secondary);">
                         <span>Qubit Capacity : <strong style="color:var(--text-color);">128 Stable</strong></span>
                         <span>Compute Power : <strong style="color:var(--text-color);">100 TFLOPS</strong></span>
-                    </div>
-                </div>
-
-                <!-- 3. Cryptographic Security & Alert Logs -->
-                <div class="card" style="border-left: 4px solid var(--accent);">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                        <h3 style="font-size:14px; color:var(--text-color); font-weight:700;">Cryptographic Security</h3>
-                        <span style="color:var(--text-secondary); font-size:16px;">•••</span>
-                    </div>
-                    <p style="font-size:12px; color:var(--text-secondary); margin-bottom:10px;">Quantum-Safe Encryption | <strong style="color:var(--success);">Active</strong></p>
-                    <div style="background:var(--bg-color); padding:10px; border-radius:10px; border:1px solid var(--border-color); display:flex; align-items:center; gap:10px; margin-bottom:12px;">
-                        <span style="font-size:20px;">🛡️</span>
-                        <div>
-                            <strong style="font-size:12.5px; color:var(--text-color);">Nexus v3.35 Model</strong>
-                            <p style="font-size:11px; color:var(--text-secondary);">Post-Quantum Algorithm v4</p>
-                        </div>
-                    </div>
-
-                    <h4 style="font-size:13px; color:var(--text-color); margin-bottom:6px;">Alert Logs</h4>
-                    <div style="font-size:11.5px; color:var(--text-secondary); display:flex; flex-direction:column; gap:4px;">
-                        <div>• Recent Event : Style maquette appliqué avec succès</div>
-                        <div>• Recent Event : Nœud Lomé (Togo) Synchronisé</div>
                     </div>
                 </div>
 
@@ -204,49 +143,147 @@
                 </div>
             </section>
 
-            <!-- Autres onglets -->
-            <section id="tab-succes1000" class="tab-content"><div class="card"><h2>💎 Garantie Succès 1000%</h2><input type="text" id="inputObjectif1000" class="input" placeholder="Objectif..."><button class="btn-action" onclick="genererPlanSucces1000()">Générer Plan</button><div id="resultatPlan1000" style="margin-top:15px; display:none;"></div></div></section>
-            <section id="tab-sync" class="tab-content"><div class="card"><h2>Cloud</h2><button onclick="exporterDonneesCloud()" class="btn-action">Sauvegarde JSON</button></div></section>
-            <section id="tab-voyage" class="tab-content"><div class="card"><h2>Voyage</h2></div></section>
-            <section id="tab-partage" class="tab-content"><div class="card"><h2>Partage</h2></div></section>
-            <section id="tab-crise" class="tab-content"><div class="card"><h2>Urgences</h2></div></section>
-            <section id="tab-audit" class="tab-content"><div class="card"><h2>Audit Web</h2></div></section>
-            <section id="tab-appel" class="tab-content"><div class="card"><h2>Appel Direct</h2></div></section>
-            
-<section id="tab-profil" class="tab-content">
-    <div class="card" style="border-left: 4px solid var(--accent);">
-        <h2>👤 Gestion du Profil & Contacts</h2>
-        <p style="color:var(--text-secondary); font-size:13px; margin-bottom:15px;">Configurez votre identité et gérez votre carnet de contacts synchronisé dans l'écosystème ELAWS.</p>
-        
-        <label>Votre Nom / Pseudonyme :</label>
-        <input type="text" id="inputNom" class="input" placeholder="Ex: Kodjo Marceline">
-        <button class="btn-action ripple-effect" onclick="sauvegarderProfilBase()" style="margin-bottom:20px;">Enregistrer le Profil</button>
+            <!-- 💎 GARANTIE SUCCÈS 1000% -->
+            <section id="tab-succes1000" class="tab-content">
+                <div class="card" style="border-left: 4px solid var(--success);">
+                    <h2>💎 Garantie Succès 1000%</h2>
+                    <p style="color:var(--text-secondary); font-size:13px; margin-bottom:12px;">Définissez votre objectif majeur et laissez ELAWS structurer votre plan d'action quantique.</p>
+                    <input type="text" id="inputObjectif1000" class="input" placeholder="Ex: Lancer mon entreprise et automatiser mes ventes">
+                    <button class="btn-action ripple-effect" onclick="genererPlanSucces1000()">Générer le Plan de Succès</button>
+                    <div id="resultatPlan1000" style="margin-top:15px; display:none;"></div>
+                </div>
+            </section>
 
-        <hr style="border:0; border-top:1px solid var(--border-color); margin:20px 0;">
+            <!-- ☁️ CLOUD & SYNCHRO -->
+            <section id="tab-sync" class="tab-content">
+                <div class="card" style="border-left: 4px solid var(--accent);">
+                    <h2>☁️ Cloud & Sauvegarde</h2>
+                    <p style="color:var(--text-secondary); font-size:13px; margin-bottom:15px;">Sauvegardez l'intégralité de vos données, contacts et notes au format JSON sécurisé.</p>
+                    <button onclick="exporterDonneesCloud()" class="btn-action ripple-effect" style="margin-bottom:12px;">📥 Télécharger la Sauvegarde JSON</button>
+                </div>
+            </section>
 
-        <h3 style="font-size:15px; color:var(--text-color); margin-bottom:10px;">📖 Carnet de Contacts & Répertoire</h3>
-        <p style="color:var(--text-secondary); font-size:12.5px; margin-bottom:12px;">Importez les contacts de votre téléphone ou ajoutez-les manuellement pour les lier au réseau mondial.</p>
+            <!-- ✈️ GUIDE VOYAGE & CARBONE -->
+            <section id="tab-voyage" class="tab-content">
+                <div class="card" style="border-left: 4px solid var(--accent);">
+                    <h2>✈️ Guide Voyage & Empreinte Carbone</h2>
+                    <p style="color:var(--text-secondary); font-size:13px; margin-bottom:15px;">Planifiez vos déplacements et calculez l'impact environnemental en temps réel.</p>
+                    
+                    <label>Destination :</label>
+                    <input type="text" id="voyageDestination" class="input" placeholder="Ex: Paris, Accra, New York">
+                    
+                    <label>Moyen de transport :</label>
+                    <select id="voyageTransport" class="input" style="background:var(--bg-color); color:var(--text-color);">
+                        <option value="avion">✈️ Avion</option>
+                        <option value="voiture">🚗 Voiture</option>
+                        <option value="train">🚆 Train / Transport en commun</option>
+                    </select>
 
-        <div style="display:flex; gap:8px; margin-bottom:15px;">
-            <button class="btn-action ripple-effect" onclick="importerContactsTelephone()" style="background:var(--card-hover); border:1px solid var(--accent); color:var(--text-color); flex:1; font-size:12.5px;">📥 Importer du Téléphone</button>
-        </div>
+                    <label>Distance estimée (km) :</label>
+                    <input type="number" id="voyageDistance" class="input" value="1000">
 
-        <div style="background:var(--bg-color); padding:14px; border-radius:14px; border:1px solid var(--border-color); margin-bottom:15px;">
-            <h4 style="font-size:13px; color:var(--accent); margin-bottom:8px;">➕ Ajouter un contact manuellement</h4>
-            <input type="text" id="contactNomInput" class="input" placeholder="Nom du contact" style="margin-bottom:8px; font-size:13px; padding:10px;">
-            <input type="text" id="contactTelInput" class="input" placeholder="Numéro de téléphone (ex: +228...)" style="margin-bottom:8px; font-size:13px; padding:10px;">
-            <input type="text" id="contactEmailInput" class="input" placeholder="Adresse Email (optionnel)" style="margin-bottom:10px; font-size:13px; padding:10px;">
-            <button class="btn-action ripple-effect" onclick="ajouterContactManuel()" style="padding:10px; font-size:13px;">Enregistrer le contact</button>
-        </div>
+                    <button class="btn-action ripple-effect" onclick="lancerAssistantVoyageCarbone()">Calculer l'Empreinte Carbone</button>
+                    <div id="resultatAssistantVoyage" style="margin-top:15px; display:none;"></div>
+                </div>
+            </section>
 
-        <h4 style="font-size:13px; color:var(--text-color); margin-bottom:8px;">📋 Contacts enregistrés :</h4>
-        <div id="listeContactsContainer">
-            <!-- Rempli dynamiquement -->
-        </div>
-    </div>
-</section>
+            <!-- 🔗 PARTAGE COLLABORATIF -->
+            <section id="tab-partage" class="tab-content">
+                <div class="card" style="border-left: 4px solid var(--success);">
+                    <h2>🔗 Partage Collaboratif EVAT</h2>
+                    <p style="color:var(--text-secondary); font-size:13px; margin-bottom:12px;">Partagez vos modules et connectez vos flux de travail avec vos collaborateurs.</p>
+                    <button class="btn-action ripple-effect" onclick="alert('Lien de partage crypté généré avec succès !')">Générer un Lien de Partage Sécurisé</button>
+                </div>
+            </section>
 
-            <section id="tab-outils" class="tab-content"><div class="card"><h2>Bloc-Notes</h2></div></section>
+            <!-- 🚨 URGENCES & SOLUTIONS -->
+            <section id="tab-crise" class="tab-content">
+                <div class="card" style="border-left: 4px solid var(--danger);">
+                    <h2>🚨 Urgences & Résolution de Crise</h2>
+                    <p style="color:var(--text-secondary); font-size:13px; margin-bottom:12px;">Décrivez un blocage technique ou une situation critique pour obtenir une solution immédiate.</p>
+                    <textarea id="criseDescription" class="input" placeholder="Ex: Panne de serveur Node.js, blocage de déploiement..." style="height:90px; resize:vertical;"></textarea>
+                    <button class="btn-action ripple-effect" onclick="analyserEtResoudreCrise()" style="background:var(--danger); color:#fff;">Générer la Solution d'Urgence</button>
+                    <div id="resultatCriseContainer" style="margin-top:15px; display:none;"></div>
+                </div>
+            </section>
+
+            <!-- 🌐 ÉVALUATION WEB -->
+            <section id="tab-audit" class="tab-content">
+                <div class="card" style="border-left: 4px solid var(--accent);">
+                    <h2>🌐 Évaluation & Audit Web</h2>
+                    <p style="color:var(--text-secondary); font-size:13px; margin-bottom:12px;">Analysez la performance et la conformité de vos applications web et plateformes hébergées.</p>
+                    <input type="text" id="urlAuditInput" class="input" value="https://evat-elaws.net" placeholder="URL du site...">
+                    <button class="btn-action ripple-effect" onclick="lancerAuditSite()">Lancer l'Audit Complet</button>
+                    <div id="resultatAuditContainer" style="margin-top:15px; display:none;"></div>
+                </div>
+            </section>
+
+            <!-- 📞 APPEL DIRECT -->
+            <section id="tab-appel" class="tab-content">
+                <div class="card" style="border-left: 4px solid var(--success);">
+                    <h2>📞 Appel Direct & Support ELAWS</h2>
+                    <p style="color:var(--text-secondary); font-size:13px; margin-bottom:12px;">Contactez directement le support ou lancez une liaison audio sécurisée.</p>
+                    <div style="background:var(--bg-color); padding:15px; border-radius:12px; border:1px solid var(--border-color); text-align:center;">
+                        <p style="color:var(--accent); font-size:15px; font-weight:700;">📞 +228 98 23 14 02</p>
+                        <p style="color:var(--text-secondary); font-size:12px; margin-bottom:15px;">Support Officiel ELAWS • Lomé, Togo</p>
+                        <a href="tel:+22898231402" class="btn-action ripple-effect" style="display:inline-block; text-decoration:none; text-align:center;">Lancer l'Appel Téléphonique</a>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 👤 PROFIL & MÉTIER -->
+            <section id="tab-profil" class="tab-content">
+                <div class="card" style="border-left: 4px solid var(--accent);">
+                    <h2>👤 Gestion du Profil & Métier</h2>
+                    <p style="color:var(--text-secondary); font-size:13px; margin-bottom:15px;">Configurez votre identité et votre domaine d'activité pour adapter automatiquement vos outils.</p>
+                    
+                    <label>Votre Nom / Pseudonyme :</label>
+                    <input type="text" id="inputNom" class="input" placeholder="Ex: Kodjo Marceline" style="margin-bottom:10px;">
+                    
+                    <label>Votre Métier / Domaine d'activité (Ex: Développeur, Entrepreneur, Étudiant...) :</label>
+                    <input type="text" id="inputMetierProfil" class="input" placeholder="Ex: Développeur Web / Entrepreneur" style="margin-bottom:12px;">
+                    
+                    <button class="btn-action ripple-effect" onclick="sauvegarderProfilBase()" style="margin-bottom:20px;">Enregistrer le Profil & Adapter les Outils</button>
+
+                    <hr style="border:0; border-top:1px solid var(--border-color); margin:20px 0;">
+
+                    <h3 style="font-size:15px; color:var(--text-color); margin-bottom:10px;">📖 Carnet de Contacts & Répertoire</h3>
+                    <p style="color:var(--text-secondary); font-size:12.5px; margin-bottom:12px;">Ajoutez ou gérez vos contacts synchronisés dans l'écosystème ELAWS.</p>
+
+                    <div style="background:var(--bg-color); padding:14px; border-radius:14px; border:1px solid var(--border-color); margin-bottom:15px;">
+                        <h4 style="font-size:13px; color:var(--accent); margin-bottom:8px;">➕ Ajouter un contact manuellement</h4>
+                        <input type="text" id="contactNomInput" class="input" placeholder="Nom du contact" style="margin-bottom:8px; font-size:13px; padding:10px;">
+                        <input type="text" id="contactTelInput" class="input" placeholder="Numéro de téléphone (ex: +228...)" style="margin-bottom:8px; font-size:13px; padding:10px;">
+                        <input type="text" id="contactEmailInput" class="input" placeholder="Adresse Email (optionnel)" style="margin-bottom:10px; font-size:13px; padding:10px;">
+                        <button class="btn-action ripple-effect" onclick="ajouterContactManuel()" style="padding:10px; font-size:13px;">Enregistrer le contact</button>
+                    </div>
+
+                    <h4 style="font-size:13px; color:var(--text-color); margin-bottom:8px;">📋 Contacts enregistrés :</h4>
+                    <div id="listeContactsContainer"></div>
+                </div>
+            </section>
+
+            <!-- 🛠️ BOÎTE À OUTILS & ESPACE DE TRAVAIL -->
+            <section id="tab-outils" class="tab-content">
+                <div class="card" style="border-left: 4px solid var(--accent);">
+                    <h2>🛠️ Boîte à Outils & Espace de Travail</h2>
+                    <p style="color:var(--text-secondary); font-size:13px; margin-bottom:15px;">Voici les outils et raccourcis adaptés automatiquement à votre profil et à votre métier.</p>
+                    
+                    <!-- Conteneur dynamique des outils du profil -->
+                    <div id="outilsDynamiquesContainer"></div>
+
+                    <hr style="border:0; border-top:1px solid var(--border-color); margin:20px 0;">
+
+                    <h3 style="font-size:14px; color:var(--text-color); margin-bottom:10px;">📌 Notes & Enregistrements du Bloc-Notes</h3>
+                    <input type="text" id="noteTitre" class="input" placeholder="Titre de la note..." style="font-size:13px; padding:10px;">
+                    <textarea id="noteContenu" class="input" placeholder="Contenu de la note..." style="height:70px; resize:vertical; font-size:13px; padding:10px;"></textarea>
+                    <button class="btn-action ripple-effect" onclick="ajouterNoteBlocNotes()" style="margin-bottom:15px; padding:10px; font-size:13px;">Enregistrer la Note</button>
+
+                    <h4 style="font-size:13px; color:var(--text-color); margin-bottom:8px;">📋 Historique des notes :</h4>
+                    <div id="listeNotesContainer"></div>
+                </div>
+            </section>
+
         </main>
     </div>
 
@@ -274,11 +311,6 @@
                 btnReel.classList.remove('active');
                 statusLbl.innerText = "Mode Actif : Vue Satellite & Relief";
             }
-        }
-        function rechercherPositionContact() {
-            const val = document.getElementById('inputRechercheContact').value.trim();
-            if(!val) { alert("Veuillez entrer un contact."); return; }
-            alert("Position de '" + val + "' localisée sur la carte mondiale EVAT !");
         }
         function agrandirCarteMonde() {
             alert("Mode Carte Mondiale Plein Écran activé.");
