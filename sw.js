@@ -1,4 +1,4 @@
-const CACHE_NAME = 'evat-elaws-v343-quantum-cache';
+const CACHE_NAME = 'evat-elaws-v345-quantum-cache';
 const urlsToCache = [
   'index.html',
   'style.css',
@@ -8,7 +8,7 @@ const urlsToCache = [
 ];
 
 self.addEventListener('install', event => {
-    self.skipWaiting(); // Force l'activation immédiate du nouveau SW
+    self.skipWaiting();
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then(cache => cache.addAll(urlsToCache))
@@ -21,7 +21,7 @@ self.addEventListener('activate', event => {
             return Promise.all(
                 cacheNames.map(cacheName => {
                     if (cacheName !== CACHE_NAME) {
-                        return caches.delete(cacheName); // Nettoie les anciens caches
+                        return caches.delete(cacheName);
                     }
                 })
             );

@@ -3,59 +3,51 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>EVAT | ELAWS Quantum v3.43</title>
+    <title>EVAT | ELAWS Quantum v3.45</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.webmanifest">
-    <meta name="theme-color" content="#070a13">
+    <meta name="theme-color" content="#030712">
 </head>
 <body>
-    <!-- Modale de Bienvenue / Tutoriel Premier Lancement -->
-    <div id="welcomeModal" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(5,8,20,0.92); z-index:9000; display:none; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(8px);">
-        <div class="card" style="max-width:440px; width:100%; border:2px solid var(--accent); box-shadow:0 0 50px rgba(56,189,248,0.5); text-align:center; padding:24px;">
-            <img src="logo_evat.png" alt="Logo" style="width:54px; height:54px; border-radius:50%; border:2px solid var(--accent); margin-bottom:12px;">
-            <h2 style="color:var(--accent); font-size:18px; margin-bottom:8px;">Bienvenue dans EVAT & ELAWS v3.43</h2>
-            <p style="font-size:13px; color:var(--text-secondary); margin-bottom:16px;">Mise à jour automatique et réinitialisation intelligente activées.</p>
+    <div id="welcomeModal" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(3,7,18,0.92); z-index:9000; display:none; align-items:center; justify-content:center; padding:16px; backdrop-filter:blur(8px);">
+        <div class="card" style="max-width:400px; width:100%; border:2px solid var(--accent); box-shadow:0 0 40px rgba(14,165,233,0.5); text-align:center; padding:20px;">
+            <h2 style="color:var(--accent); font-size:17px; margin-bottom:6px;">Bienvenue dans EVAT Quantum v3.45</h2>
+            <p style="font-size:12.5px; color:var(--text-secondary); margin-bottom:14px;">Initialisation de l'écosystème personnel.</p>
             
-            <div style="text-align:left; margin-bottom:15px;">
-                <label style="font-size:12px; color:var(--text-color);">Votre Nom / Pseudonyme :</label>
-                <input type="text" id="inputNom" class="input" placeholder="Ex: Kodjo Marceline" style="margin-bottom:8px; font-size:13px; padding:10px;">
+            <div style="text-align:left; margin-bottom:14px;">
+                <label style="font-size:11.5px; color:var(--text-color);">Votre Nom :</label>
+                <input type="text" id="inputNom" class="input" placeholder="Ex: Kodjo Marceline" style="margin-bottom:6px; font-size:12.5px; padding:8px;">
                 
-                <label style="font-size:12px; color:var(--text-color);">Votre Métier / Domaine :</label>
-                <input type="text" id="inputMetierProfil" class="input" placeholder="Ex: Développeur, Entrepreneur, Étudiant..." style="margin-bottom:8px; font-size:13px; padding:10px;">
+                <label style="font-size:11.5px; color:var(--text-color);">Votre Métier :</label>
+                <input type="text" id="inputMetierProfil" class="input" placeholder="Ex: Développeur, Entrepreneur..." style="margin-bottom:6px; font-size:12.5px; padding:8px;">
 
-                <label style="font-size:12px; color:var(--text-color);">Profil de Ton ELAWS :</label>
-                <select id="inputIaTon" class="input" style="background:var(--bg-color); color:var(--text-color); font-size:13px; padding:10px; margin-bottom:15px;">
+                <label style="font-size:11.5px; color:var(--text-color);">Profil ELAWS :</label>
+                <select id="inputIaTon" class="input" style="background:var(--bg-color); color:var(--text-color); font-size:12.5px; padding:8px; margin-bottom:12px;">
                     <option value="standard">🤖 Standard Quantum</option>
-                    <option value="pedagogique">💡 Tuteur / Pédagogique (Idéal pour Étudiants)</option>
-                    <option value="business">🚀 Stratège Business (Idéal pour Entrepreneurs)</option>
-                    <option value="technique">💻 Expert Technique / Code (Idéal pour Développeurs)</option>
+                    <option value="pedagogique">💡 Tuteur / Pédagogique</option>
+                    <option value="business">🚀 Stratège Business</option>
+                    <option value="technique">💻 Expert Technique / Code</option>
                 </select>
             </div>
-
-            <button onclick="sauvegarderProfilBase()" class="btn-action ripple-effect" style="font-size:14px; padding:12px;">🚀 Démarrer avec +50 Qubits</button>
+            <button onclick="sauvegarderProfilBase()" class="btn-action ripple-effect" style="font-size:13.5px; padding:10px;">🚀 Démarrer (+50 Qubits)</button>
         </div>
     </div>
 
     <div id="app">
-        <!-- En-tête principal -->
         <header class="header">
             <div class="header-left">
                 <button onclick="toggleMenu(event)" class="menu-btn ripple-effect" aria-label="Menu principal">☰</button>
-                <div class="header-brand" style="display:flex; flex-direction:row; align-items:center; gap:10px;">
-                    <img src="logo_evat.png" alt="Logo" style="width:32px; height:32px; border-radius:50%; border:1px solid var(--accent);">
+                <div class="header-brand" style="display:flex; align-items:center; gap:8px;">
                     <div>
-                        <h1 id="appTitle">EVAT <span style="font-weight:300; font-size:13px; color:var(--text-secondary);">| Quantum v3.43</span></h1>
+                        <h1 id="appTitle">EVAT <span style="font-weight:300; font-size:12px; color:var(--text-secondary);">| Quantum v3.45</span></h1>
                     </div>
                 </div>
             </div>
 
-            <!-- ELAWS Widget : Clavier + Voix -->
             <div id="elawsWidget" class="elaws-widget">
                 <div class="elaws-action-bar">
-                    <button onclick="ouvrirModeClavierDirect(event)" class="elaws-keyboard-btn ripple-effect" title="Clavier ELAWS">
-                        <span>⌨️</span>
-                    </button>
-                    <button onclick="basculerEcouteVocaleLiveDirect(event)" class="elaws-magic-bubble ripple-effect" title="Voix ELAWS">
+                    <button onclick="ouvrirModeClavierDirect(event)" class="elaws-keyboard-btn ripple-effect" title="Clavier"><span>⌨️</span></button>
+                    <button onclick="basculerEcouteVocaleLiveDirect(event)" class="elaws-magic-bubble ripple-effect" title="Voix">
                         <div class="magic-sphere-core"></div>
                         <span class="magic-label">🎙️ ELAWS</span>
                     </button>
@@ -63,9 +55,9 @@
                 
                 <div id="elawsPopup" class="elaws-popup" style="display: none;" onclick="event.stopPropagation()">
                     <div class="elaws-popup-header">
-                        <div style="display:flex; align-items:center; gap:8px;">
+                        <div style="display:flex; align-items:center; gap:6px;">
                             <span class="status-indicator"></span>
-                            <span>Assistant ELAWS 2.0 • Live</span>
+                            <span>ELAWS 2.0 • Live</span>
                         </div>
                         <button onclick="fermerElawsChat(event)" class="close-popup-btn ripple-effect">✕</button>
                     </div>
@@ -85,8 +77,8 @@
                             </div>
                         </div>
 
-                        <div id="panelMicro" class="input-panel" style="display: none; text-align: center; padding: 10px;">
-                            <p id="voiceStatusText" style="font-size: 13px; color: var(--success); margin-bottom: 10px; font-weight: 500;">Écoute en cours...</p>
+                        <div id="panelMicro" class="input-panel" style="display: none; text-align: center; padding: 8px;">
+                            <p id="voiceStatusText" style="font-size: 12px; color: var(--success); margin-bottom: 8px; font-weight: 500;">Écoute en cours...</p>
                             <button onclick="basculerEcouteVocaleLive()" id="microGrandBtn" class="micro-grand-btn ripple-effect active">
                                 <span class="mic-icon">🎙️</span>
                                 <span id="microLabelState">Parler à ELAWS</span>
@@ -97,7 +89,6 @@
             </div>
         </header>
 
-        <!-- Menu latéral -->
         <nav id="sidebar" class="sidebar" onclick="event.stopPropagation()">
             <div class="sidebar-header">
                 <h3>Navigation EVAT</h3>
@@ -117,7 +108,7 @@
                 <a href="#" onclick="switchTab('outils')" class="nav-link ripple-effect" id="link-outils">🛠️ Boîte à Outils</a>
             </div>
             <div class="sidebar-footer">
-                <p>EVAT v3.43 • Eric Lawson & ELAWS</p>
+                <p>EVAT v3.45 • Eric Lawson</p>
             </div>
         </nav>
 
@@ -127,209 +118,143 @@
 
             <!-- DASHBOARD QUANTIQUE -->
             <section id="tab-dashboard" class="tab-content active">
-                <div class="card" style="border-left: 4px solid var(--success); background: linear-gradient(135deg, var(--card-bg), rgba(16,185,129,0.1));">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <div>
-                            <span style="font-size:12px; color:var(--success); font-weight:700; text-transform:uppercase;">⚡ Énergie Qubit Active</span>
-                            <h2 style="font-size:26px; color:var(--text-color); margin:4px 0;"><span id="dashQubitsScore">120</span> <span style="font-size:14px; color:var(--accent);">Qubits</span></h2>
-                            <p style="font-size:12px; color:var(--text-secondary);">Niveau Actuel : <strong style="color:var(--text-color);">Niveau <span id="dashNiveauScore">1</span></strong></p>
+                <div class="dashboard-grid">
+                    <div>
+                        <div class="card" style="border-left: 4px solid var(--success); background: linear-gradient(135deg, var(--card-bg), rgba(16,185,129,0.1));">
+                            <span style="font-size:11.5px; color:var(--success); font-weight:700; text-transform:uppercase;">⚡ Énergie Qubit Active</span>
+                            <h2 style="font-size:24px; color:var(--text-color); margin:4px 0;"><span id="dashQubitsScore">150</span> <span style="font-size:13px; color:var(--accent);">Qubits</span></h2>
+                            <p style="font-size:11.5px; color:var(--text-secondary);">Niveau Actuel : <strong style="color:var(--text-color);">Niveau <span id="dashNiveauScore">1</span></strong></p>
                         </div>
-                        <button onclick="switchTab('quetes')" class="btn-action ripple-effect" style="width:auto; padding:10px 16px; font-size:12.5px; background:var(--success); color:#fff;">Voir les Quêtes 🎯</button>
-                    </div>
-                </div>
 
-                <div class="card" style="border-left: 4px solid var(--accent); position:relative;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                        <h3 style="font-size:14px; color:var(--text-color); font-weight:700;">Global Quantum Network Status</h3>
-                        <span style="color:var(--accent); font-size:16px; cursor:pointer;" onclick="agrandirCarteMonde()">🔍</span>
-                    </div>
-                    <p style="font-size:12px; color:var(--text-secondary); margin-bottom:12px;">Global Network Integrity | <strong style="color:var(--success);">100% Active (v3.43)</strong></p>
-                    
-                    <div style="background:var(--bg-color); padding:12px; border-radius:12px; border:1px solid var(--border-color); text-align:center; margin-bottom:12px;">
-                        <div style="font-size:11px; color:var(--accent); margin-bottom:6px; text-transform:uppercase; letter-spacing:1px; display:flex; justify-content:space-between;">
-                            <span>🌍 World Node Map</span>
-                            <span style="color:var(--success);">Sync Live</span>
-                        </div>
-                        
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                            <div style="display:flex; gap:6px;">
-                                <button onclick="changerModeCarte('reel')" id="btnCarteReelle" class="mode-pill active" style="padding:6px 12px; font-size:11px;">🗺️ Carte Réelle</button>
-                                <button onclick="changerModeCarte('satellite')" id="btnCarteSatellite" class="mode-pill" style="padding:6px 12px; font-size:11px;">🛰️ Satellite</button>
+                        <div class="card" style="border-left: 4px solid var(--accent);">
+                            <h3 style="font-size:13.5px; color:var(--text-color); font-weight:700; margin-bottom:4px;">Global Quantum Network Status</h3>
+                            <p style="font-size:11.5px; color:var(--text-secondary); margin-bottom:10px;">Network Integrity | <strong style="color:var(--success);">100% Active</strong></p>
+                            
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                <div style="display:flex; gap:6px;">
+                                    <button onclick="changerModeCarte('reel')" id="btnCarteReelle" class="mode-pill active" style="padding:5px 10px; font-size:11px;">🗺️ Plan Réel</button>
+                                    <button onclick="changerModeCarte('satellite')" id="btnCarteSatellite" class="mode-pill" style="padding:5px 10px; font-size:11px;">🛰️ Satellite</button>
+                                </div>
                             </div>
-                            <span style="font-size:11px; color:var(--success);" id="statutModeCarte">Mode Actif : Plan Réel</span>
-                        </div>
 
-                        <div id="worldMapContainer" style="height:220px; background:#071228; border-radius:10px; position:relative; overflow:hidden; border:1px solid rgba(56,189,248,0.4);">
-                            <iframe id="iframeCarteMonde" src="https://www.openstreetmap.org/export/embed.html?bbox=1.1,6.1,1.3,6.2&amp;layer=mapnik" style="width:100%; height:100%; border:none; filter:invert(90%) hue-rotate(180deg) brightness(95%);"></iframe>
-                            <div class="map-node" style="top:60%; left:50%; z-index:10;" title="Lomé, Togo (Vous)">
-                                <div class="node-pulse"></div>
-                                <span class="node-label">Lomé (Togo) 📍</span>
+                            <div id="worldMapContainer" style="height:200px; background:#030712; border-radius:10px; position:relative; overflow:hidden; border:1px solid rgba(14,165,233,0.4);">
+                                <iframe id="iframeCarteMonde" src="https://www.openstreetmap.org/export/embed.html?bbox=1.1,6.1,1.3,6.2&amp;layer=mapnik" style="width:100%; height:100%; border:none; filter:invert(90%) hue-rotate(180deg) brightness(92%);"></iframe>
+                                <div class="map-node" style="top:60%; left:50%; z-index:10;" title="Lomé, Togo">
+                                    <div class="node-pulse"></div>
+                                    <span class="node-label">Lomé (Togo) 📍</span>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <div style="margin-top: 15px;">
-                    <button onclick="declencherInstallationNative()" class="btn-action ripple-effect" style="background: var(--success); color: #fff;">📲 Installer l'Application (Modèle Maquette)</button>
+                    <div>
+                        <div class="card" style="border-left: 4px solid var(--accent); text-align:center; padding:24px;">
+                            <div style="width:70px; height:70px; margin:0 auto 12px auto; border-radius:50%; background:radial-gradient(circle, #38bdf8 0%, #1d4ed8 70%); box-shadow:0 0 25px rgba(14,165,233,0.8); display:flex; align-items:center; justify-content:center;">
+                                <span style="font-size:28px;">🌐</span>
+                            </div>
+                            <h3 style="font-size:16px; color:var(--accent); margin-bottom:6px;">EVAT & ELAWS Quantum</h3>
+                            <p style="font-size:12px; color:var(--text-secondary); margin-bottom:14px;">Système universel intelligent synchronisé pour tous types d'appareils.</p>
+                            <button onclick="declencherInstallationNative()" class="btn-action ripple-effect" style="background:var(--success); color:#fff; font-size:13px; padding:10px;">📲 Installer l'Application (PWA)</button>
+                        </div>
+                    </div>
                 </div>
             </section>
 
-            <!-- ⚡ QUÊTES & QUBITS (GAMIFICATION) -->
             <section id="tab-quetes" class="tab-content">
                 <div class="card" style="border-left: 4px solid var(--success);">
-                    <h2>⚡ Centre de Quêtes & Productivité</h2>
-                    <p style="color:var(--text-secondary); font-size:13px; margin-bottom:15px;">Accomplissez des actions dans l'application pour gagner des Qubits d'énergie et progresser en niveau !</p>
+                    <h2>⚡ Quêtes & Qubits</h2>
                     <div id="quetesContainer"></div>
                 </div>
             </section>
 
-            <!-- 💎 GARANTIE SUCCÈS 1000% -->
             <section id="tab-succes1000" class="tab-content">
                 <div class="card" style="border-left: 4px solid var(--success);">
                     <h2>💎 Garantie Succès 1000%</h2>
-                    <p style="color:var(--text-secondary); font-size:13px; margin-bottom:12px;">Définissez votre objectif majeur et laissez ELAWS structurer votre plan d'action quantique.</p>
-                    <input type="text" id="inputObjectif1000" class="input" placeholder="Ex: Lancer mon entreprise et automatiser mes ventes">
-                    <button class="btn-action ripple-effect" onclick="genererPlanSucces1000()">Générer le Plan de Succès</button>
-                    <div id="resultatPlan1000" style="margin-top:15px; display:none;"></div>
+                    <input type="text" id="inputObjectif1000" class="input" placeholder="Ex: Automatiser mes ventes">
+                    <button class="btn-action ripple-effect" onclick="genererPlanSucces1000()">Générer le Plan</button>
+                    <div id="resultatPlan1000" style="margin-top:12px; display:none;"></div>
                 </div>
             </section>
 
-            <!-- ☁️ CLOUD & SYNCHRO -->
             <section id="tab-sync" class="tab-content">
                 <div class="card" style="border-left: 4px solid var(--accent);">
                     <h2>☁️ Cloud & Sauvegarde</h2>
-                    <p style="color:var(--text-secondary); font-size:13px; margin-bottom:15px;">Sauvegardez l'intégralité de vos données, contacts et notes au format JSON sécurisé.</p>
-                    <button onclick="exporterDonneesCloud()" class="btn-action ripple-effect" style="margin-bottom:12px;">📥 Télécharger la Sauvegarde JSON</button>
+                    <button onclick="exporterDonneesCloud()" class="btn-action ripple-effect">📥 Télécharger Sauvegarde JSON</button>
                 </div>
             </section>
 
-            <!-- ✈️ GUIDE VOYAGE, VISA & BILLETS -->
             <section id="tab-voyage" class="tab-content">
                 <div class="card" style="border-left: 4px solid var(--accent);">
-                    <h2>✈️ Guide Voyage, Checklist Visa & Billets</h2>
-                    <p style="color:var(--text-secondary); font-size:13px; margin-bottom:15px;">Préparez vos déplacements de A à Z : estimation des prix de billets, formalités de visa et empreinte carbone.</p>
-                    
-                    <label>Ville de départ :</label>
-                    <input type="text" id="voyageDepart" class="input" value="Lomé (Togo)">
-
-                    <label>Destination finale :</label>
-                    <input type="text" id="voyageDestination" class="input" placeholder="Ex: Paris, Abidjan, Accra, New York">
-                    
-                    <label>Moyen de transport :</label>
-                    <select id="voyageTransport" class="input" style="background:var(--bg-color); color:var(--text-color);">
-                        <option value="avion">✈️ Avion</option>
-                        <option value="voiture">🚗 Voiture</option>
-                        <option value="train">🚆 Train / Transport en commun</option>
-                    </select>
-
-                    <label>Distance estimée (km) :</label>
-                    <input type="number" id="voyageDistance" class="input" value="1500">
-
-                    <button class="btn-action ripple-effect" onclick="lancerAnalyseVoyageAvance()">Générer Rapport Visa, Billets & Carbone</button>
-                    <div id="resultatAssistantVoyage" style="margin-top:15px; display:none;"></div>
+                    <h2>✈️ Guide Voyage, Visa & Billets</h2>
+                    <label style="font-size:12px;">Départ :</label><input type="text" id="voyageDepart" class="input" value="Lomé (Togo)">
+                    <label style="font-size:12px;">Destination :</label><input type="text" id="voyageDestination" class="input" placeholder="Ex: Paris, Abidjan">
+                    <label style="font-size:12px;">Transport :</label>
+                    <select id="voyageTransport" class="input"><option value="avion">✈️ Avion</option><option value="voiture">🚗 Voiture</option></select>
+                    <label style="font-size:12px;">Distance (km) :</label><input type="number" id="voyageDistance" class="input" value="1500">
+                    <button class="btn-action ripple-effect" onclick="lancerAnalyseVoyageAvance()">Lancer l'Analyse</button>
+                    <div id="resultatAssistantVoyage" style="margin-top:12px; display:none;"></div>
                 </div>
             </section>
 
-            <!-- 🔗 PARTAGE COLLABORATIF -->
             <section id="tab-partage" class="tab-content">
                 <div class="card" style="border-left: 4px solid var(--success);">
-                    <h2>🔗 Partage Collaboratif EVAT</h2>
-                    <p style="color:var(--text-secondary); font-size:13px; margin-bottom:12px;">Partagez vos modules et connectez vos flux de travail avec vos collaborateurs.</p>
-                    <button class="btn-action ripple-effect" onclick="alert('Lien de partage crypté généré avec succès !')">Générer un Lien de Partage Sécurisé</button>
+                    <h2>🔗 Partage Collaboratif</h2>
+                    <button class="btn-action ripple-effect" onclick="alert('Lien de partage généré !')">Générer Lien Sécurisé</button>
                 </div>
             </section>
 
-            <!-- 🚨 URGENCES & SOLUTIONS -->
             <section id="tab-crise" class="tab-content">
                 <div class="card" style="border-left: 4px solid var(--danger);">
-                    <h2>🚨 Urgences & Résolution de Crise</h2>
-                    <p style="color:var(--text-secondary); font-size:13px; margin-bottom:12px;">Décrivez un blocage technique ou une situation critique pour obtenir une solution immédiate.</p>
-                    <textarea id="criseDescription" class="input" placeholder="Ex: Panne de serveur Node.js, blocage de déploiement..." style="height:90px; resize:vertical;"></textarea>
-                    <button class="btn-action ripple-effect" onclick="analyserEtResoudreCrise()" style="background:var(--danger); color:#fff;">Générer la Solution d'Urgence</button>
-                    <div id="resultatCriseContainer" style="margin-top:15px; display:none;"></div>
+                    <h2>🚨 Urgences & Solutions</h2>
+                    <textarea id="criseDescription" class="input" placeholder="Décrivez le problème..." style="height:80px;"></textarea>
+                    <button class="btn-action ripple-effect" onclick="analyserEtResoudreCrise()" style="background:var(--danger); color:#fff;">Générer Solution</button>
+                    <div id="resultatCriseContainer" style="margin-top:12px; display:none;"></div>
                 </div>
             </section>
 
-            <!-- 🌐 ÉVALUATION WEB -->
             <section id="tab-audit" class="tab-content">
                 <div class="card" style="border-left: 4px solid var(--accent);">
-                    <h2>🌐 Évaluation & Audit Web</h2>
-                    <p style="color:var(--text-secondary); font-size:13px; margin-bottom:12px;">Analysez la performance et la conformité de vos applications web et plateformes hébergées.</p>
-                    <input type="text" id="urlAuditInput" class="input" value="https://evat-elaws.net" placeholder="URL du site...">
-                    <button class="btn-action ripple-effect" onclick="lancerAuditSite()">Lancer l'Audit Complet</button>
-                    <div id="resultatAuditContainer" style="margin-top:15px; display:none;"></div>
+                    <h2>🌐 Évaluation Web</h2>
+                    <input type="text" id="urlAuditInput" class="input" value="https://evat-elaws.net">
+                    <button class="btn-action ripple-effect" onclick="lancerAuditSite()">Lancer l'Audit</button>
+                    <div id="resultatAuditContainer" style="margin-top:12px; display:none;"></div>
                 </div>
             </section>
 
-            <!-- 📞 APPEL DIRECT -->
             <section id="tab-appel" class="tab-content">
-                <div class="card" style="border-left: 4px solid var(--success);">
-                    <h2>📞 Appel Direct & Support ELAWS</h2>
-                    <p style="color:var(--text-secondary); font-size:13px; margin-bottom:12px;">Contactez directement le support ou lancez une liaison audio sécurisée.</p>
-                    <div style="background:var(--bg-color); padding:15px; border-radius:12px; border:1px solid var(--border-color); text-align:center;">
-                        <p style="color:var(--accent); font-size:15px; font-weight:700;">📞 +228 98 23 14 02</p>
-                        <p style="color:var(--text-secondary); font-size:12px; margin-bottom:15px;">Support Officiel ELAWS • Lomé, Togo</p>
-                        <a href="tel:+22898231402" class="btn-action ripple-effect" style="display:inline-block; text-decoration:none; text-align:center;">Lancer l'Appel Téléphonique</a>
-                    </div>
+                <div class="card" style="border-left: 4px solid var(--success); text-align:center;">
+                    <h2>📞 Appel Direct ELAWS</h2>
+                    <p style="color:var(--accent); font-size:14px; font-weight:700; margin:10px 0;">+228 98 23 14 02</p>
+                    <a href="tel:+22898231402" class="btn-action ripple-effect" style="display:inline-block; text-decoration:none;">Lancer l'Appel</a>
                 </div>
             </section>
 
-            <!-- 👤 PROFIL & TON IA -->
             <section id="tab-profil" class="tab-content">
                 <div class="card" style="border-left: 4px solid var(--accent);">
-                    <h2>👤 Gestion du Profil & ELAWS 2.0</h2>
-                    <p style="color:var(--text-secondary); font-size:13px; margin-bottom:15px;">Configurez votre identité, votre métier et le style de communication de votre assistant ELAWS.</p>
+                    <h2>👤 Gestion du Profil</h2>
+                    <label style="font-size:12px;">Nom :</label><input type="text" id="inputNom" class="input">
+                    <label style="font-size:12px;">Métier :</label><input type="text" id="inputMetierProfil" class="input">
+                    <label style="font-size:12px;">Ton IA :</label>
+                    <select id="inputIaTon" class="input"><option value="standard">Standard Quantum</option><option value="pedagogique">Tuteur</option><option value="business">Business</option><option value="technique">Technique</option></select>
+                    <button class="btn-action ripple-effect" onclick="sauvegarderProfilBase()" style="margin-bottom:15px;">Enregistrer</button>
                     
-                    <label>Votre Nom / Pseudonyme :</label>
-                    <input type="text" id="inputNom" class="input" placeholder="Ex: Kodjo Marceline" style="margin-bottom:10px;">
-                    
-                    <label>Votre Métier / Domaine d'activité :</label>
-                    <input type="text" id="inputMetierProfil" class="input" placeholder="Ex: Développeur Web / Entrepreneur" style="margin-bottom:10px;">
-
-                    <label>Profil de Ton ELAWS :</label>
-                    <select id="inputIaTon" class="input" style="background:var(--bg-color); color:var(--text-color); margin-bottom:15px;">
-                        <option value="standard">🤖 Standard Quantum</option>
-                        <option value="pedagogique">💡 Tuteur / Pédagogique (Idéal pour Étudiants)</option>
-                        <option value="business">🚀 Stratège Business (Idéal pour Entrepreneurs)</option>
-                        <option value="technique">💻 Expert Technique / Code (Idéal pour Développeurs)</option>
-                    </select>
-                    
-                    <button class="btn-action ripple-effect" onclick="sauvegarderProfilBase()" style="margin-bottom:20px;">Enregistrer le Profil & le Ton IA</button>
-
-                    <hr style="border:0; border-top:1px solid var(--border-color); margin:20px 0;">
-
-                    <h3 style="font-size:15px; color:var(--text-color); margin-bottom:10px;">📖 Carnet de Contacts & Répertoire</h3>
-                    <p style="color:var(--text-secondary); font-size:12.5px; margin-bottom:12px;">Ajoutez ou gérez vos contacts synchronisés dans l'écosystème ELAWS.</p>
-
-                    <div style="background:var(--bg-color); padding:14px; border-radius:14px; border:1px solid var(--border-color); margin-bottom:15px;">
-                        <h4 style="font-size:13px; color:var(--accent); margin-bottom:8px;">➕ Ajouter un contact manuellement</h4>
-                        <input type="text" id="contactNomInput" class="input" placeholder="Nom du contact" style="margin-bottom:8px; font-size:13px; padding:10px;">
-                        <input type="text" id="contactTelInput" class="input" placeholder="Numéro de téléphone (ex: +228...)" style="margin-bottom:8px; font-size:13px; padding:10px;">
-                        <input type="text" id="contactEmailInput" class="input" placeholder="Adresse Email (optionnel)" style="margin-bottom:10px; font-size:13px; padding:10px;">
-                        <button class="btn-action ripple-effect" onclick="ajouterContactManuel()" style="padding:10px; font-size:13px;">Enregistrer le contact</button>
-                    </div>
-
-                    <h4 style="font-size:13px; color:var(--text-color); margin-bottom:8px;">📋 Contacts enregistrés :</h4>
+                    <h3 style="font-size:14px; margin-bottom:8px;">📖 Contacts</h3>
+                    <input type="text" id="contactNomInput" class="input" placeholder="Nom">
+                    <input type="text" id="contactTelInput" class="input" placeholder="Téléphone">
+                    <input type="text" id="contactEmailInput" class="input" placeholder="Email">
+                    <button class="btn-action ripple-effect" onclick="ajouterContactManuel()" style="margin-bottom:12px;">Ajouter Contact</button>
                     <div id="listeContactsContainer"></div>
                 </div>
             </section>
 
-            <!-- 🛠️ BOÎTE À OUTILS & ESPACE DE TRAVAIL -->
             <section id="tab-outils" class="tab-content">
                 <div class="card" style="border-left: 4px solid var(--accent);">
-                    <h2>🛠️ Boîte à Outils & Espace de Travail</h2>
-                    <p style="color:var(--text-secondary); font-size:13px; margin-bottom:15px;">Voici les outils et raccourcis adaptés automatiquement à votre profil et à votre métier.</p>
-                    
+                    <h2>🛠️ Boîte à Outils</h2>
                     <div id="outilsDynamiquesContainer"></div>
-
-                    <hr style="border:0; border-top:1px solid var(--border-color); margin:20px 0;">
-
-                    <h3 style="font-size:14px; color:var(--text-color); margin-bottom:10px;">📌 Notes & Enregistrements du Bloc-Notes</h3>
-                    <input type="text" id="noteTitre" class="input" placeholder="Titre de la note..." style="font-size:13px; padding:10px;">
-                    <textarea id="noteContenu" class="input" placeholder="Contenu de la note..." style="height:70px; resize:vertical; font-size:13px; padding:10px;"></textarea>
-                    <button class="btn-action ripple-effect" onclick="ajouterNoteBlocNotes()" style="margin-bottom:15px; padding:10px; font-size:13px;">Enregistrer la Note</button>
-
-                    <h4 style="font-size:13px; color:var(--text-color); margin-bottom:8px;">📋 Historique des notes :</h4>
+                    <hr style="border:0; border-top:1px solid var(--border-color); margin:15px 0;">
+                    <input type="text" id="noteTitre" class="input" placeholder="Titre de la note">
+                    <textarea id="noteContenu" class="input" placeholder="Contenu..." style="height:60px;"></textarea>
+                    <button class="btn-action ripple-effect" onclick="ajouterNoteBlocNotes()" style="margin-bottom:12px;">Enregistrer Note</button>
                     <div id="listeNotesContainer"></div>
                 </div>
             </section>
@@ -339,7 +264,6 @@
 
     <script src="elaws.js"></script>
     <script src="app.js"></script>
-    
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js'); });
@@ -348,22 +272,15 @@
             const iframe = document.getElementById('iframeCarteMonde');
             const btnReel = document.getElementById('btnCarteReelle');
             const btnSat = document.getElementById('btnCarteSatellite');
-            const statusLbl = document.getElementById('statutModeCarte');
-            
             if(mode === 'reel') {
                 iframe.src = "https://www.openstreetmap.org/export/embed.html?bbox=1.1,6.1,1.3,6.2&amp;layer=mapnik";
                 btnReel.classList.add('active');
                 btnSat.classList.remove('active');
-                statusLbl.innerText = "Mode Actif : Plan Réel";
             } else {
-                iframe.src = "https://www.openstreetmap.org/export/embed.html?bbox=-180,-90,180,90&amp;layer=cyclemap";
+                iframe.src = "https://www.openstreetmap.org/export/embed.html?bbox=1.1,6.1,1.3,6.2&amp;layer=cyclemap";
                 btnSat.classList.add('active');
                 btnReel.classList.remove('active');
-                statusLbl.innerText = "Mode Actif : Vue Satellite & Relief";
             }
-        }
-        function agrandirCarteMonde() {
-            alert("Mode Carte Mondiale Plein Écran activé.");
         }
     </script>
 </body>
