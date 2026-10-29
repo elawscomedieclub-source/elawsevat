@@ -1,4 +1,50 @@
 
+const EVAT_VERSION_ACTUELLE = "v3.43";
+
+// Vérification de la version stockée pour déclencher une réinitialisation/mise à jour automatique si nécessaire
+let versionEnregistree = localStorage.getItem('evat_version_app');
+
+if (versionEnregistree !== EVAT_VERSION_ACTUELLE) {
+    // Une mise à jour a été détectée ! On préserve les données critiques (contacts, notes, qubits) mais on réinitialise ou met à jour la structure
+    console.log("Mise à jour détectée : passage de", versionEnregistree, "à", EVAT_VERSION_ACTUELLE);
+    
+    let ancienProfil = JSON.parse(localStorage.getItem('evat_profil'));
+    if (ancienProfil) {
+        // Migration intelligente : on conserve le nom, le métier, les qubits et notes, mais on met à jour les quêtes et paramètres système
+        ancienProfil.quetes = [
+            { id: 1, titre: "Configurer le profil & le métier", fait: true, qubits: 50 },
+            { id: 2, titre: "Enregistrer une note dans le bloc-notes", fait: false, qubits: 30 },
+            { id: 3, titre: "Générer un Plan de Succès 1000%", fait: false, qubits: 70 },
+            { id: 4, titre: "Calculer une empreinte carbone de voyage", fait: false, qubits: 40 },
+            { id: 5, titre: "Utiliser l'assistant Visa & Billets d'avion", fait: false, qubits: 60 }
+        ];
+        localStorage.setItem('evat_profil', JSON.stringify(ancienProfil));
+    } else {
+        // Réinitialisation complète par défaut si aucun profil
+        localStorage.removeItem('evat_profil');
+    }
+    
+    // Mémoriser la nouvelle version
+    localStorage.setItem('evat_version_app', EVAT_VERSION_ACTUELLE);
+    
+    // Alerte visuelle de mise à jour réussie
+    window.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => {
+            afficherNotificationMiseAJour(EVAT_VERSION_ACTUELLE);
+        }, 500);
+    });
+}
+
+function afficherifficherAlerteMiseAJour(version) {} // helper
+
+function afficherNotificationMiseAJour(version) {
+    const div = document.createElement('div');
+    div.style.cssText = "position:fixed; top:20px; left:50%; transform:translateX(-50%); background:var(--success); color:#fff; padding:12px 24px; border-radius:14px; font-weight:700; z-index:9999; box-shadow:0 0 25px rgba(16,185,129,0.8); font-size:13.5px; text-align:center;";
+    div.innerHTML = `🚀 Application mise à jour vers ${version} !<br><span style="font-size:11.5px; font-weight:400;">Réinitialisation et synchronisation quantique effectuées.</span>`;
+    document.body.appendChild(div);
+    setTimeout(() => { div.remove(); }, 4000);
+}
+
 let utilisateur = JSON.parse(localStorage.getItem('evat_profil')) || {
     nom: "",
     metier: "",
@@ -15,7 +61,7 @@ let utilisateur = JSON.parse(localStorage.getItem('evat_profil')) || {
         { id: 5, titre: "Utiliser l'assistant Visa & Billets d'avion", fait: false, qubits: 60 }
     ],
     contacts: [{ nom: "Service Client ELAWS", tel: "+22898231402", email: "support@evat-elaws.net" }],
-    notes: [{ titre: "Bienvenue dans EVAT Quantum v3.42", contenu: "Module Voyage & Visa Avancé activé." }],
+    notes: [{ titre: "Bienvenue dans EVAT Quantum v3.43", contenu: "Mise à jour automatique et réinitialisation intelligente activées." }],
     voyages: [], crises: [], audits: [], objectifs1000: []
 };
 
@@ -72,12 +118,10 @@ function ajouterQubits(quantite, raison) {
     if(!utilisateur.qubits) utilisateur.qubits = 100;
     utilisateur.qubits += quantite;
     
-    // Calcul du niveau (tous les 300 qubits = +1 niveau)
     utilisateur.niveauGamification = Math.floor(utilisateur.qubits / 300) + 1;
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
     actualiserDashboard();
     
-    // Notification visuelle
     afficherAlerteGamification(`⚡ +${quantite} Qubits ! (${raison})`);
 }
 
@@ -168,9 +212,8 @@ function lancerAnalyseVoyageAvance() {
     
     container.style.display = 'block';
     
-    // Calculs estimés
     const emission = Math.round(distance * (transport === 'avion' ? 0.25 : transport === 'voiture' ? 0.12 : 0.04));
-    let prixEstime = Math.round(distance * 355); // Estimation en XOF
+    let prixEstime = Math.round(distance * 355);
     if (transport !== 'avion') prixEstime = Math.round(distance * 85);
     
     let html = `
@@ -287,7 +330,6 @@ function genererPlanSucces1000() {
     }, 600);
 }
 
-// Chargement dynamique des outils adaptés au profil et au métier dans l'onglet Outils
 function chargerOutilsAdaptesAuProfil() {
     const container = document.getElementById('outilsDynamiquesContainer');
     if(!container) return;
@@ -452,7 +494,7 @@ function sauvegarderProfilBase() {
     const modal = document.getElementById('welcomeModal');
     if(modal) modal.style.display = 'none';
     
-    alert("Profil et paramètres enregistrés ! Bienvenue dans EVAT Quantum v3.42.");
+    alert("Profil et paramètres enregistrés ! Bienvenue dans EVAT Quantum v3.43.");
 }
 
 function verifierPremierLancement() {
