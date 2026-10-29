@@ -1,21 +1,15 @@
 {
-  "name": "EVAT & ELAWS Quantum v3.50",
+  "name": "EVAT | ELAWS Quantum",
   "short_name": "EVAT",
-  "start_url": "./index.html",
-  "scope": "./",
+  "start_url": "index.html",
   "display": "standalone",
   "background_color": "#030712",
-  "theme_color": "#0ea5e9",
+  "theme_color": "#030712",
   "icons": [
     {
       "src": "logo_evat.svg",
-      "sizes": "512x512",
+      "sizes": "any",
       "type": "image/svg+xml"
-    },
-    {
-      "src": "logo_evat.png",
-      "sizes": "512x512",
-      "type": "image/png"
     }
   ]
 }

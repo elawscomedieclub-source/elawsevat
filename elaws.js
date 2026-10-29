@@ -47,7 +47,7 @@ On fonce !`;
 Dis-moi quel composant pose problème pour appliquer la correction chirurgicale.`;
 
             default:
-                return `🤖 Bonjour ${nom} ! En tant qu'intelligence artificielle supérieure ELAWS Quantum v3.57, j'ai synchronisé ton profil (${metier}). Mes capacités d'analyse, de code, de stratégie et de traduction sont à 100% de leur potentiel. Qu'est-ce qu'on déploie maintenant ?`;
+                return `🤖 Bonjour ${nom} ! En tant qu'intelligence artificielle supérieure ELAWS Quantum v3.58, j'ai synchronisé ton profil (${metier}). Mes capacités d'analyse, de code, de stratégie et de traduction sont à 100% de leur potentiel. Qu'est-ce qu'on déploie maintenant ?`;
         }
     }
 };
