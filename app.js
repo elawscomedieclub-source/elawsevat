@@ -11,10 +11,11 @@ let utilisateur = JSON.parse(localStorage.getItem('evat_profil')) || {
         { id: 1, titre: "Configurer le profil & le métier", fait: true, qubits: 50 },
         { id: 2, titre: "Enregistrer une note dans le bloc-notes", fait: false, qubits: 30 },
         { id: 3, titre: "Générer un Plan de Succès 1000%", fait: false, qubits: 70 },
-        { id: 4, titre: "Calculer une empreinte carbone de voyage", fait: false, qubits: 40 }
+        { id: 4, titre: "Calculer une empreinte carbone de voyage", fait: false, qubits: 40 },
+        { id: 5, titre: "Utiliser l'assistant Visa & Billets d'avion", fait: false, qubits: 60 }
     ],
     contacts: [{ nom: "Service Client ELAWS", tel: "+22898231402", email: "support@evat-elaws.net" }],
-    notes: [{ titre: "Bienvenue dans EVAT Quantum v3.41", contenu: "Gamification et Qubits d'énergie activés." }],
+    notes: [{ titre: "Bienvenue dans EVAT Quantum v3.42", contenu: "Module Voyage & Visa Avancé activé." }],
     voyages: [], crises: [], audits: [], objectifs1000: []
 };
 
@@ -155,26 +156,55 @@ function supprimerContact(index) {
     actualiserListeContacts();
 }
 
-// Modules spécifiques interactifs
-function lancerAssistantVoyageCarbone() {
+// Module Voyage Avancé : Checklist Visa & Estimation Billets
+function lancerAnalyseVoyageAvance() {
     const dest = document.getElementById('voyageDestination').value.trim();
+    const depart = document.getElementById('voyageDepart').value.trim() || "Lomé (Togo)";
     const transport = document.getElementById('voyageTransport').value;
-    const distance = parseFloat(document.getElementById('voyageDistance').value) || 1000;
+    const distance = parseFloat(document.getElementById('voyageDistance').value) || 1500;
     const container = document.getElementById('resultatAssistantVoyage');
-    if(!dest) { alert("Entrez une destination."); return; }
-    const emission = Math.round(distance * (transport === 'avion' ? 0.25 : transport === 'voiture' ? 0.12 : 0.04));
+    
+    if(!dest) { alert("Veuillez entrer une destination."); return; }
+    
     container.style.display = 'block';
-    container.innerHTML = `<div style="background:var(--bg-color); padding:15px; border-radius:12px; border:1px solid var(--success);"><h4 style="color:var(--success);">✈️ Trajet vers ${dest}</h4><p style="color:var(--text-color); font-size:13px; margin:4px 0;">Mode : ${transport} | Distance : ${distance} km</p><p style="color:var(--success); font-weight:700; margin:0;">🌱 Empreinte Carbone estimée : ${emission} kg CO2</p></div>`;
+    
+    // Calculs estimés
+    const emission = Math.round(distance * (transport === 'avion' ? 0.25 : transport === 'voiture' ? 0.12 : 0.04));
+    let prixEstime = Math.round(distance * 355); // Estimation en XOF
+    if (transport !== 'avion') prixEstime = Math.round(distance * 85);
+    
+    let html = `
+        <div style="background:var(--bg-color); padding:16px; border-radius:12px; border:1px solid var(--accent); margin-bottom:12px;">
+            <h4 style="color:var(--accent); margin-bottom:8px;">✈️ Rapport de Voyage : ${depart} ➔ ${dest}</h4>
+            <p style="color:var(--text-color); font-size:13px; margin:4px 0;">• Mode de transport : <strong>${transport.toUpperCase()}</strong> (${distance} km)</p>
+            <p style="color:var(--success); font-size:13px; margin:4px 0;">• Empreinte Carbone estimée : <strong>${emission} kg CO2</strong></p>
+            <p style="color:var(--text-color); font-size:13px; margin:4px 0;">• Prix estimé du billet : <strong style="color:var(--accent);">${prixEstime.toLocaleString()} XOF</strong></p>
+        </div>
+        
+        <div style="background:var(--bg-color); padding:16px; border-radius:12px; border:1px solid var(--success);">
+            <h4 style="color:var(--success); margin-bottom:8px;">📋 Checklist Administrative & Visa pour ${dest}</h4>
+            <ul style="font-size:13px; color:var(--text-color); padding-left:18px; display:flex; flex-direction:column; gap:6px;">
+                <li><strong>Passeport biométrique :</strong> Valide au moins 6 mois après la date de retour.</li>
+                <li><strong>Visa d'entrée :</strong> Vérifier l'éligibilité au e-Visa ou prendre rendez-vous à l'ambassade compétente.</li>
+                <li><strong>Billets d'avion aller-retour :</strong> Réservation confirmée obligatoire pour les services d'immigration.</li>
+                <li><strong>Hébergement :</strong> Certificat d'accueil ou réservation d'hôtel validée.</li>
+                <li><strong>Santé & Vaccins :</strong> Carnet de vaccination international (Fièvre jaune obligatoire dans de nombreux hubs).</li>
+                <li><strong>Assurance voyage :</strong> Couverture médicale et rapatriement sanitaire exigée.</li>
+            </ul>
+        </div>
+    `;
+    
+    container.innerHTML = html;
+    
     if(!utilisateur.voyages) utilisateur.voyages = [];
-    utilisateur.voyages.unshift({ destination: dest, carbone: emission, transport });
+    utilisateur.voyages.unshift({ destination: dest, depart, carbone: emission, transport, prix: prixEstime });
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
     
-    // Valider la quête associée si présente
-    const qVoyage = utilisateur.quetes.find(q => q.id === 4);
+    const qVoyage = utilisateur.quetes.find(q => q.id === 5);
     if(qVoyage && !qVoyage.fait) { qVoyage.fait = true; }
     
-    ajouterQubits(40, "Calcul d'empreinte carbone");
-    lireVocalement("Calcul carbone effectué.");
+    ajouterQubits(60, "Analyse voyage & checklist Visa");
+    lireVocalement("Rapport de voyage et checklist administrative générés avec succès.");
 }
 
 function analyserEtResoudreCrise() {
@@ -422,7 +452,7 @@ function sauvegarderProfilBase() {
     const modal = document.getElementById('welcomeModal');
     if(modal) modal.style.display = 'none';
     
-    alert("Profil et paramètres enregistrés ! Bienvenue dans EVAT Quantum v3.41.");
+    alert("Profil et paramètres enregistrés ! Bienvenue dans EVAT Quantum v3.42.");
 }
 
 function verifierPremierLancement() {
