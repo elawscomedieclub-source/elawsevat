@@ -188,6 +188,46 @@
                 </div>
             </section>
 
+                        <!-- MODULE UNIFIE COMMUNICATIONS : MESSAGERIE & APPELS -->
+            <section id="tab-communications" class="tab-content">
+                <div class="card" style="border-left: 4px solid var(--success);">
+                    <h2>📞 Centre de Communications & Messagerie</h2>
+                    <p style="color:var(--text-secondary); font-size:12.5px; margin:6px 0 14px 0;">Messagerie locale sécurisée et appels audio/vidéo WebRTC regroupés.</p>
+                    
+                    <!-- Section Appels WebRTC -->
+                    <div style="background:var(--bg-color); padding:14px; border-radius:10px; border:1px solid var(--accent); margin-bottom:14px; text-align:center;">
+                        <span style="font-size:11.5px; color:var(--text-secondary);">Numéro / ID VoIP Actif :</span>
+                        <div id="voipNumeroDisplay" style="color:var(--accent); font-size:16px; font-weight:800; margin:4px 0 10px 0;">+228 98 23 14 02</div>
+                        <div id="voipStatusDisplay" style="margin-bottom:12px; font-size:12px; color:var(--text-secondary);">Prêt pour appel audio ou vidéo.</div>
+                        
+                        <div id="videoCallContainer" style="display:none; margin-bottom:12px; background:#000; border-radius:8px; overflow:hidden; border:1px solid var(--accent);">
+                            <video id="localVideoElement" autoplay playsinline muted style="width:100%; max-height:200px; object-fit:cover;"></video>
+                        </div>
+
+                        <div style="display:flex; gap:8px; justify-content:center;">
+                            <button id="btnAppelAudio" onclick="lancerAppelInternet('audio')" class="btn-action ripple-effect" style="background:var(--success); color:#fff; font-size:12px; padding:10px; flex:1;">🎙️ Appel Audio</button>
+                            <button id="btnAppelVideo" onclick="lancerAppelInternet('video')" class="btn-action ripple-effect" style="background:var(--accent); color:#030712; font-size:12px; padding:10px; flex:1;">📹 Appel Vidéo</button>
+                        </div>
+                    </div>
+
+                    <!-- Section Fichiers & Messagerie Locale -->
+                    <div style="background:var(--bg-color); padding:12px; border-radius:10px; border:1px solid var(--border-color); margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <strong style="font-size:12.5px; color:var(--text-color);">📁 Fichiers du Téléphone</strong>
+                            <div id="fileAccessStatus" style="font-size:11px; color:var(--text-secondary); margin-top:2px;">Stockage interne actif.</div>
+                        </div>
+                        <button onclick="selectionnerDossierStockageTelephone()" class="btn-action ripple-effect" style="width:auto; padding:8px 12px; font-size:11.5px; background:var(--accent); color:#030712;">Lier Dossier</button>
+                    </div>
+
+                    <div id="listeMessagesLocaux" style="background:var(--bg-color); border:1px solid var(--border-color); border-radius:10px; padding:10px; height:200px; overflow-y:auto; margin-bottom:10px; display:flex; flex-direction:column; gap:6px;"></div>
+
+                    <div style="display:flex; gap:8px;">
+                        <input type="text" id="chatLocalInput" class="input" placeholder="Écrire un message..." style="margin-bottom:0; font-size:13px; padding:10px;" onkeypress="if(event.key==='Enter') envoyerMessageChatLocal()">
+                        <button onclick="envoyerMessageChatLocal()" class="btn-action ripple-effect" style="width:auto; padding:0 18px; font-size:12.5px; background:var(--success); color:#fff;">Envoyer</button>
+                    </div>
+                </div>
+            </section>
+
             <section id="tab-quetes" class="tab-content">
                 <div class="card" style="border-left: 4px solid var(--success);">
                     <h2>⚡ Quêtes & Qubits</h2>
