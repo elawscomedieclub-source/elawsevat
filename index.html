@@ -7,11 +7,8 @@
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" href="logo_evat.svg" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="logo_evat.svg">
     <meta name="theme-color" content="#030712">
-
 <style>
-/* Correction critique pour l'affichage mobile du menu latéral */
 .sidebar {
     position: fixed;
     top: 0;
@@ -26,455 +23,132 @@
     box-sizing: border-box;
     overflow-y: auto;
 }
-.sidebar.open {
-    left: 0;
-}
+.sidebar.open { left: 0; }
 .app-overlay {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
     background: rgba(0,0,0,0.6);
     display: none;
     z-index: 9988;
 }
-.app-overlay.active {
-    display: block;
+.app-overlay.active { display: block; }
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: var(--card-bg);
+    border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+    z-index: 8000;
 }
+.header-left { display: flex; align-items: center; gap: 10px; }
+.elaws-widget { position: relative; display: flex; align-items: center; }
+.elaws-action-bar { display: flex; align-items: center; gap: 8px; }
+.elaws-magic-bubble {
+    background: linear-gradient(135deg, #0ea5e9, #1d4ed8);
+    border: none;
+    border-radius: 20px;
+    padding: 6px 12px;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    box-shadow: 0 0 15px rgba(14, 165, 233, 0.5);
+    transition: all 0.2s ease;
+}
+.elaws-magic-bubble:hover { transform: scale(1.05); }
+.magic-sphere-core { width: 8px; height: 8px; background: #10b981; border-radius: 50%; box-shadow: 0 0 8px #10b981; }
+.magic-label { font-size: 11.5px; font-weight: 700; }
 </style>
 </head>
 <body>
     <div id="welcomeModal" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(3,7,18,0.92); z-index:9000; display:none; align-items:center; justify-content:center; padding:16px; backdrop-filter:blur(8px);">
         <div class="card" style="max-width:400px; width:100%; border:2px solid var(--accent); box-shadow:0 0 40px rgba(14,165,233,0.5); text-align:center; padding:20px;">
-            <div style="display:flex; justify-content:center; margin-bottom:12px;">
-                <img src="logo_evat.svg" alt="Logo de l'application" style="width:72px; height:72px; border-radius:50%; box-shadow:0 0 25px var(--accent); border:2px solid var(--accent);">
-            </div>
             <h2 style="color:var(--accent); font-size:17px; margin-bottom:6px;">EVAT Quantum v3.60 Turbo</h2>
             <p style="font-size:12.5px; color:var(--text-secondary); margin-bottom:14px;">Messagerie locale & Stockage fichiers téléphone.</p>
-            
             <div style="text-align:left; margin-bottom:14px;">
                 <label style="font-size:11.5px; color:var(--text-color);">Votre Nom :</label>
                 <input type="text" id="inputNom" class="input" placeholder="Ex: Kodjo Marceline" style="margin-bottom:6px; font-size:12.5px; padding:8px;">
-                
                 <label style="font-size:11.5px; color:var(--text-color);">Votre Numéro (ID VoIP) :</label>
                 <input type="text" id="inputTelProfil" class="input" value="+22898231402" style="margin-bottom:6px; font-size:12.5px; padding:8px;">
-
-                <label style="font-size:11.5px; color:var(--text-color);">Profil ELAWS :</label>
-                <select id="inputIaTon" class="input" style="background:var(--bg-color); color:var(--text-color); font-size:12.5px; padding:8px; margin-bottom:12px;">
-                    <option value="standard">🤖 Standard Quantum</option>
-                    <option value="pedagogique">💡 Tuteur / Pédagogique</option>
-                    <option value="business">🚀 Stratège Business</option>
-                    <option value="technique">💻 Expert Technique / Code</option>
-                </select>
             </div>
-            <button onclick="sauvegarderProfilBase()" class="btn-action ripple-effect" style="font-size:13.5px; padding:10px;">🚀 Démarrer ELAWS 3.59 (+50 Qubits)</button>
+            <button onclick="sauvegarderProfilBase()" class="btn-action" style="font-size:13.5px; padding:10px; width:100%;">🚀 Démarrer ELAWS 3.59 (+50 Qubits)</button>
         </div>
     </div>
 
     <div id="app">
         <header class="header">
             <div class="header-left">
-                <button onclick="toggleMenu(event)" class="menu-btn ripple-effect" aria-label="Menu principal">☰</button>
+                <button onclick="toggleMenu(event)" class="menu-btn" aria-label="Menu principal">☰</button>
                 <div class="header-brand" style="display:flex; align-items:center; gap:10px;">
-                    <img src="logo_evat.svg" alt="Logo App" class="quantum-logo-app" onclick="basculerLogoInterchangeable(event)" title="Changer de Logo">
-                    <div>
-                        <h1 id="appTitle">EVAT <span style="font-weight:300; font-size:12px; color:var(--text-secondary);">| Quantum v3.60 Turbo</span></h1>
-                    </div>
+                    <div><h1>EVAT <span style="font-weight:300; font-size:12px; color:var(--text-secondary);">| v3.60 Turbo</span></h1></div>
                 </div>
             </div>
-
             <div id="elawsWidget" class="elaws-widget">
                 <div class="elaws-action-bar">
-                    <button onclick="ouvrirModeClavierDirect(event)" class="elaws-keyboard-btn ripple-effect" title="Clavier"><span>⌨️</span></button>
-                    <button onclick="basculerEcouteVocaleLiveDirect(event)" class="elaws-magic-bubble ripple-effect" title="Voix">
+                    <button onclick="ouvrirModeClavierDirect(event)" class="elaws-keyboard-btn" title="Clavier"><span>⌨️</span></button>
+                    <button onclick="basculerEcouteVocaleLiveDirect(event)" class="elaws-magic-bubble" title="Voix">
                         <div class="magic-sphere-core"></div>
                         <span class="magic-label">🎙️ ELAWS 3.59</span>
                     </button>
-                </div>
-                
-                <div id="elawsPopup" class="elaws-popup" style="display: none;" onclick="event.stopPropagation()">
-                    <div class="elaws-popup-header">
-                        <div style="display:flex; align-items:center; gap:6px;">
-                            <span class="status-indicator"></span>
-                            <span>ELAWS 3.59 • IA Hyper-Renforcée</span>
-                        </div>
-                        <button onclick="fermerElawsChat(event)" class="close-popup-btn ripple-effect">✕</button>
-                    </div>
-
-                    <div class="mode-selector-bar">
-                        <button id="modeBtnClavier" onclick="changerModeInteraction('clavier')" class="mode-pill ripple-effect active">⌨️ Clavier</button>
-                        <button id="modeBtnMicro" onclick="changerModeInteraction('micro')" class="mode-pill ripple-effect">🎙️ Voix</button>
-                    </div>
-
-                    <div class="elaws-popup-body">
-                        <div id="elawsMessages" class="elaws-messages"></div>
-                        
-                        <div id="panelClavier" class="input-panel active">
-                            <div class="elaws-input-area">
-                                <input type="text" id="elawsInput" placeholder="Interrogez ELAWS (Code, Business, Traduction)..." onkeypress="if(event.key==='Enter') envoyerMessageElaws()">
-                                <button onclick="envoyerMessageElaws()" class="btn-envoyer-chat ripple-effect">Envoyer</button>
-                            </div>
-                        </div>
-
-                        <div id="panelMicro" class="input-panel" style="display: none; text-align: center; padding: 8px;">
-                            <p id="voiceStatusText" style="font-size: 12px; color: var(--success); margin-bottom: 8px; font-weight: 500;">Écoute en cours...</p>
-                            <button onclick="basculerEcouteVocaleLive()" id="microGrandBtn" class="micro-grand-btn ripple-effect active">
-                                <span class="mic-icon">🎙️</span>
-                                <span id="microLabelState">Parler à ELAWS</span>
-                            </button>
-                        </div>
-                    </div>
                 </div>
             </div>
         </header>
 
         <nav id="sidebar" class="sidebar" onclick="event.stopPropagation()">
-            <div class="sidebar-header" style="display:flex; flex-direction:row; align-items:center; gap:10px;">
-                <img src="logo_evat.svg" alt="Logo" style="width:38px; height:38px; border-radius:50%; border:1px solid var(--accent);">
+            <div class="sidebar-header" style="display:flex; align-items:center; gap:10px;">
                 <div>
-                    <h3>Navigation EVAT</h3>
+                    <h3>Navigation</h3>
                     <span id="sidebarUserRole" class="sidebar-badge">Kodjo • Niveau 1</span>
                 </div>
             </div>
-            <div class="sidebar-links">
-                <a href="#" onclick="switchTab('dashboard')" class="nav-link ripple-effect active" id="link-dashboard">📊 Dashboard Quantum</a>
-                <a href="#" onclick="switchTab('communications')" class="nav-link ripple-effect" id="link-communications">📞 Communications & Messagerie Tél</a>
-                <a href="#" onclick="switchTab('quetes')" class="nav-link ripple-effect" id="link-quetes">⚡ Quêtes & Qubits</a>
-                <a href="#" onclick="switchTab('succes1000')" class="nav-link ripple-effect" id="link-succes1000">💎 Garantie Succès 1000%</a>
-                <a href="#" onclick="switchTab('sync')" class="nav-link ripple-effect" id="link-sync">☁️ Cloud & Synchro</a>
-                <a href="#" onclick="switchTab('voyage')" class="nav-link ripple-effect" id="link-voyage">✈️ Guide Voyage, Visa & Billets</a>
-
-                <a href="#" onclick="switchTab('profil')" class="nav-link ripple-effect" id="link-profil">👤 Profil & VoIP</a>
-                <a href="#" onclick="switchTab('outils')" class="nav-link ripple-effect" id="link-outils">🛠️ Boîte à Outils</a>
-            </div>
-            <div class="sidebar-footer">
-                <p>EVAT v3.60 Turbo • Eric Lawson</p>
+            <div class="sidebar-links" style="margin-top:15px; display:flex; flex-direction:column; gap:8px;">
+                <a href="#" onclick="switchTab('dashboard')" class="nav-link active" id="link-dashboard">📊 Dashboard Quantum</a>
+                <a href="#" onclick="switchTab('communications')" class="nav-link" id="link-communications">📞 Communications & VoIP</a>
+                <a href="#" onclick="switchTab('profil')" class="nav-link" id="link-profil">👤 Profil & Contacts</a>
+                <a href="#" onclick="switchTab('outils')" class="nav-link" id="link-outils">🛠️ Boîte à Outils</a>
             </div>
         </nav>
 
         <div id="appOverlay" class="app-overlay" onclick="fermerTousLesMenus()"></div>
 
-        <main class="content">
-
-            <!-- DASHBOARD -->
+        <main class="content" style="padding:16px;">
             <section id="tab-dashboard" class="tab-content active">
-                <div class="dashboard-grid">
-                    <div>
-                        <div class="card" style="border-left: 4px solid var(--success); background: linear-gradient(135deg, var(--card-bg), rgba(16,185,129,0.1));">
-                            <span style="font-size:11.5px; color:var(--success); font-weight:700; text-transform:uppercase;">⚡ Énergie Qubit Active</span>
-                            <h2 style="font-size:24px; color:var(--text-color); margin:4px 0;"><span id="dashQubitsScore">300</span> <span style="font-size:13px; color:var(--accent);">Qubits</span></h2>
-                            <p style="font-size:11.5px; color:var(--text-secondary);">Niveau Actuel : <strong style="color:var(--text-color);">Niveau <span id="dashNiveauScore">1</span></strong></p>
-                        </div>
-
-                        <div class="card" style="border-left: 4px solid var(--accent);">
-                            <h3 style="font-size:13.5px; color:var(--text-color); font-weight:700; margin-bottom:4px;">Global Quantum Network Status</h3>
-                            <p style="font-size:11.5px; color:var(--text-secondary); margin-bottom:10px;">Network Integrity | <strong style="color:var(--success);">100% Active (Messagerie & Fichiers Tél)</strong></p>
-                            
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                                <div style="display:flex; gap:6px;">
-                                    <button onclick="changerModeCarte('reel')" id="btnCarteReelle" class="mode-pill active" style="padding:5px 10px; font-size:11px;">🗺️ Plan Réel</button>
-                                    <button onclick="changerModeCarte('satellite')" id="btnCarteSatellite" class="mode-pill" style="padding:5px 10px; font-size:11px;">🛰️ Satellite</button>
-                                </div>
-                            </div>
-
-                            <div id="worldMapContainer" style="height:220px; background:#030712; border-radius:10px; position:relative; overflow:hidden; border:1px solid rgba(14,165,233,0.4);">
-                                <!-- Carte différée pour performance -->
-                <iframe id="iframeCarteMonde" loading="lazy" src="https://www.openstreetmap.org/export/embed.html?bbox=1.19,6.11,1.25,6.17&amp;layer=mapnik&amp;marker=6.14,1.22" style="width:100%; height:100%; border:none; filter:invert(90%) hue-rotate(180deg) brightness(95%);"></iframe>
-                                <div style="position:absolute; bottom:6px; right:8px; background:rgba(3,7,18,0.85); padding:3px 8px; border-radius:6px; font-size:10px; color:var(--accent); border:1px solid rgba(14,165,233,0.3);">📍 Lomé, Kodjoviakopé</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div>
-                        <div class="card" style="border-left: 4px solid var(--accent); text-align:center; padding:24px;">
-                            <div style="width:84px; height:84px; margin:0 auto 12px auto; border-radius:50%; background:radial-gradient(circle, #38bdf8 0%, #1d4ed8 70%); box-shadow:0 0 30px rgba(14,165,233,0.9); display:flex; align-items:center; justify-content:center; border:2px solid #fff;">
-                                <img src="logo_evat.svg" alt="Logo Actif" class="quantum-logo-app" style="width:76px; height:76px; border-radius:50%; object-fit:cover; cursor:pointer;" onclick="basculerLogoInterchangeable(event)" title="Alterner Logo 1 / Logo 2">
-                            </div>
-                            <h3 style="font-size:16px; color:var(--accent); margin-bottom:6px;">EVAT & ELAWS Quantum</h3>
-                            <p style="font-size:12px; color:var(--text-secondary); margin-bottom:14px;">Stockage local des messages dans les fichiers du téléphone.</p>
-                            <button onclick="declencherInstallationNative()" class="btn-action ripple-effect" style="background:var(--success); color:#fff; font-size:13px; padding:10px;">📲 Installer l'Application (PWA)</button>
-                        </div>
+                <div class="card">
+                    <h2 style="color:var(--accent);">📊 Dashboard Quantum</h2>
+                    <p style="font-size:13px; color:var(--text-secondary);">Bienvenue dans votre environnement EVAT Cloud & Local.</p>
+                    <div style="background:var(--bg-color); padding:14px; border-radius:12px; margin-top:10px;">
+                        <strong style="color:var(--success);">⚡ Qubits Actifs : <span id="dashQubitsScore">365</span></strong>
                     </div>
                 </div>
             </section>
-
-            <!-- MESSAGERIE LOCALE ET ACCES FICHIERS TELEPHONE -->
-            <section id="tab-messagerie" class="tab-content">
-                <div class="card" style="border-left: 4px solid var(--success);">
-                    <h2>💬 Messagerie Locale & Fichiers du Téléphone</h2>
-                    <p style="color:var(--text-secondary); font-size:12.5px; margin:6px 0 14px 0;">Les messages échangés sont stockés directement dans la mémoire de votre téléphone (dossier local sécurisé).</p>
-                    
-                    <div style="background:var(--bg-color); padding:12px; border-radius:10px; border:1px solid var(--accent); margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;">
-                        <div>
-                            <strong style="font-size:13px; color:var(--text-color);">📁 Accès Fichiers Téléphone</strong>
-                            <div id="fileAccessStatus" style="font-size:11.5px; color:var(--text-secondary); margin-top:2px;">Aucun dossier lié (stockage interne navigateur actif).</div>
-                        </div>
-                        <button onclick="selectionnerDossierStockageTelephone()" class="btn-action ripple-effect" style="width:auto; padding:8px 12px; font-size:12px; background:var(--accent); color:#030712;">Lier Dossier</button>
-                    </div>
-
-                    <div id="listeMessagesLocaux" style="background:var(--bg-color); border:1px solid var(--border-color); border-radius:10px; padding:12px; height:240px; overflow-y:auto; margin-bottom:12px; display:flex; flex-direction:column; gap:8px;"></div>
-
-                    <div style="display:flex; gap:8px;">
-                        <input type="text" id="chatLocalInput" class="input" placeholder="Écrire un message local..." style="margin-bottom:0;" onkeypress="if(event.key==='Enter') envoyerMessageChatLocal()">
-                        <button onclick="envoyerMessageChatLocal()" class="btn-action ripple-effect" style="width:auto; padding:0 20px; font-size:13px; background:var(--success); color:#fff;">Envoyer</button>
-                    </div>
+            <section id="tab-communications" class="tab-content" style="display:none;">
+                <div class="card">
+                    <h2 style="color:var(--success);">📞 Communications WebRTC & Signalisation</h2>
+                    <p style="font-size:13px; color:var(--text-secondary);">Connecté au serveur de signalisation distant.</p>
+                    <div id="voipStatusDisplay" style="margin:10px 0; color:var(--accent); font-weight:700;">Statut : Prêt pour appel chiffré</div>
+                    <button onclick="lancerAppelInternet('audio')" class="btn-action" style="background:var(--success); color:#fff; padding:10px;">🎙️ Lancer Appel Audio</button>
                 </div>
             </section>
-
-                        <!-- MODULE UNIFIE COMMUNICATIONS : MESSAGERIE, APPELS & SUIVI DE POSITION -->
-            <section id="tab-communications" class="tab-content">
-                <div class="card" style="border-left: 4px solid var(--success);">
-                    <h2>📞 Centre de Communications & Position Partagée</h2>
-                    <p style="color:var(--text-secondary); font-size:12.5px; margin:6px 0 14px 0;">Appels WebRTC, messagerie locale et suivi automatique des positions reçues.</p>
-                    
-                    <!-- Section Appels WebRTC & ID VoIP -->
-                    <div style="background:var(--bg-color); padding:12px; border-radius:10px; border:1px solid var(--accent); margin-bottom:12px; text-align:center;">
-                        <span style="font-size:11px; color:var(--text-secondary);">ID VoIP Actif :</span>
-                        <div id="voipNumeroDisplay" style="color:var(--accent); font-size:15px; font-weight:800; margin:2px 0 8px 0;">+228 98 23 14 02</div>
-                        
-                        <div id="videoCallContainer" style="display:none; margin-bottom:8px; background:#000; border-radius:8px; overflow:hidden; border:1px solid var(--accent);">
-                            <video id="localVideoElement" autoplay playsinline muted style="width:100%; max-height:160px; object-fit:cover;"></video>
-                        </div>
-
-                        <div style="display:flex; gap:6px; justify-content:center;">
-                            <button id="btnAppelAudio" onclick="lancerAppelInternet('audio')" class="btn-action ripple-effect" style="background:var(--success); color:#fff; font-size:11.5px; padding:8px; flex:1;">🎙️ Audio</button>
-                            <button id="btnAppelVideo" onclick="lancerAppelInternet('video')" class="btn-action ripple-effect" style="background:var(--accent); color:#030712; font-size:11.5px; padding:8px; flex:1;">📹 Vidéo</button>
-                        </div>
-                    </div>
-
-                    <!-- Messagerie avec Détection Automatique de Position -->
-                    <div style="background:var(--bg-color); padding:10px; border-radius:10px; border:1px solid var(--border-color); margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
-                        <div>
-                            <strong style="font-size:12px; color:var(--text-color);">📁 Fichiers Tél & Chat Sécurisé</strong>
-                            <div id="fileAccessStatus" style="font-size:10.5px; color:var(--text-secondary);">Stockage interne actif.</div>
-                        </div>
-                        <button onclick="selectionnerDossierStockageTelephone()" class="btn-action ripple-effect" style="width:auto; padding:6px 10px; font-size:11px; background:var(--accent); color:#030712;">Lier Dossier</button>
-                    </div>
-
-                    <div id="listeMessagesLocaux" style="background:var(--bg-color); border:1px solid var(--border-color); border-radius:10px; padding:8px; height:180px; overflow-y:auto; margin-bottom:8px; display:flex; flex-direction:column; gap:6px;"></div>
-
-                    <div style="display:flex; gap:6px; margin-bottom:8px;">
-                        <input type="text" id="chatLocalInput" class="input" placeholder="Message ou position GPS (ex: 6.14, 1.22)..." style="margin-bottom:0; font-size:12px; padding:8px;" onkeypress="if(event.key==='Enter') envoyerMessageChatLocal()">
-                        <button onclick="envoyerMessageChatLocal()" class="btn-action ripple-effect" style="width:auto; padding:0 14px; font-size:12px; background:var(--success); color:#fff;">Envoyer</button>
-                    </div>
-
-                    <!-- Bouton rapide de partage de position GPS actuelle -->
-                    <button onclick="partagerMaPositionDansChat()" class="btn-action ripple-effect" style="width:100%; font-size:11.5px; padding:8px; background:var(--accent); color:#030712;">📍 Partager ma position GPS actuelle dans le chat</button>
+            <section id="tab-profil" class="tab-content" style="display:none;">
+                <div class="card">
+                    <h2 style="color:var(--accent);">👤 Gestion du Profil</h2>
+                    <label style="font-size:12px;">Nom :</label><input type="text" id="inputNomProfil" class="input">
+                    <button onclick="sauvegarderProfilBase()" class="btn-action">Enregistrer Profil</button>
                 </div>
             </section>
-
-            <section id="tab-quetes" class="tab-content">
-                <div class="card" style="border-left: 4px solid var(--success);">
-                    <h2>⚡ Quêtes & Qubits</h2>
-                    <div id="quetesContainer"></div>
+            <section id="tab-outils" class="tab-content" style="display:none;">
+                <div class="card">
+                    <h2 style="color:var(--accent);">🛠️ Boîte à Outils</h2>
+                    <p style="font-size:13px;">Outils de développement mobile et notes locales.</p>
                 </div>
             </section>
-
-            <section id="tab-succes1000" class="tab-content">
-                <div class="card" style="border-left: 4px solid var(--success);">
-                    <h2>💎 Garantie Succès 1000%</h2>
-                    <input type="text" id="inputObjectif1000" class="input" placeholder="Ex: Automatiser mes ventes au Togo">
-                    <button class="btn-action ripple-effect" onclick="genererPlanSucces1000()">Générer le Plan Stratégique</button>
-                    <div id="resultatPlan1000" style="margin-top:12px; display:none;"></div>
-                </div>
-            </section>
-
-            <section id="tab-sync" class="tab-content">
-                <div class="card" style="border-left: 4px solid var(--accent);">
-                    <h2>☁️ Cloud & Sauvegarde</h2>
-                    <button onclick="exporterDonneesCloud()" class="btn-action ripple-effect">📥 Télécharger Sauvegarde JSON</button>
-                </div>
-            </section>
-
-            <section id="tab-voyage" class="tab-content">
-                <div class="card" style="border-left: 4px solid var(--accent);">
-                    <h2>✈️ Guide Voyage, Visa & Billets</h2>
-                    <label style="font-size:12px;">Départ :</label><input type="text" id="voyageDepart" class="input" value="Lomé (Togo)">
-                    <label style="font-size:12px;">Destination :</label><input type="text" id="voyageDestination" class="input" placeholder="Ex: Paris, Abidjan">
-                    <label style="font-size:12px;">Transport :</label>
-                    <select id="voyageTransport" class="input"><option value="avion">✈️ Avion</option><option value="voiture">🚗 Voiture</option></select>
-                    <label style="font-size:12px;">Distance (km) :</label><input type="number" id="voyageDistance" class="input" value="1500">
-                    <button class="btn-action ripple-effect" onclick="lancerAnalyseVoyageAvance()">Lancer l'Analyse</button>
-                    <div id="resultatAssistantVoyage" style="margin-top:12px; display:none;"></div>
-                </div>
-            </section>
-
-            <!-- APPEL AUDIO ET VIDEO (WebRTC par Numéro) -->
-            
-
-            <section id="tab-profil" class="tab-content">
-                <div class="card" style="border-left: 4px solid var(--accent);">
-                    <h2>👤 Gestion du Profil & VoIP</h2>
-                    
-                    <!-- Cadre Photo de Profil -->
-                    <div style="text-align:center; margin-bottom:14px;">
-                        <div style="width:76px; height:76px; margin:0 auto 8px auto; border-radius:50%; border:2px solid var(--accent); overflow:hidden; background:var(--bg-color); display:flex; align-items:center; justify-content:center; position:relative;">
-                            <img id="avatarPreviewImg" src="logo_evat.svg" alt="Photo de Profil" style="width:100%; height:100%; object-fit:cover;">
-                        </div>
-                        <label style="font-size:11.5px; color:var(--accent); cursor:pointer; text-decoration:underline;">
-                            📷 Changer ma photo
-                            <input type="file" id="inputPhotoProfil" accept="image/*" style="display:none;" onchange="chargerPhotoProfil(event)">
-                        </label>
-                    </div>
-
-                    <label style="font-size:12px;">Nom :</label><input type="text" id="inputNom" class="input">
-                    <label style="font-size:12px;">Métier :</label><input type="text" id="inputMetierProfil" class="input">
-                    
-                    <!-- Sélecteur de Pays / Indicatif & Numéro VoIP -->
-                    <label style="font-size:12px;">Pays & Indicatif Téléphone :</label>
-                    <select id="selectPaysIndicatif" class="input" style="margin-bottom:6px;" onchange="mettreAJourIndicatifPays()">
-                        <option value="+228">🇹🇬 Togo (+228)</option>
-                        <option value="+225">🇨🇮 Côte d'Ivoire (+225)</option>
-                        <option value="+233">🇬🇭 Ghana (+233)</option>
-                        <option value="+234">🇳🇬 Nigéria (+234)</option>
-                        <option value="+33">🇫🇷 France (+33)</option>
-                        <option value="+1">🇺🇸 États-Unis (+1)</option>
-                        <option value="+221">🇸🇳 Sénégal (+221)</option>
-                    </select>
-
-                    <label style="font-size:12px;">Numéro Téléphone (ID VoIP) :</label>
-                    <input type="text" id="inputTelProfil" class="input" placeholder="Ex: 98231402">
-
-                    <label style="font-size:12px;">Ton IA :</label>
-                    <select id="inputIaTon" class="input">
-                        <option value="standard">Standard Quantum</option>
-                        <option value="pedagogique">Tuteur</option>
-                        <option value="business">Business</option>
-                        <option value="technique">Technique</option>
-                    </select>
-                    <button class="btn-action ripple-effect" onclick="sauvegarderProfilBase()" style="margin-bottom:15px;">Enregistrer Profil</button>
-                    
-                    <h3 style="font-size:14px; margin-bottom:8px;">📖 Contacts, Messages & Appels Directs</h3>
-                    <div style="display:flex; gap:8px; margin-bottom:10px;">
-                        <button onclick="synchroniserContactsTelephone()" class="btn-action ripple-effect" style="background:var(--success); color:#fff; font-size:12px; padding:10px; flex:1;">🔄 Sync Contacts du Tél</button>
-                    </div>
-
-                    <input type="text" id="contactNomInput" class="input" placeholder="Nom du contact">
-                    <input type="text" id="contactTelInput" class="input" placeholder="Numéro de téléphone">
-                    <button class="btn-action ripple-effect" onclick="ajouterContactManuel()" style="margin-bottom:12px;">Ajouter Contact Manuel</button>
-                    <div id="listeContactsContainer"></div>
-
-                    <!-- MODAL OU PANNEAU DE DISCUSSION DIRECTE AVEC UN CONTACT -->
-                    <div id="modalChatContact" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(3,7,18,0.95); z-index:9500; align-items:center; justify-content:center; padding:12px;">
-                        <div class="card" style="max-width:450px; width:100%; border:2px solid var(--accent); padding:16px; position:relative;">
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid var(--border-color); padding-bottom:8px;">
-                                <div>
-                                    <h3 id="chatContactNomTitre" style="color:var(--accent); font-size:15px; margin:0;">Nom du Contact</h3>
-                                    <span id="chatContactTelSousTitre" style="font-size:11px; color:var(--text-secondary);">+228 00 00 00 00</span>
-                                </div>
-                                <button onclick="fermerChatContactDirect()" class="btn-action ripple-effect" style="width:auto; padding:4px 8px; background:var(--danger); color:#fff; font-size:12px;">✕ Fermer</button>
-                            </div>
-
-                            <!-- Boutons d'appel direct audio et vidéo depuis le contact -->
-                            <div style="display:flex; gap:8px; margin-bottom:12px;">
-                                <button onclick="lancerAppelContactDirect('audio')" class="btn-action ripple-effect" style="background:var(--success); color:#fff; font-size:12px; padding:8px; flex:1;">🎙️ Appel Audio</button>
-                                <button onclick="lancerAppelContactDirect('video')" class="btn-action ripple-effect" style="background:var(--accent); color:#030712; font-size:12px; padding:8px; flex:1;">📹 Appel Vidéo</button>
-                            </div>
-
-                            <div id="videoCallContainerContact" style="display:none; margin-bottom:10px; background:#000; border-radius:8px; overflow:hidden; border:1px solid var(--accent);">
-                                <video id="localVideoElementContact" autoplay playsinline muted style="width:100%; max-height:160px; object-fit:cover;"></video>
-                            </div>
-
-                            <!-- Messages avec ce contact -->
-                            <div id="listeMessagesContactDirect" style="background:var(--bg-color); border:1px solid var(--border-color); border-radius:8px; padding:8px; height:180px; overflow-y:auto; margin-bottom:10px; display:flex; flex-direction:column; gap:6px;"></div>
-
-                            <div style="display:flex; gap:6px;">
-                                <input type="text" id="inputMessageContactDirect" class="input" placeholder="Écrire un message..." style="margin-bottom:0; font-size:12px; padding:8px;" onkeypress="if(event.key==='Enter') envoyerMessageContactDirect()">
-                                <button onclick="envoyerMessageContactDirect()" class="btn-action ripple-effect" style="width:auto; padding:0 14px; font-size:12px; background:var(--success); color:#fff;">Envoyer</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <section id="tab-outils" class="tab-content">
-                <div class="card" style="border-left: 4px solid var(--accent);">
-                    <h2>🛠️ Boîte à Outils</h2>
-                    <div id="outilsDynamiquesContainer"></div>
-                    <hr style="border:0; border-top:1px solid var(--border-color); margin:15px 0;">
-                    <input type="text" id="noteTitre" class="input" placeholder="Titre de la note">
-                    <textarea id="noteContenu" class="input" placeholder="Contenu..." style="height:60px;"></textarea>
-                    <button class="btn-action ripple-effect" onclick="ajouterNoteBlocNotes()" style="margin-bottom:12px;">Enregistrer Note</button>
-                    <div id="listeNotesContainer"></div>
-                </div>
-            </section>
-
-            <footer style="text-align: center; padding: 20px 0; color: var(--text-secondary); font-size: 11.5px;">
-                <p>EVAT v3.60 Turbo Quantum • Conçu par Eric Lawson</p>
-            </footer>
         </main>
     </div>
-
-    <script src="elaws.js" defer></script>
     <script src="app.js" defer></script>
-    
-    <script>
-        function rechercherLieuCarte() {
-            const query = document.getElementById('rechercheLieuInput').value.trim();
-            if(!query) { alert("Entrez un lieu ou une boutique à rechercher."); return; }
-            const iframe = document.getElementById('iframeCarteMonde');
-            const statut = document.getElementById('statutGPS');
-            statut.innerText = "🔍 Recherche de '" + query + "'...";
-            
-            // Utiliser OpenStreetMap Nominatim search pour centrer la carte sur la zone recherchée
-            const searchUrl = "https://nominatim.openstreetmap.org/search?format=json&q=" + encodeURIComponent(query + ", Lomé, Togo");
-            
-            fetch(searchUrl)
-                .then(response => response.json())
-                .then(data => {
-                    if(data && data.length > 0) {
-                        const lat = parseFloat(data[0].lat);
-                        const lon = parseFloat(data[0].lon);
-                        const bboxDelta = 0.01;
-                        const bbox = (lon - bboxDelta) + "," + (lat - bboxDelta) + "," + (lon + bboxDelta) + "," + (lat + bboxDelta);
-                        iframe.src = "https://www.openstreetmap.org/export/embed.html?bbox=" + bbox + "&layer=mapnik&marker=" + lat + "," + lon;
-                        statut.innerHTML = '<span style="color:var(--success);">✅ Trouvé : ' + data[0].display_name.slice(0, 35) + '...</span>';
-                    } else {
-                        // Recherche élargie sans restriction stricte de ville si introuvable à Lomé
-                        fetch("https://nominatim.openstreetmap.org/search?format=json&q=" + encodeURIComponent(query))
-                            .then(res => res.json())
-                            .then(d2 => {
-                                if(d2 && d2.length > 0) {
-                                    const lat = parseFloat(d2[0].lat);
-                                    const lon = parseFloat(d2[0].lon);
-                                    const bboxDelta = 0.02;
-                                    const bbox = (lon - bboxDelta) + "," + (lat - bboxDelta) + "," + (lon + bboxDelta) + "," + (lat + bboxDelta);
-                                    iframe.src = "https://www.openstreetmap.org/export/embed.html?bbox=" + bbox + "&layer=mapnik&marker=" + lat + "," + lon;
-                                    statut.innerHTML = '<span style="color:var(--success);">✅ Lieu trouvé !</span>';
-                                } else {
-                                    statut.innerHTML = '<span style="color:var(--danger);">❌ Lieu introuvable.</span>';
-                                }
-                            });
-                    }
-                })
-                .catch(err => {
-                    statut.innerHTML = '<span style="color:var(--danger);">❌ Erreur de recherche.</span>';
-                });
-        }
-
-        function geolocaliserUtilisateurCarte() {
-            const statut = document.getElementById('statutGPS');
-            const iframe = document.getElementById('iframeCarteMonde');
-            if(navigator.geolocation) {
-                statut.innerText = "📍 Localisation GPS en cours...";
-                navigator.geolocation.getCurrentPosition(position => {
-                    const lat = position.coords.latitude;
-                    const lon = position.coords.longitude;
-                    const bboxDelta = 0.008;
-                    const bbox = (lon - bboxDelta) + "," + (lat - bboxDelta) + "," + (lon + bboxDelta) + "," + (lat + bboxDelta);
-                    iframe.src = "https://www.openstreetmap.org/export/embed.html?bbox=" + bbox + "&layer=mapnik&marker=" + lat + "," + lon;
-                    statut.innerHTML = '<span style="color:var(--success);">🟢 Position GPS fixée !</span>';
-                }, error => {
-                    // Position par défaut Lomé Kodjoviakopé si refus GPS
-                    iframe.src = "https://www.openstreetmap.org/export/embed.html?bbox=1.19,6.11,1.25,6.17&layer=mapnik&marker=6.14,1.22";
-                    statut.innerHTML = '<span style="color:var(--accent);">📍 Position par défaut (Lomé)</span>';
-                }, { timeout: 10000 });
-            } else {
-                alert("Géolocalisation non supportée par votre navigateur.");
-            }
-        }
-    </script>
 </body>
-
 </html>

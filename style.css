@@ -10,7 +10,6 @@
     --text-secondary: #94a3b8;
     --border-color: rgba(56, 189, 248, 0.2);
 }
-
 body {
     background-color: var(--bg-color);
     color: var(--text-color);
@@ -18,7 +17,6 @@ body {
     margin: 0;
     padding: 0;
 }
-
 .card {
     background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(3, 7, 18, 0.98));
     border: 1px solid var(--border-color);
@@ -26,9 +24,7 @@ body {
     padding: 16px;
     margin-bottom: 16px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-    backdrop-filter: blur(10px);
 }
-
 .input {
     width: 100%;
     background: rgba(3, 7, 18, 0.85);
@@ -40,13 +36,6 @@ body {
     margin-bottom: 10px;
     box-sizing: border-box;
 }
-
-.input:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 12px rgba(56, 189, 248, 0.35);
-    outline: none;
-}
-
 .btn-action {
     background: var(--accent);
     color: #030712;
@@ -55,28 +44,25 @@ body {
     padding: 10px 16px;
     font-weight: 700;
     cursor: pointer;
-    transition: all 0.2s ease;
 }
-
-.btn-action:hover {
-    opacity: 0.9;
-    transform: translateY(-1px);
+.nav-link {
+    color: var(--text-color);
+    text-decoration: none;
+    padding: 8px 12px;
+    border-radius: 8px;
+    display: block;
+    font-size: 13px;
+    background: rgba(56, 189, 248, 0.05);
 }
-
-.contact-item-card {
-    background: rgba(15, 23, 42, 0.7);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 12px;
-    margin-bottom: 8px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+.nav-link.active {
+    background: rgba(56, 189, 248, 0.2);
+    color: var(--accent);
+    font-weight: 700;
+}
+.menu-btn {
+    background: none;
+    border: none;
+    color: var(--accent);
+    font-size: 20px;
     cursor: pointer;
-    transition: all 0.25s ease;
-}
-
-.contact-item-card:hover {
-    background: rgba(56, 189, 248, 0.1);
-    border-color: var(--accent);
 }
