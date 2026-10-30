@@ -1,6 +1,6 @@
 {
-  "name": "EVAT | ELAWS Quantum v3.60 Continuum",
-  "short_name": "EVAT Continuum",
+  "name": "EVAT | ELAWS Quantum",
+  "short_name": "EVAT",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#030712",

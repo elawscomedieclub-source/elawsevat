@@ -3,16 +3,12 @@ let utilisateur = JSON.parse(localStorage.getItem('evat_profil')) || null;
 let iaDejaPresentee = localStorage.getItem('elaws_presentee') === 'true';
 let deferredPrompt = null;
 
-// Enregistrement du Service Worker pour maintenir le PWA actif
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js').then(reg => {
-            console.log('ServiceWorker enregistré avec succès.');
-        }).catch(err => {});
+        navigator.serviceWorker.register('sw.js').catch(err => {});
     });
 }
 
-// Tentative de maintien de l'éveil (Wake Lock API) pour éviter la mise en veille profonde du processeur en arrière-plan
 let wakeLock = null;
 async function requestWakeLock() {
     try {
@@ -102,7 +98,7 @@ socket.on('contact_registered', (data) => {
             match.metier = data.metier;
             localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
             afficherContacts();
-            montrerNotification(`🚨 Votre contact ${match.nom} (${data.telephone}) vient de s'inscrire sur le système ! Métier : ${data.metier}`);
+            montrerNotification(`🚨 Votre contact ${match.nom} (${data.telephone}) vient de s'inscrire ! Métier : ${data.metier}`);
         }
     }
 });
@@ -113,9 +109,7 @@ function montrerNotification(texte) {
     if(banner && textEl) {
         textEl.innerText = texte;
         banner.style.display = 'block';
-        setTimeout(() => {
-            fermerNotification();
-        }, 10000);
+        setTimeout(() => { fermerNotification(); }, 10000);
     }
 }
 
@@ -130,7 +124,7 @@ function sauvegarderProfilBase() {
     const metier = document.getElementById('inputMetier').value.trim();
     
     if(!nom || !tel) {
-        alert("Veuillez remplir votre nom et votre numéro de téléphone.");
+        alert("Veuillez remplir votre nom et votre numéro.");
         return;
     }
 
@@ -173,7 +167,7 @@ function sauvegarderProfilBaseDesdeProfil() {
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
     socket.emit('register_user', { nom: utilisateur.nom, telephone: utilisateur.telephone, metier: utilisateur.metier });
     appliquerInfosProfil();
-    alert("✅ Profil mis à jour avec succès !");
+    alert("✅ Profil mis à jour !");
 }
 
 function deconnecterUtilisateur() {
@@ -214,14 +208,11 @@ function appliquerInfosProfil() {
 
 function verifierEtSynchroniserContacts() {
     if(!utilisateur || !utilisateur.contacts) return;
-    
     socket.emit('query_contacts', utilisateur.contacts.map(c => c.telephone), (reponses) => {
         if(reponses && Array.isArray(reponses)) {
             reponses.forEach(info => {
                 const contact = utilisateur.contacts.find(c => c.telephone === info.telephone);
-                if(contact && info.metier) {
-                    contact.metier = info.metier;
-                }
+                if(contact && info.metier) contact.metier = info.metier;
             });
             localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
             afficherContacts();
@@ -232,18 +223,16 @@ function verifierEtSynchroniserContacts() {
 function afficherContacts() {
     const container = document.getElementById('listeContactsContainer');
     if(!container || !utilisateur || !utilisateur.contacts) return;
-    
     if(utilisateur.contacts.length === 0) {
-        container.innerHTML = `<p style="color:var(--text-secondary); font-size:11.5px;">Aucun contact enregistré.</p>`;
+        container.innerHTML = `<p style="color:var(--text-secondary); font-size:11.5px;">Aucun contact.</p>`;
         return;
     }
-
     let html = '';
     utilisateur.contacts.forEach((c, index) => {
         html += `<div style="background:var(--bg-color); border:1px solid var(--border-color); padding:10px; border-radius:10px; display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
             <div>
                 <strong style="color:var(--accent); font-size:12.5px;">👤 ${c.nom}</strong>
-                <div style="font-size:11px; color:var(--text-secondary);">📞 ${c.telephone} • <i style="color:var(--success);">${c.metier || 'Synchronisation...'}</i></div>
+                <div style="font-size:11px; color:var(--text-secondary);">📞 ${c.telephone} • <i style="color:var(--success);">${c.metier || 'Sync...'}</i></div>
             </div>
             <div style="display:flex; gap:4px; flex-wrap:wrap; justify-content:flex-end;">
                 <button onclick="preparerAppel('${c.telephone}')" class="btn-action" style="background:var(--success); color:#fff; padding:5px 8px; font-size:10.5px;" title="Appeler">📞</button>
@@ -259,74 +248,49 @@ function afficherContacts() {
 function ajouterNouveauContact() {
     const nom = document.getElementById('nouveauNomContact').value.trim();
     const tel = document.getElementById('nouveauTelContact').value.trim();
-
     if(!nom || !tel) {
-        alert("Veuillez indiquer le nom et le numéro avec indicatif du contact (ex: +228...).");
+        alert("Nom et numéro obligatoires.");
         return;
     }
-
     if(!utilisateur.contacts) utilisateur.contacts = [];
-    const existing = utilisateur.contacts.find(c => c.telephone === tel);
-    if(existing) {
-        alert("Ce numéro est déjà dans vos contacts !");
-        return;
-    }
-
     utilisateur.contacts.push({ nom, telephone: tel, metier: "Recherche..." });
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
-
     document.getElementById('nouveauNomContact').value = '';
     document.getElementById('nouveauTelContact').value = '';
-
     afficherContacts();
     verifierEtSynchroniserContacts();
-    alert("✅ Contact enregistré et affiché !");
+    alert("✅ Contact enregistré !");
 }
 
 function modifierContact(index) {
     const c = utilisateur.contacts[index];
-    const nouveauNom = prompt("Modifier le nom du contact :", c.nom);
+    const nouveauNom = prompt("Modifier le nom :", c.nom);
     if(nouveauNom === null) return;
-    const nouveauTel = prompt("Modifier le numéro de téléphone (avec indicatif) :", c.telephone);
+    const nouveauTel = prompt("Modifier le numéro :", c.telephone);
     if(nouveauTel === null) return;
-
-    if(!nouveauNom.trim() || !nouveauTel.trim()) {
-        alert("Le nom et le numéro ne peuvent pas être vides.");
-        return;
-    }
-
     utilisateur.contacts[index].nom = nouveauNom.trim();
     utilisateur.contacts[index].telephone = nouveauTel.trim();
-
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
     afficherContacts();
     verifierEtSynchroniserContacts();
-    alert("✅ Contact modifié !");
 }
 
 function supprimerContact(index) {
-    const c = utilisateur.contacts[index];
-    if(confirm(`Voulez-vous vraiment supprimer ${c.nom} ?`)) {
+    if(confirm("Supprimer ce contact ?")) {
         utilisateur.contacts.splice(index, 1);
         localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
         afficherContacts();
-        alert("🗑️ Contact supprimé.");
     }
 }
 
 function ecrireAuContact(nom, tel) {
-    const message = prompt(`Envoyer un message à ${nom} (${tel}) :`);
+    const message = prompt(`Message à ${nom} (${tel}) :`);
     if(!message) return;
-
     if(!utilisateur.messagesLocaux) utilisateur.messagesLocaux = [];
-    utilisateur.messagesLocaux.push({ 
-        expediteur: utilisateur.nom || "Moi", 
-        texte: `À ${nom} (${tel}) : ${message}`, 
-        heure: new Date().toLocaleTimeString() 
-    });
+    utilisateur.messagesLocaux.push({ expediteur: utilisateur.nom || "Moi", texte: `À ${nom} : ${message}`, heure: new Date().toLocaleTimeString() });
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
     switchTab('messagerie');
-    alert(`✅ Message transmis à ${nom} !`);
+    alert("✅ Message transmis !");
 }
 
 function preparerAppel(tel) {
@@ -337,33 +301,18 @@ function preparerAppel(tel) {
 function basculerEcouteVocaleIA() {
     const statusEl = document.getElementById('micStatusElaws');
     const inputEl = document.getElementById('elawsInput');
-
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-        alert("La reconnaissance vocale n'est pas supportée par votre navigateur actuel. Utilisez Chrome ou Edge.");
+        alert("Reconnaissance vocale non supportée.");
         return;
     }
-
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
     recognition.lang = 'fr-FR';
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-
-    if(statusEl) statusEl.innerText = "🎙️ Écoute en cours... Parlez maintenant.";
-
+    if(statusEl) statusEl.innerText = "🎙️ Écoute...";
     recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
-        inputEl.value = transcript;
-        if(statusEl) statusEl.innerText = "✅ Texte transcrit !";
-        setTimeout(() => {
-            if(statusEl) statusEl.innerText = "";
-        }, 3000);
+        inputEl.value = event.results[0][0].transcript;
+        if(statusEl) statusEl.innerText = "";
     };
-
-    recognition.onerror = (event) => {
-        if(statusEl) statusEl.innerText = "❌ Erreur de micro.";
-    };
-
     recognition.start();
 }
 
@@ -371,49 +320,27 @@ function poserQuestionElaws() {
     const input = document.getElementById('elawsInput');
     const question = input.value.trim();
     if(!question || !utilisateur) return;
-
     const chatBox = document.getElementById('elawsChatBox');
-    
-    chatBox.innerHTML += `<div style="background:rgba(255,255,255,0.05); border:1px solid var(--border-color); padding:8px; border-radius:8px; text-align:right;">
-        <strong style="color:var(--success); font-size:11.5px;">👤 ${utilisateur.nom} :</strong>
-        <p style="font-size:12px; margin:3px 0 0 0;">${question}</p>
-    </div>`;
-    
+    chatBox.innerHTML += `<div style="background:rgba(255,255,255,0.05); padding:8px; border-radius:8px; text-align:right;"><strong style="color:var(--success);">👤 ${utilisateur.nom} :</strong><p style="margin:3px 0 0 0; font-size:12px;">${question}</p></div>`;
     input.value = '';
     chatBox.scrollTop = chatBox.scrollHeight;
 
     setTimeout(() => {
         let reponse = "";
         if(!iaDejaPresentee) {
-            reponse = `Bonjour, je m'appelle ELAWS, votre intelligence artificielle. Concernant votre demande "${question}" : Voici l'analyse technique et opérationnelle pour ${utilisateur.nom} (${utilisateur.metier}) : exécution validée et sécurisée.`;
+            reponse = `Bonjour, je suis ELAWS. Analyse validée pour ${utilisateur.nom} (${utilisateur.metier}).`;
             localStorage.setItem('elaws_presentee', 'true');
             iaDejaPresentee = true;
         } else {
-            const qLower = question.toLowerCase();
-            if(qLower.includes('visa') || qLower.includes('voyage')) {
-                reponse = `Pour votre voyage depuis Lomé, vérifiez la validité de votre passeport biométrique et préparez les justificatifs requis pour votre destination.`;
-            } else if(qLower.includes('entreprise') || qLower.includes('business') || qLower.includes('NIF')) {
-                reponse = `Pour votre structure indépendante, centralisez vos déclarations fiscales avec un identifiant unique conforme aux normes en vigueur.`;
-            } else if(qLower.includes('bonjour') || qLower.includes('salut')) {
-                reponse = `Bonjour ! Que puis-je faire pour vous ?`;
-            } else {
-                reponse = `Voici les éléments de réponse pour "${question}" : traitement effectué avec succès pour votre profil.`;
-            }
+            reponse = `Traitement effectué avec succès pour votre requête : "${question}".`;
         }
-
-        chatBox.innerHTML += `<div style="background:rgba(59,130,246,0.1); border:1px solid var(--accent); padding:8px; border-radius:8px;">
-            <strong style="color:var(--accent); font-size:11.5px;">🤖 ELAWS AI :</strong>
-            <p style="font-size:12px; margin:3px 0 0 0;">${reponse}</p>
-        </div>`;
+        chatBox.innerHTML += `<div style="background:rgba(59,130,246,0.1); border:1px solid var(--accent); padding:8px; border-radius:8px;"><strong style="color:var(--accent);">🤖 ELAWS AI :</strong><p style="margin:3px 0 0 0; font-size:12px;">${reponse}</p></div>`;
         chatBox.scrollTop = chatBox.scrollHeight;
     }, 400);
 }
 
 function toggleMenu(e) {
-    if(e) {
-        e.stopPropagation();
-        e.preventDefault();
-    }
+    if(e) { e.stopPropagation(); e.preventDefault(); }
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('appOverlay');
     if(sidebar && overlay) {
@@ -442,18 +369,12 @@ function switchTab(tabId) {
     if(link) link.classList.add('active');
     fermerTousLesMenus();
 
-    if(tabId === 'contacts') {
-        afficherContacts();
-    }
-
+    if(tabId === 'contacts') afficherContacts();
     if(tabId === 'map') {
         setTimeout(() => {
             if(!mapInstance) {
                 mapInstance = L.map('mapContainer').setView([6.1375, 1.2123], 13);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    maxZoom: 19,
-                    attribution: '© OpenStreetMap'
-                }).addTo(mapInstance);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(mapInstance);
             } else {
                 mapInstance.invalidateSize();
             }
@@ -462,22 +383,16 @@ function switchTab(tabId) {
 }
 
 function centrerSurMoi() {
-    const logEl = document.getElementById('gpsStatusLog');
     if (navigator.geolocation) {
-        if(logEl) logEl.innerText = "Recherche GPS...";
         navigator.geolocation.getCurrentPosition(position => {
             const lat = position.coords.latitude;
             const lng = position.coords.longitude;
             if(mapInstance) {
                 mapInstance.setView([lat, lng], 15);
                 if(userMarker) mapInstance.removeLayer(userMarker);
-                userMarker = L.marker([lat, lng]).addTo(mapInstance)
-                    .bindPopup("<b>📍 Vous êtes ici</b>").openPopup();
+                userMarker = L.marker([lat, lng]).addTo(mapInstance).bindPopup("<b>📍 Vous êtes ici</b>").openPopup();
             }
-            if(logEl) logEl.innerText = "✅ Position localisée";
-        }, error => {
-            if(logEl) logEl.innerText = "Erreur GPS";
-        }, { enableHighAccuracy: true });
+        });
     }
 }
 
@@ -486,35 +401,21 @@ function partagerMaPositionGPS() {
         navigator.geolocation.getCurrentPosition(position => {
             const lat = position.coords.latitude;
             const lng = position.coords.longitude;
-            const msg = `📍 Position GPS : https://maps.google.com/?q=${lat},${lng}`;
-            
             socket.emit('signal', { type: 'location', sender: utilisateur.nom, lat, lng });
-            
-            if(!utilisateur.messagesLocaux) utilisateur.messagesLocaux = [];
-            utilisateur.messagesLocaux.push({ expediteur: utilisateur.nom || "Moi", texte: msg, heure: new Date().toLocaleTimeString() });
-            localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
-            
             alert("Position partagée !");
-        }, error => {
-            alert("Erreur GPS.");
-        }, { enableHighAccuracy: true });
+        });
     }
 }
 
 socket.on('signal', (data) => {
     if (data.type === 'location' && mapInstance) {
-        const { sender, lat, lng } = data;
-        L.marker([lat, lng]).addTo(mapInstance).bindPopup(`<b>📍 ${sender}</b>`);
-        if(!utilisateur) utilisateur = { messagesLocaux: [] };
-        if(!utilisateur.messagesLocaux) utilisateur.messagesLocaux = [];
-        utilisateur.messagesLocaux.push({ expediteur: sender, texte: `📍 Position reçue`, heure: new Date().toLocaleTimeString() });
-        localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
+        L.marker([data.lat, data.lng]).addTo(mapInstance).bindPopup(`<b>📍 ${data.sender}</b>`);
     }
 });
 
 function selectionnerDossierStockageTelephone() {
     if ('showDirectoryPicker' in window) {
-        window.showDirectoryPicker().then(dirHandle => {
+        window.showDirectoryPicker().then(dir => {
             document.getElementById('fileAccessStatus').innerHTML = `<span style="color:var(--success);">✅ Lié</span>`;
         }).catch(err => {});
     }
@@ -533,23 +434,12 @@ function envoyerMessageChatLocal() {
 
 function afficherMessagesLocaux() {
     const container = document.getElementById('listeMessagesLocaux');
-    if(!container || !utilisateur) return;
-    if(!utilisateur.messagesLocaux || utilisateur.messagesLocaux.length === 0) {
-        container.innerHTML = `<p style="color:var(--text-secondary); font-size:11.5px;">Aucun message.</p>`;
-        return;
-    }
+    if(!container || !utilisateur || !utilisateur.messagesLocaux) return;
     let html = '';
     utilisateur.messagesLocaux.forEach(m => {
-        html += `<div style="background:var(--bg-color); border:1px solid var(--border-color); padding:8px; border-radius:8px; margin-bottom:6px;">
-            <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--accent);">
-                <span>👤 ${m.expediteur}</span>
-                <span>${m.heure}</span>
-            </div>
-            <p style="font-size:12px; margin:3px 0 0 0;">${m.texte}</p>
-        </div>`;
+        html += `<div style="background:var(--bg-color); border:1px solid var(--border-color); padding:8px; border-radius:8px; margin-bottom:6px;"><div style="font-size:10px; color:var(--accent);">👤 ${m.expediteur} • ${m.heure}</div><p style="margin:3px 0 0 0; font-size:12px;">${m.texte}</p></div>`;
     });
     container.innerHTML = html;
-    container.scrollTop = container.scrollHeight;
 }
 
 function ajouterNoteBlocNotes() {
@@ -566,17 +456,10 @@ function ajouterNoteBlocNotes() {
 
 function afficherNotesBlocNotes() {
     const container = document.getElementById('listeNotesContainer');
-    if(!container || !utilisateur) return;
-    if(!utilisateur.notes || utilisateur.notes.length === 0) {
-        container.innerHTML = `<p style="color:var(--text-secondary); font-size:11.5px;">Aucune note.</p>`;
-        return;
-    }
+    if(!container || !utilisateur || !utilisateur.notes) return;
     let html = '';
     utilisateur.notes.forEach(n => {
-        html += `<div style="background:var(--bg-color); border:1px solid var(--border-color); padding:10px; border-radius:10px; margin-bottom:8px;">
-            <strong style="color:var(--accent); font-size:12.5px;">📌 ${n.titre}</strong>
-            <p style="font-size:12px; margin:3px 0;">${n.contenu}</p>
-        </div>`;
+        html += `<div style="background:var(--bg-color); border:1px solid var(--border-color); padding:10px; border-radius:10px; margin-bottom:8px;"><strong style="color:var(--accent);">📌 ${n.titre}</strong><p style="margin:3px 0; font-size:12px;">${n.contenu}</p></div>`;
     });
     container.innerHTML = html;
 }
@@ -586,7 +469,7 @@ function genererPlanSucces1000() {
     const container = document.getElementById('resultatPlan1000');
     if(!obj) return;
     container.style.display = 'block';
-    container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:12px; border:1px solid var(--success);"><h4 style="color:var(--success); font-size:13px;">🚀 Objectif : ${obj}</h4><p style="font-size:12px;">Plan stratégique en cours d'exécution.</p></div>`;
+    container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:12px; border:1px solid var(--success);"><h4 style="color:var(--success);">🚀 ${obj}</h4><p style="font-size:12px;">Plan en cours d'exécution.</p></div>`;
 }
 
 function lancerAnalyseVoyageAvance() {
@@ -594,7 +477,7 @@ function lancerAnalyseVoyageAvance() {
     const container = document.getElementById('resultatAssistantVoyage');
     if(!dest) return;
     container.style.display = 'block';
-    container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:12px; border:1px solid var(--accent);"><h4 style="color:var(--accent); font-size:13px;">✈️ ${dest}</h4><p style="font-size:12px;">Analyse des documents et formalités validée.</p></div>`;
+    container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:12px; border:1px solid var(--accent);"><h4 style="color:var(--accent);">✈️ ${dest}</h4><p style="font-size:12px;">Formalités validées.</p></div>`;
 }
 
 function exporterDonneesCloud() {
@@ -609,7 +492,7 @@ function exporterDonneesCloud() {
 }
 
 // ---------------------------------------------------------------------------
-// GESTION CORRIGÉE DES APPELS P2P (Caméra, Micro et Plein Écran)
+// GESTION VoIP P2P & COUPURE SYNCHRONISÉE (HANGUP)
 // ---------------------------------------------------------------------------
 let localStream = null;
 let peerConnection = null;
@@ -648,22 +531,10 @@ function jouerSonSonnerie() {
 }
 
 function arreterSonSonnerie() {
-    if(ringInterval) {
-        clearInterval(ringInterval);
-        ringInterval = null;
-    }
-    if(audioRingContext) {
-        audioRingContext.close().catch(() => {});
-        audioRingContext = null;
-    }
-    if(appelTimeoutTimer) {
-        clearTimeout(appelTimeoutTimer);
-        appelTimeoutTimer = null;
-    }
-    if(incomingTimeout) {
-        clearTimeout(incomingTimeout);
-        incomingTimeout = null;
-    }
+    if(ringInterval) { clearInterval(ringInterval); ringInterval = null; }
+    if(audioRingContext) { audioRingContext.close().catch(() => {}); audioRingContext = null; }
+    if(appelTimeoutTimer) { clearTimeout(appelTimeoutTimer); appelTimeoutTimer = null; }
+    if(incomingTimeout) { clearTimeout(incomingTimeout); incomingTimeout = null; }
 }
 
 function afficherModalAppelEntrant(senderTel, typeAppel) {
@@ -694,9 +565,7 @@ function afficherModalAppelEntrant(senderTel, typeAppel) {
 
 function cacherModalAppelEntrant() {
     const modal = document.getElementById('incomingCallModal');
-    if(modal) {
-        modal.style.display = 'none';
-    }
+    if(modal) modal.style.display = 'none';
 }
 
 async function lancerAppelDirectPeer(type) {
@@ -706,20 +575,18 @@ async function lancerAppelDirectPeer(type) {
     activeCallType = type;
 
     if(!cibleTel) {
-        alert("Veuillez entrer ou sélectionner le numéro complet du contact à appeler (ex: +228...).");
+        alert("Entrez le numéro du contact à appeler (ex: +228...).");
         return;
     }
-
     if(cibleTel === utilisateur.telephone) {
-        alert("Vous ne pouvez pas vous appeler vous-même !");
+        alert("Impossible de s'appeler soi-même !");
         return;
     }
 
     try {
-        if(logEl) logEl.innerText = "🔄 Activation micro/caméra pour appel " + type + " vers " + cibleTel + "...";
+        if(logEl) logEl.innerText = "🔄 Activation micro/caméra pour appel " + type + "...";
         container.style.display = 'block';
 
-        // Demande explicite des flux média avec prise en charge complète caméra & micro
         localStream = await navigator.mediaDevices.getUserMedia({ 
             audio: true, 
             video: type === 'video' ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false 
@@ -736,65 +603,37 @@ async function lancerAppelDirectPeer(type) {
                 const remoteAudio = document.getElementById('remoteAudio');
                 const remoteVideo = document.getElementById('remoteVideo');
                 if(remoteAudio) remoteAudio.srcObject = event.streams[0];
-                if(remoteVideo && type === 'video') {
-                    remoteVideo.srcObject = event.streams[0];
-                }
-                if(logEl) logEl.innerText = "✅ Connexion audio/vidéo établie avec succès !";
+                if(remoteVideo && type === 'video') remoteVideo.srcObject = event.streams[0];
+                if(logEl) logEl.innerText = "✅ Connexion active !";
                 arreterSonSonnerie();
             }
         };
 
         peerConnection.onicecandidate = event => {
             if (event.candidate) {
-                socket.emit('p2p_signal', { 
-                    target: cibleTel, 
-                    sender: utilisateur.telephone, 
-                    type: 'ice_candidate', 
-                    candidate: event.candidate,
-                    callType: type 
-                });
+                socket.emit('p2p_signal', { target: cibleTel, sender: utilisateur.telephone, type: 'ice_candidate', candidate: event.candidate, callType: type });
             }
         };
 
         const offer = await peerConnection.createOffer();
         await peerConnection.setLocalDescription(offer);
         
-        socket.emit('p2p_signal', { 
-            target: cibleTel, 
-            sender: utilisateur.telephone, 
-            type: 'offer', 
-            offer: offer,
-            callType: type 
-        });
+        socket.emit('p2p_signal', { target: cibleTel, sender: utilisateur.telephone, type: 'offer', offer: offer, callType: type });
 
         jouerSonSonnerie();
-        if(logEl) logEl.innerText = "📞 Sonnerie active... En attente de réponse de " + cibleTel + "...";
+        if(logEl) logEl.innerText = "📞 Sonnerie active... En attente de réponse...";
 
         appelTimeoutTimer = setTimeout(() => {
             if(peerConnection && peerConnection.connectionState !== 'connected') {
-                enregistrerAppelManqueSortant(cibleTel);
-                raccrocherAppel();
-                if(logEl) logEl.innerText = "❌ Pas de réponse. Appel manqué enregistré.";
-                alert("📞 Appel non décroché.");
+                raccrocherAppel(true);
+                if(logEl) logEl.innerText = "❌ Pas de réponse. Appel manqué.";
             }
         }, 30000);
 
     } catch (error) {
-        if(logEl) logEl.innerText = "❌ Erreur d'accès au micro/caméra. Vérifiez les permissions de l'appareil.";
-        alert("Impossible d'accéder à la caméra ou au micro. Veuillez autoriser l'accès dans les paramètres du navigateur.");
+        if(logEl) logEl.innerText = "❌ Erreur micro/caméra.";
+        alert("Impossible d'accéder au micro ou à la caméra.");
     }
-}
-
-function enregistrerAppelManqueSortant(tel) {
-    if(!utilisateur) return;
-    if(!utilisateur.messagesLocaux) utilisateur.messagesLocaux = [];
-    utilisateur.messagesLocaux.push({
-        expediteur: "Système Appel",
-        texte: `❌ Appel manqué sortant vers ${tel}`,
-        heure: new Date().toLocaleTimeString()
-    });
-    localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
-    afficherMessagesLocaux();
 }
 
 socket.on('p2p_signal', async (data) => {
@@ -802,29 +641,21 @@ socket.on('p2p_signal', async (data) => {
     const container = document.getElementById('callContainer');
     if(data.callType) activeCallType = data.callType;
 
-    if (!peerConnection) {
+    if (!peerConnection && data.type !== 'hangup' && data.type !== 'reject') {
         peerConnection = new RTCPeerConnection(servers);
         peerConnection.ontrack = event => {
             if (event.streams && event.streams[0]) {
                 const remoteAudio = document.getElementById('remoteAudio');
                 const remoteVideo = document.getElementById('remoteVideo');
                 if(remoteAudio) remoteAudio.srcObject = event.streams[0];
-                if(remoteVideo && activeCallType === 'video') {
-                    remoteVideo.srcObject = event.streams[0];
-                }
-                if(logEl) logEl.innerText = "✅ Connexion audio/vidéo établie avec succès !";
+                if(remoteVideo && activeCallType === 'video') remoteVideo.srcObject = event.streams[0];
+                if(logEl) logEl.innerText = "✅ Connexion active !";
                 arreterSonSonnerie();
             }
         };
         peerConnection.onicecandidate = event => {
             if (event.candidate) {
-                socket.emit('p2p_signal', { 
-                    target: data.sender, 
-                    sender: utilisateur.telephone, 
-                    type: 'ice_candidate', 
-                    candidate: event.candidate,
-                    callType: activeCallType 
-                });
+                socket.emit('p2p_signal', { target: data.sender, sender: utilisateur.telephone, type: 'ice_candidate', candidate: event.candidate, callType: activeCallType });
             }
         };
     }
@@ -833,26 +664,21 @@ socket.on('p2p_signal', async (data) => {
         pendingOfferData = data;
         jouerSonSonnerie();
         afficherModalAppelEntrant(data.sender, data.callType || 'audio');
-        
-        incomingTimeout = setTimeout(() => {
-            rejeterAppelEntrant();
-        }, 30000);
-
+        incomingTimeout = setTimeout(() => { rejeterAppelEntrant(); }, 30000);
     } else if (data.type === 'answer') {
         try {
             await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
             arreterSonSonnerie();
-            if(logEl) logEl.innerText = "✅ Appel décroché ! Communication active.";
+            if(logEl) logEl.innerText = "✅ Appel décroché !";
         } catch(e) {}
-    } else if (data.type === 'ice_candidate' && data.candidate) {
+    } else if (data.type === 'ice_candidate' && data.candidate && peerConnection) {
         try {
             await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
         } catch(e) {}
-    } else if (data.type === 'reject' || data.type === 'missed_call') {
-        arreterSonSonnerie();
-        cacherModalAppelEntrant();
-        if(logEl) logEl.innerText = "❌ Appel manqué / rejeté par le correspondant.";
-        raccrocherAppel();
+    } else if (data.type === 'hangup' || data.type === 'reject') {
+        // Coupure simultanée instantanée chez les deux correspondants
+        fermerAppelTotalLocally();
+        if(logEl) logEl.innerText = "❌ Appel terminé par le correspondant.";
     }
 });
 
@@ -867,36 +693,34 @@ async function accepterAppelEntrant() {
 
     if(!pendingOfferData) return;
     const data = pendingOfferData;
-    const callTypeToUse = data.callType || 'audio';
-    activeCallType = callTypeToUse;
+    activeCallType = data.callType || 'audio';
 
     try {
-        if(logEl) logEl.innerText = "📞 Activation micro/caméra et connexion avec " + data.sender + "...";
-        
+        if(logEl) logEl.innerText = "📞 Décrochage et activation caméra/micro...";
         localStream = await navigator.mediaDevices.getUserMedia({ 
             audio: true, 
-            video: callTypeToUse === 'video' ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false 
+            video: activeCallType === 'video' ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false 
         });
 
         localStream.getTracks().forEach(track => {
             peerConnection.addTrack(track, localStream);
         });
 
+        // Afficher la vidéo locale si c'est un appel vidéo
+        const remoteVideo = document.getElementById('remoteVideo');
+        if(remoteVideo && activeCallType === 'video') {
+            remoteVideo.srcObject = localStream; // ou flux distant via ontrack
+        }
+
         await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
         
-        socket.emit('p2p_signal', { 
-            target: data.sender, 
-            sender: utilisateur.telephone, 
-            type: 'answer', 
-            answer: answer,
-            callType: callTypeToUse 
-        });
+        socket.emit('p2p_signal', { target: data.sender, sender: utilisateur.telephone, type: 'answer', answer: answer, callType: activeCallType });
         if(logEl) logEl.innerText = "✅ Appel établi avec " + data.sender;
     } catch(err) {
-        if(logEl) logEl.innerText = "❌ Erreur d'accès au micro/caméra lors de l'acceptation.";
-        alert("Impossible d'accéder au microphone ou à la caméra. Vérifiez les permissions de votre navigateur.");
+        if(logEl) logEl.innerText = "❌ Erreur d'accès micro/caméra.";
+        alert("Impossible d'accéder au micro ou à la caméra.");
     }
 }
 
@@ -907,40 +731,53 @@ function rejeterAppelEntrant() {
 
     if(pendingOfferData) {
         socket.emit('p2p_signal', { target: pendingOfferData.sender, sender: utilisateur.telephone, type: 'reject' });
-        enregistrerAppelManqueEntrant(pendingOfferData.sender);
         pendingOfferData = null;
     }
-    raccrocherAppel();
+    fermerAppelTotalLocally();
 }
 
-function enregistrerAppelManqueEntrant(tel) {
-    if(!utilisateur) return;
-    if(!utilisateur.messagesLocaux) utilisateur.messagesLocaux = [];
-    utilisateur.messagesLocaux.push({
-        expediteur: "Système Appel",
-        texte: `📞 Appel manqué de ${tel}`,
-        heure: new Date().toLocaleTimeString()
-    });
-    localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
-    afficherMessagesLocaux();
-    montrerNotification(`📞 Appel manqué de ${tel}`);
+// Fonction pour raccrocher et notifier l'autre correspondant en temps réel
+function raccrocherAppel(isTimeout = false) {
+    let targetTel = document.getElementById('appelCibleNum').value.trim();
+    if(pendingOfferData && pendingOfferData.sender) {
+        targetTel = pendingOfferData.sender;
+    }
+    if(targetTel) {
+        socket.emit('p2p_signal', { target: targetTel, sender: utilisateur.telephone, type: 'hangup' });
+    }
+    fermerAppelTotalLocally();
+    if(!isTimeout) {
+        const logEl = document.getElementById('callStatusLog');
+        if(logEl) logEl.innerText = "Appel terminé par vous.";
+    }
 }
 
-function raccrocherAppel() {
+// Nettoyage complet et arrêt immédiat caméra/micro des deux côtés
+function fermerAppelTotalLocally() {
     arreterSonSonnerie();
     cacherModalAppelEntrant();
+    
     if(peerConnection) {
         peerConnection.close();
         peerConnection = null;
     }
     if(localStream) {
-        localStream.getTracks().forEach(track => track.stop());
+        localStream.getTracks().forEach(track => {
+            track.stop(); // Coupe instantanément la caméra et le micro
+        });
         localStream = null;
     }
+    
+    // Nettoyer les balises vidéo/audio distantes et locales
+    const remoteAudio = document.getElementById('remoteAudio');
+    const remoteVideo = document.getElementById('remoteVideo');
+    if(remoteAudio) remoteAudio.srcObject = null;
+    if(remoteVideo) remoteVideo.srcObject = null;
+
     const container = document.getElementById('callContainer');
     if(container) container.style.display = 'none';
-    const logEl = document.getElementById('callStatusLog');
-    if(logEl) logEl.innerText = "Appel terminé. Système prêt.";
+    
+    pendingOfferData = null;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -955,26 +792,13 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function demanderPermissionsEtActiverProfil() {
-    // 1. Demande d'accès Micro et Caméra
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-        // Arrêter immédiatement les pistes pour libérer la caméra en attendant un appel réel
         stream.getTracks().forEach(track => track.stop());
-        console.log("Permissions Micro et Caméra accordées avec succès.");
-    } catch (err) {
-        console.warn("Permissions micro/caméra refusées ou non supportées au démarrage :", err);
-    }
+    } catch (err) {}
 
-    // 2. Demande d'accès au gestionnaire de fichiers / dossier local si supporté
     if ('showDirectoryPicker' in window) {
-        try {
-            await window.showDirectoryPicker();
-            console.log("Accès au gestionnaire de fichiers accordé.");
-        } catch (err) {
-            console.warn("Sélection de dossier annulée par l'utilisateur.");
-        }
+        try { await window.showDirectoryPicker(); } catch (err) {}
     }
-
-    // 3. Sauvegarde et lancement du profil
     sauvegarderProfilBase();
 }
