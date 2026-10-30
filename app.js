@@ -42,7 +42,6 @@ function mettreAJourIndicatif() {
     if(!select || !telInput) return;
     const prefix = select.value;
     let currentVal = telInput.value.trim();
-    // Nettoyer les anciens indicatifs courants
     ['+228', '+233', '+225', '+33', '+1'].forEach(p => {
         if(currentVal.startsWith(p)) {
             currentVal = currentVal.substring(p.length);
@@ -586,12 +585,15 @@ function exporterDonneesCloud() {
 }
 
 // ---------------------------------------------------------------------------
-// CORRECTION ROBUSTE DES APPELS P2P (WebRTC avec sonnerie Web Audio API et logs)
+// GESTION DES APPELS P2P, TIMEOUT DE SONNERIE ET APPEL MANQUÉ AUTOMATIQUE
 // ---------------------------------------------------------------------------
 let localStream = null;
 let peerConnection = null;
 let audioRingContext = null;
 let ringInterval = null;
+let appelTimeoutTimer = null;
+let currentCalledNumber = null;
+
 const servers = { 
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
@@ -607,7 +609,7 @@ function jouerSonSonnerie() {
             const osc = audioRingContext.createOscillator();
             const gain = audioRingContext.createGain();
             osc.type = 'sine';
-            osc.frequency.setValueAtTime(440, audioRingContext.currentTime); // Note La
+            osc.frequency.setValueAtTime(440, audioRingContext.currentTime);
             gain.gain.setValueAtTime(0.1, audioRingContext.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.001, audioRingContext.currentTime + 1.0);
             osc.connect(gain);
@@ -627,6 +629,10 @@ function arreterSonSonnerie() {
         audioRingContext.close().catch(() => {});
         audioRingContext = null;
     }
+    if(appelTimeoutTimer) {
+        clearTimeout(appelTimeoutTimer);
+        appelTimeoutTimer = null;
+    }
 }
 
 async function lancerAppelDirectPeer(type) {
@@ -644,12 +650,13 @@ async function lancerAppelDirectPeer(type) {
         return;
     }
 
+    currentCalledNumber = cibleTel;
+
     try {
-        if(logEl) logEl.innerText = "🔄 Initialisation micro/caméra pour appel vers " + cibleTel + "...";
+        if(logEl) logEl.innerText = "🔄 Initialisation appel vers " + cibleTel + "...";
         container.style.display = 'block';
 
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: type === 'video' });
-        
         peerConnection = new RTCPeerConnection(servers);
         
         localStream.getTracks().forEach(track => {
@@ -661,7 +668,7 @@ async function lancerAppelDirectPeer(type) {
                 document.getElementById('remoteAudio').srcObject = event.streams[0];
                 const remoteVideoEl = document.getElementById('remoteVideo');
                 if(remoteVideoEl) remoteVideoEl.srcObject = event.streams[0];
-                if(logEl) logEl.innerText = "✅ Flux audio/vidéo distant connecté !";
+                if(logEl) logEl.innerText = "✅ Appel décroché ! Communication active.";
                 arreterSonSonnerie();
             }
         };
@@ -688,12 +695,34 @@ async function lancerAppelDirectPeer(type) {
         });
 
         jouerSonSonnerie();
-        if(logEl) logEl.innerText = "📞 Sonnerie active... En attente de réponse de " + cibleTel + "...";
+        if(logEl) logEl.innerText = "📞 Sonnerie active... En attente de réponse (30s max)...";
+
+        // Timeout de 30 secondes sans réponse -> Appel manqué automatique
+        appelTimeoutTimer = setTimeout(() => {
+            if(peerConnection && peerConnection.connectionState !== 'connected') {
+                enregistrerAppelManqueSortant(cibleTel);
+                raccrocherAppel();
+                if(logEl) logEl.innerText = "❌ Pas de réponse. Appel manqué enregistré.";
+                alert("📞 Appel non décroché. Un avis d'appel manqué a été consigné.");
+            }
+        }, 30000);
 
     } catch (error) {
-        if(logEl) logEl.innerText = "❌ Erreur d'accès au micro/caméra ou réseau P2P.";
-        alert("Impossible d'initialiser l'appel direct. Vérifiez les permissions de votre navigateur.");
+        if(logEl) logEl.innerText = "❌ Erreur d'accès au micro/caméra.";
+        alert("Impossible d'initialiser l'appel direct.");
     }
+}
+
+function enregistrerAppelManqueSortant(tel) {
+    if(!utilisateur) return;
+    if(!utilisateur.messagesLocaux) utilisateur.messagesLocaux = [];
+    utilisateur.messagesLocaux.push({
+        expediteur: "Système Appel",
+        texte: `❌ Appel manqué sortant vers ${tel}`,
+        heure: new Date().toLocaleTimeString()
+    });
+    localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
+    afficherMessagesLocaux();
 }
 
 socket.on('p2p_signal', async (data) => {
@@ -725,7 +754,16 @@ socket.on('p2p_signal', async (data) => {
 
     if (data.type === 'offer') {
         jouerSonSonnerie();
+        
+        // Timeout si le destinataire ne décroche pas en 30 secondes
+        let incomingTimeout = setTimeout(() => {
+            arreterSonSonnerie();
+            socket.emit('p2p_signal', { target: data.sender, sender: utilisateur.telephone, type: 'missed_call' });
+            enregistrerAppelManqueEntrant(data.sender);
+        }, 30000);
+
         if(confirm(`📞 Appel entrant de ${data.sender}. Voulez-vous décrocher ?`)) {
+            clearTimeout(incomingTimeout);
             arreterSonSonnerie();
             container.style.display = 'block';
             if(logEl) logEl.innerText = "📞 Connexion en cours avec " + data.sender + "...";
@@ -751,8 +789,10 @@ socket.on('p2p_signal', async (data) => {
                 if(logEl) logEl.innerText = "❌ Erreur lors de l'acceptation de l'appel.";
             }
         } else {
+            clearTimeout(incomingTimeout);
             arreterSonSonnerie();
             socket.emit('p2p_signal', { target: data.sender, sender: utilisateur.telephone, type: 'reject' });
+            enregistrerAppelManqueEntrant(data.sender);
         }
     } else if (data.type === 'answer') {
         try {
@@ -764,12 +804,25 @@ socket.on('p2p_signal', async (data) => {
         try {
             await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
         } catch(e) {}
-    } else if (data.type === 'reject') {
+    } else if (data.type === 'reject' || data.type === 'missed_call') {
         arreterSonSonnerie();
-        if(logEl) logEl.innerText = "❌ Appel rejeté par le correspondant.";
+        if(logEl) logEl.innerText = "❌ Appel manqué / rejeté par le correspondant.";
         raccrocherAppel();
     }
 });
+
+function enregistrerAppelManqueEntrant(tel) {
+    if(!utilisateur) return;
+    if(!utilisateur.messagesLocaux) utilisateur.messagesLocaux = [];
+    utilisateur.messagesLocaux.push({
+        expediteur: "Système Appel",
+        texte: `📞 Appel manqué de ${tel}`,
+        heure: new Date().toLocaleTimeString()
+    });
+    localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
+    afficherMessagesLocaux();
+    montrerNotification(`📞 Appel manqué de ${tel}`);
+}
 
 function raccrocherAppel() {
     arreterSonSonnerie();

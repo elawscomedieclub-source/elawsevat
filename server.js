@@ -1,4 +1,3 @@
-
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -18,23 +17,27 @@ const io = new Server(server, {
 
 const registeredUsers = new Map();
 
-io.on('connection', (socket) => {
-    console.log('Un opérateur s'est connecté:', socket.id);
+function nettoyerTel(tel) {
+    if(!tel) return '';
+    return tel.replace(/\s+/g, '').trim();
+}
 
-    // Enregistrement du profil utilisateur et notification sentinelle aux autres
+io.on('connection', (socket) => {
+    console.log('Un opérateur s\'est connecté:', socket.id);
+
     socket.on('register_user', (data) => {
         if(data && data.telephone) {
-            registeredUsers.set(data.telephone, {
+            const cleanTel = nettoyerTel(data.telephone);
+            registeredUsers.set(cleanTel, {
                 nom: data.nom,
                 metier: data.metier,
                 socketId: socket.id
             });
-            console.log(`Utilisateur enregistré : ${data.nom} (${data.telephone}) - Métier: ${data.metier}`);
+            console.log(`Utilisateur enregistré : ${data.nom} (${cleanTel}) - Socket: ${socket.id}`);
             
-            // Diffuser à tout le réseau qu'un numéro vient de s'inscrire (Sentinelle)
             socket.broadcast.emit('contact_registered', {
                 nom: data.nom,
-                telephone: data.telephone,
+                telephone: cleanTel,
                 metier: data.metier
             });
         }
@@ -44,9 +47,10 @@ io.on('connection', (socket) => {
         const resultats = [];
         if(Array.isArray(telephones)) {
             telephones.forEach(tel => {
-                if(registeredUsers.has(tel)) {
-                    const usr = registeredUsers.get(tel);
-                    resultats.push({ telephone: tel, metier: usr.metier, nom: usr.nom });
+                const cleanTel = nettoyerTel(tel);
+                if(registeredUsers.has(cleanTel)) {
+                    const usr = registeredUsers.get(cleanTel);
+                    resultats.push({ telephone: cleanTel, metier: usr.metier, nom: usr.nom });
                 }
             });
         }
@@ -56,9 +60,15 @@ io.on('connection', (socket) => {
     });
 
     socket.on('p2p_signal', (data) => {
-        const targetUser = registeredUsers.get(data.target);
-        if(targetUser && targetUser.socketId) {
-            io.to(targetUser.socketId).emit('p2p_signal', data);
+        if(data && data.target) {
+            const cleanTarget = nettoyerTel(data.target);
+            const targetUser = registeredUsers.get(cleanTarget);
+            if(targetUser && targetUser.socketId) {
+                io.to(targetUser.socketId).emit('p2p_signal', data);
+                console.log(`Signal P2P acheminé de ${data.sender} vers ${cleanTarget}`);
+            } else {
+                console.log(`Échec signal P2P : destinataire ${cleanTarget} introuvable ou non connecté.`);
+            }
         }
     });
 
@@ -67,7 +77,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
-        console.log('Un opérateur s'est déconnecté:', socket.id);
+        console.log('Un opérateur s\'est déconnecté:', socket.id);
         for (let [tel, val] of registeredUsers.entries()) {
             if (val.socketId === socket.id) {
                 registeredUsers.delete(tel);
