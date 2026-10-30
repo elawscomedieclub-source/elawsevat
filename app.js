@@ -346,77 +346,46 @@ function preparerAppel(tel) {
     document.getElementById('appelCibleNum').value = tel;
 }
 
-function basculerEcouteVocaleIA() {
-    const statusEl = document.getElementById('micStatusElaws');
-    const inputEl = document.getElementById('elawsInput');
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-        alert("Reconnaissance vocale non supportée.");
-        return;
-    }
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'fr-FR';
-    if(statusEl) statusEl.innerText = "🎙️ Écoute...";
-    
-    recognition.onresult = (event) => {
-        inputEl.value = event.results[0][0].transcript;
-        if(statusEl) statusEl.innerText = "";
-        // Réponse instantanée dès la fin de la parole
-        poserQuestionElaws();
-    };
-    recognition.onerror = () => { if(statusEl) statusEl.innerText = ""; };
-    recognition.onend = () => { if(statusEl) statusEl.innerText = ""; };
-    
-    recognition.start();
-}
-
-// ========== ELAWS E1 + E2 + E4 ==========
+// ========== ELAWS + MODE TRADUCTION ==========
 let elawsBusy = false;
 let elawsHistory = [];
 let elawsMode = localStorage.getItem('evat_elaws_mode') || 'general';
 let elawsVoixActive = localStorage.getItem('evat_voix') !== 'off';
+let elawsListening = false;
+let elawsRecognition = null;
 let derniereReponseElaws = '';
-let dernieresActionsElaws = [];
+let derniereTraduction = '';
 
 const ELAWS_MODES = {
-    general: {
-        label: 'Général',
-        icon: '🤖',
-        system: 'Tu es ELAWS, assistant EVAT. Réponds utilement, directement, sans répéter la question. 3 à 8 phrases. Langage simple.'
-    },
-    briefing: {
-        label: 'Briefing',
-        icon: '🌅',
-        system: 'Tu es ELAWS en mode Briefing. Donne un plan de journée clair: priorités, ordre, 1 conseil par axe, ce qu\'il faut éviter. Court, motivant, concret. Ne répète pas la question.'
-    },
-    redaction: {
-        label: 'Rédaction',
-        icon: '✍️',
-        system: 'Tu es ELAWS en mode Rédaction. Produis un texte prêt à envoyer (SMS, message pro, mail court, devis texte). Pas de blabla autour: le message d\'abord, puis une variante courte si utile. Ne répète pas la demande.'
-    },
-    terrain: {
-        label: 'Terrain',
-        icon: '📍',
-        system: 'Tu es ELAWS en mode Terrain. Réponses ultra-courtes, orales, 2 à 5 phrases max, phrases simples, action immédiate. Pas de jargon. Ne répète pas la question.'
-    },
-    negociation: {
-        label: 'Négociation',
-        icon: '🤝',
-        system: 'Tu es ELAWS en mode Négociation. Aide à vendre ou négocier: script oral, réponses aux objections, reformulations. Concret, respectueux, orienté closing. Ne répète pas la question.'
-    }
+    general: { label: 'Général', icon: '🤖', system: 'Tu es ELAWS (EVAT). Réponds directement, sans répéter la question. 3 à 8 phrases, langage simple.' },
+    briefing: { label: 'Briefing', icon: '🌅', system: 'Tu es ELAWS mode Briefing. Plan de journée court, priorités, conseils concrets. Ne répète pas la question.' },
+    redaction: { label: 'Rédaction', icon: '✍️', system: 'Tu es ELAWS mode Rédaction. Produis un texte prêt à envoyer. Message d\'abord. Ne répète pas la demande.' },
+    terrain: { label: 'Terrain', icon: '📍', system: 'Tu es ELAWS mode Terrain. Réponses ultra-courtes, 2-5 phrases, action immédiate.' },
+    negociation: { label: 'Négociation', icon: '🤝', system: 'Tu es ELAWS mode Négociation. Scripts, objections, closing. Concret et respectueux.' },
+    traduction: { label: 'Traduction', icon: '🌐', system: 'Tu es un traducteur. Traduis UNIQUEMENT le texte demandé vers la langue cible. Réponds seulement avec la traduction, sans notes ni explications, sauf si on te demande d\'expliquer.' }
 };
 
-function assurerElawsData() {
-    if (!utilisateur) return;
-    if (!utilisateur.tableauJour) utilisateur.tableauJour = { date: '', pro: '', perso: '', formation: '' };
-    if (!utilisateur.clients) utilisateur.clients = [];
-    if (!utilisateur.groupes) utilisateur.groupes = [];
-    if (!utilisateur.elawsMeta) utilisateur.elawsMeta = { streak: 0, lastBriefingDate: '', totalBriefings: 0 };
-}
-function saveElawsData() {
-    if (utilisateur) localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
-}
-function todayISO() { return new Date().toISOString().slice(0, 10); }
+const LANGUES_TRAD = [
+    { code: 'fr', name: 'Français' },
+    { code: 'en', name: 'English' },
+    { code: 'es', name: 'Español' },
+    { code: 'pt', name: 'Português' },
+    { code: 'ar', name: 'العربية' },
+    { code: 'de', name: 'Deutsch' },
+    { code: 'it', name: 'Italiano' },
+    { code: 'zh', name: '中文' },
+    { code: 'sw', name: 'Kiswahili' },
+    { code: 'ha', name: 'Hausa' },
+    { code: 'yo', name: 'Yorùbá' },
+    { code: 'ig', name: 'Igbo' },
+    { code: 'ee', name: 'Ewe' },
+    { code: 'ak', name: 'Akan / Twi' },
+    { code: 'wo', name: 'Wolof' },
+    { code: 'ff', name: 'Fulfulde' },
+    { code: 'ln', name: 'Lingala' },
+    { code: 'auto', name: 'Auto-détecter' }
+];
+
 function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
 
 function setElawsMode(mode) {
@@ -428,16 +397,13 @@ function setElawsMode(mode) {
     });
     const label = document.getElementById('elawsModeLabel');
     if (label) label.textContent = ELAWS_MODES[mode].icon + ' ' + ELAWS_MODES[mode].label;
+    const tradBox = document.getElementById('elawsTradPanel');
+    if (tradBox) tradBox.style.display = mode === 'traduction' ? 'block' : 'none';
     const input = document.getElementById('elawsInput');
     if (input) {
-        const ph = {
-            general: 'Pose ta question…',
-            briefing: 'Ex: aide-moi à prioriser ma journée…',
-            redaction: 'Ex: SMS pour relancer un client poli et ferme…',
-            terrain: 'Ex: client hésite sur le prix, je dis quoi ?',
-            negociation: 'Ex: objection c\'est trop cher, réponds…'
-        };
-        input.placeholder = ph[mode] || ph.general;
+        input.placeholder = mode === 'traduction'
+            ? 'Texte à traduire (ou utilise 🎙️ Écouter)…'
+            : 'Pose ta question…';
     }
 }
 
@@ -445,24 +411,23 @@ function basculerVoixElaws() {
     elawsVoixActive = !elawsVoixActive;
     localStorage.setItem('evat_voix', elawsVoixActive ? 'on' : 'off');
     const btn = document.getElementById('btnSpeakElaws');
-    if (btn) {
-        btn.textContent = elawsVoixActive ? '🔊' : '🔇';
-        btn.title = elawsVoixActive ? 'Voix activée' : 'Voix désactivée';
-    }
+    if (btn) btn.textContent = elawsVoixActive ? '🔊' : '🔇';
     if (!elawsVoixActive && window.speechSynthesis) speechSynthesis.cancel();
     else parlerElaws(elawsVoixActive ? 'Voix activée.' : 'Voix désactivée.');
 }
 
-function parlerElaws(texte) {
+function parlerElaws(texte, langHint) {
     if (!elawsVoixActive || !texte || !window.speechSynthesis) return;
     try {
         speechSynthesis.cancel();
         const u = new SpeechSynthesisUtterance(texte);
-        u.lang = 'fr-FR';
-        u.rate = 1.02;
+        const cible = langHint || (elawsMode === 'traduction' ? (document.getElementById('tradLangCible')?.value || 'fr') : 'fr');
+        const map = { fr: 'fr-FR', en: 'en-US', es: 'es-ES', pt: 'pt-PT', ar: 'ar-SA', de: 'de-DE', it: 'it-IT', zh: 'zh-CN', sw: 'sw-KE' };
+        u.lang = map[cible] || 'fr-FR';
+        u.rate = 1.0;
         const vs = speechSynthesis.getVoices();
-        const fr = vs.find(v => /fr/i.test(v.lang)) || null;
-        if (fr) u.voice = fr;
+        const v = vs.find(x => x.lang && x.lang.toLowerCase().startsWith((map[cible] || 'fr').slice(0, 2))) || vs.find(x => /fr/i.test(x.lang));
+        if (v) u.voice = v;
         speechSynthesis.speak(u);
     } catch (e) {}
 }
@@ -471,36 +436,85 @@ if (typeof speechSynthesis !== 'undefined') {
     speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
 }
 
+function getTradLangs() {
+    const src = document.getElementById('tradLangSource')?.value || 'auto';
+    const dst = document.getElementById('tradLangCible')?.value || 'fr';
+    const srcName = LANGUES_TRAD.find(l => l.code === src)?.name || src;
+    const dstName = LANGUES_TRAD.find(l => l.code === dst)?.name || dst;
+    return { src, dst, srcName, dstName };
+}
+
+function inverserLanguesTrad() {
+    const a = document.getElementById('tradLangSource');
+    const b = document.getElementById('tradLangCible');
+    if (!a || !b) return;
+    if (a.value === 'auto') { a.value = b.value; b.value = 'fr'; return; }
+    const t = a.value; a.value = b.value; b.value = t;
+}
+
 function nettoyerReponseIA(t) {
     if (!t) return t;
     let x = String(t).trim();
     x = x.replace(/^(ELAWS\s*(AI)?\s*[:\-–—]\s*)/i, '');
-    x = x.replace(/^(Réponse\s*[:\-–—]\s*)/i, '');
-    [/^j'ai bien (reçu|compris|noté)[^.!]*[.!]?\s*/i, /^concernant (ta|votre|la) question[^.!]*[.!]?\s*/i].forEach(re => { x = x.replace(re, ''); });
+    x = x.replace(/^(Traduction\s*[:\-–—]\s*)/i, '');
+    x = x.replace(/^["«]|["»]$/g, '');
     return x.trim() || String(t).trim();
 }
 
-function reponseLocaleElaws(question) {
-    const q = (question || '').toLowerCase();
-    if (elawsMode === 'redaction') return 'Bonjour, je me permets de vous relancer concernant notre échange. Seriez-vous disponible pour en discuter cette semaine ? Cordialement.';
-    if (elawsMode === 'negociation') return 'Je comprends le budget. Voici ce que je peux faire: garder la qualité sur l\'essentiel et ajuster le superflu. On fixe quel montant cible ?';
-    if (elawsMode === 'terrain') return 'Écoute le besoin. Propose une option claire. Demande la décision. Note la relance.';
-    if (elawsMode === 'briefing') return 'Commence par l\'action pro la plus urgente. Bloque 25 minutes sans distraction. Garde l\'action perso pour le créneau plus calme. 15 minutes de formation en fin de journée.';
-    if (/bonjour|salut/.test(q)) return 'Salut. Choisis un mode en haut si besoin, puis dis-moi ce que tu veux avancer.';
-    return 'Réseau limité. Réessaie dans un instant, ou précise ton besoin en une phrase.';
+async function traduireTexte(texte) {
+    const { src, dst, srcName, dstName } = getTradLangs();
+    if (src !== 'auto' && src === dst) return texte;
+
+    const system = `Tu es un traducteur professionnel. Traduis le texte de l'utilisateur vers ${dstName}${src !== 'auto' ? ' (source: ' + srcName + ')' : ' (détecte la langue source)'}.
+RÈGLES: réponds UNIQUEMENT avec la traduction. Pas de guillemets, pas de commentaire, pas de "Voici la traduction". Si le texte est déjà dans la langue cible, renvoie-le tel quel.`;
+
+    try {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 25000);
+        const res = await fetch('https://text.pollinations.ai/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                messages: [
+                    { role: 'system', content: system },
+                    { role: 'user', content: texte }
+                ],
+                model: 'openai',
+                seed: Math.floor(Math.random() * 99999)
+            }),
+            signal: ctrl.signal
+        });
+        clearTimeout(t);
+        if (res.ok) {
+            const out = nettoyerReponseIA(await res.text());
+            if (out.length > 0) return out;
+        }
+    } catch (e) {}
+
+    // Fallback GET
+    try {
+        const prompt = encodeURIComponent(`Traduis en ${dstName} uniquement, sans explication:\n${texte}`);
+        const ctrl2 = new AbortController();
+        const t2 = setTimeout(() => ctrl2.abort(), 20000);
+        const res2 = await fetch('https://text.pollinations.ai/' + prompt + '?model=openai', { signal: ctrl2.signal });
+        clearTimeout(t2);
+        if (res2.ok) {
+            const out2 = nettoyerReponseIA(await res2.text());
+            if (out2.length > 0) return out2;
+        }
+    } catch (e) {}
+
+    return '[Traduction indisponible hors réseau. Réessaie avec Internet.] ' + texte;
 }
 
 async function appelerIAMondiale(question) {
-    assurerElawsData();
+    if (elawsMode === 'traduction') {
+        return await traduireTexte(question);
+    }
     const prenom = utilisateur?.nom ? utilisateur.nom.split(' ')[0] : 'toi';
     const metier = utilisateur?.metier || '';
-    const tj = utilisateur?.tableauJour || {};
     const mode = ELAWS_MODES[elawsMode] || ELAWS_MODES.general;
-    let system = mode.system + ` Utilisateur: ${prenom}${metier ? ', activité: ' + metier : ''}.`;
-    if (elawsMode === 'briefing' || /journée|prioris|briefing/i.test(question)) {
-        system += ` Actions du jour — pro: ${tj.pro || 'n/a'}, perso: ${tj.perso || 'n/a'}, formation: ${tj.formation || 'n/a'}.`;
-    }
-    system += ' Santé: prévention seulement, pas de diagnostic. Juridique: reste général.';
+    const system = mode.system + ` Utilisateur: ${prenom}${metier ? ', activité: ' + metier : ''}. Santé: pas de diagnostic.`;
 
     const messages = [{ role: 'system', content: system }];
     elawsHistory.slice(-6).forEach(m => messages.push(m));
@@ -521,175 +535,73 @@ async function appelerIAMondiale(question) {
             if (text.length > 3) return text;
         }
     } catch (e) {}
+    return 'Je n\'ai pas pu joindre le réseau. Réessaie dans un instant.';
+}
+
+function recognitionLangForSource() {
+    const src = document.getElementById('tradLangSource')?.value || 'auto';
+    const map = {
+        fr: 'fr-FR', en: 'en-US', es: 'es-ES', pt: 'pt-PT', ar: 'ar-SA',
+        de: 'de-DE', it: 'it-IT', zh: 'zh-CN', sw: 'sw-KE', ha: 'ha-NG',
+        yo: 'yo-NG', ig: 'ig-NG', auto: 'fr-FR'
+    };
+    return map[src] || 'fr-FR';
+}
+
+function basculerEcouteVocaleIA() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const status = document.getElementById('micStatusElaws');
+    if (!SpeechRecognition) {
+        if (status) status.textContent = 'Reconnaissance vocale non supportée sur cet appareil.';
+        alert('La dictée n\'est pas supportée par ce navigateur. Utilise Chrome / Edge, ou tape le texte.');
+        return;
+    }
+
+    if (elawsListening && elawsRecognition) {
+        try { elawsRecognition.stop(); } catch (e) {}
+        elawsListening = false;
+        if (status) status.textContent = 'Écoute arrêtée.';
+        return;
+    }
+
+    elawsRecognition = new SpeechRecognition();
+    elawsRecognition.lang = elawsMode === 'traduction' ? recognitionLangForSource() : 'fr-FR';
+    elawsRecognition.interimResults = false;
+    elawsRecognition.maxAlternatives = 1;
+    elawsRecognition.continuous = false;
+
+    elawsRecognition.onstart = () => {
+        elawsListening = true;
+        if (status) status.textContent = elawsMode === 'traduction'
+            ? '🎧 Écoute… parlez clairement (puis traduction auto).'
+            : '🎧 Écoute… parlez.';
+    };
+    elawsRecognition.onerror = (ev) => {
+        elawsListening = false;
+        if (status) status.textContent = 'Erreur micro: ' + (ev.error || '');
+    };
+    elawsRecognition.onend = () => {
+        elawsListening = false;
+    };
+    elawsRecognition.onresult = (event) => {
+        elawsListening = false;
+        const texte = event.results[0][0].transcript;
+        const input = document.getElementById('elawsInput');
+        if (input) input.value = texte;
+        if (status) status.textContent = 'Capté : ' + texte;
+        if (elawsMode === 'traduction') {
+            // Traduction automatique après écoute
+            poserQuestionElaws();
+        }
+    };
     try {
-        const prompt = encodeURIComponent(system + '\n\nUtilisateur: ' + question + '\nELAWS:');
-        const ctrl2 = new AbortController();
-        const t2 = setTimeout(() => ctrl2.abort(), 20000);
-        const res2 = await fetch('https://text.pollinations.ai/' + prompt + '?model=openai', { signal: ctrl2.signal });
-        clearTimeout(t2);
-        if (res2.ok) {
-            const text2 = nettoyerReponseIA(await res2.text());
-            if (text2.length > 3) return text2;
-        }
-    } catch (e) {}
-    return reponseLocaleElaws(question);
-}
-
-/** E2: détecter actions exécutables depuis la question utilisateur */
-function detecterActionsElaws(question, reponse) {
-    const actions = [];
-    const q = (question || '') + ' ' + (reponse || '');
-    const qLow = q.toLowerCase();
-
-    // Relance client
-    if (/relance|rappeler|recontacter|suivi client/i.test(qLow)) {
-        actions.push({ type: 'relance', label: '➕ Créer une relance client' });
-    }
-    // Nouveau client
-    if (/nouveau client|ajouter client|fiche client|prospect/i.test(qLow)) {
-        actions.push({ type: 'client', label: '🤝 Ajouter un client' });
-    }
-    // Tâche
-    if (/tâche|tache|todo|à faire|action du jour|rappelle-moi de/i.test(qLow)) {
-        actions.push({ type: 'tache_jour', label: '🎯 Mettre dans ma journée' });
-    }
-    // Groupe tâche
-    if (/tâche d'équipe|tache d'equipe|tâche groupe|pour l'équipe|pour le groupe/i.test(qLow)) {
-        actions.push({ type: 'tache_groupe', label: '👥 Tâche de groupe' });
-    }
-    // Toujours proposer au moins rédaction → copier si mode redaction
-    if (elawsMode === 'redaction') {
-        actions.push({ type: 'copier', label: '📋 Copier le texte' });
-    }
-    // Dédupliquer
-    const seen = new Set();
-    return actions.filter(a => (seen.has(a.type) ? false : (seen.add(a.type), true)));
-}
-
-function rendreBoutonsActions(actions) {
-    if (!actions || !actions.length) return '';
-    return `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;">` +
-        actions.map((a, i) =>
-            `<button onclick="executerActionElaws(${i})" class="btn-action" style="width:auto;padding:6px 10px;font-size:11px;background:rgba(16,185,129,0.2);color:var(--success);border:1px solid rgba(16,185,129,0.4);">${esc(a.label)}</button>`
-        ).join('') + `</div>`;
-}
-
-function executerActionElaws(index) {
-    const a = dernieresActionsElaws[index];
-    if (!a) return;
-    assurerElawsData();
-    if (a.type === 'copier') {
-        if (navigator.clipboard && derniereReponseElaws) {
-            navigator.clipboard.writeText(derniereReponseElaws).then(() => alert('Texte copié.')).catch(() => prompt('Copiez :', derniereReponseElaws));
-        } else {
-            prompt('Copiez :', derniereReponseElaws);
-        }
-        return;
-    }
-    if (a.type === 'client' || a.type === 'relance') {
-        const nom = prompt('Nom du client :');
-        if (!nom) return;
-        const tel = prompt('Téléphone :', '') || '';
-        const note = prompt('Note :', elawsMode === 'negociation' ? 'Suite négo' : 'Relance ELAWS') || '';
-        const relance = prompt('Date relance (AAAA-MM-JJ) :', todayISO()) || todayISO();
-        utilisateur.clients.push({
-            id: 'cl' + Date.now(),
-            nom: nom.trim(),
-            tel: tel.replace(/\s+/g, '').trim(),
-            note: note.trim(),
-            relance: relance.trim(),
-            statut: 'prospect'
-        });
-        saveElawsData();
-        alert('Client enregistré. Voir onglet Clients & Relances.');
-        return;
-    }
-    if (a.type === 'tache_jour') {
-        const titre = prompt('Action à mettre dans ta journée :', '') || '';
-        if (!titre) return;
-        const slot = prompt('Où ? pro / perso / formation', 'pro') || 'pro';
-        const s = slot.toLowerCase();
-        if (!utilisateur.tableauJour) utilisateur.tableauJour = { date: todayISO(), pro: '', perso: '', formation: '' };
-        utilisateur.tableauJour.date = todayISO();
-        if (s.startsWith('pers')) utilisateur.tableauJour.perso = titre.trim();
-        else if (s.startsWith('form')) utilisateur.tableauJour.formation = titre.trim();
-        else utilisateur.tableauJour.pro = titre.trim();
-        saveElawsData();
-        if (typeof majBanniereJour === 'function') majBanniereJour();
-        alert('Ajouté à ta journée.');
-        return;
-    }
-    if (a.type === 'tache_groupe') {
-        if (!utilisateur.groupes || !utilisateur.groupes.length) {
-            const nomG = prompt('Aucun groupe. Nom du nouveau groupe :', 'Mon équipe');
-            if (!nomG) return;
-            utilisateur.groupes = [{
-                id: 'gr' + Date.now(),
-                nom: nomG.trim(),
-                membres: [{ nom: utilisateur.nom, tel: utilisateur.telephone }],
-                taches: []
-            }];
-        }
-        const g = utilisateur.groupes[0];
-        const titre = prompt('Titre de la tâche :');
-        if (!titre) return;
-        g.taches = g.taches || [];
-        g.taches.unshift({ id: 'gt' + Date.now(), titre: titre.trim(), assigne: utilisateur.nom, fait: false });
-        saveElawsData();
-        alert('Tâche ajoutée au groupe « ' + g.nom + ' ».');
+        elawsRecognition.start();
+    } catch (e) {
+        if (status) status.textContent = 'Impossible de démarrer le micro.';
     }
 }
 
-function enregistrerStreakBriefing() {
-    assurerElawsData();
-    const meta = utilisateur.elawsMeta;
-    const today = todayISO();
-    if (meta.lastBriefingDate === today) return; // déjà compté
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const y = yesterday.toISOString().slice(0, 10);
-    if (meta.lastBriefingDate === y) meta.streak = (meta.streak || 0) + 1;
-    else meta.streak = 1;
-    meta.lastBriefingDate = today;
-    meta.totalBriefings = (meta.totalBriefings || 0) + 1;
-    saveElawsData();
-    majElawsStreakUI();
-}
-
-function majElawsStreakUI() {
-    const el = document.getElementById('elawsStreakBox');
-    if (!el || !utilisateur) return;
-    assurerElawsData();
-    const m = utilisateur.elawsMeta || {};
-    const streak = m.streak || 0;
-    const total = m.totalBriefings || 0;
-    el.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-      <span style="font-size:12px;color:var(--text-secondary);">🔥 Série briefing : <strong style="color:var(--success);">${streak} j</strong> · Total : ${total}</span>
-      <button onclick="lancerResumeVocalJour()" class="btn-action" style="width:auto;padding:6px 10px;font-size:11px;background:rgba(59,130,246,0.2);color:var(--accent);border:1px solid var(--accent);">🎧 Résumé vocal du jour</button>
-    </div>`;
-}
-
-function lancerResumeVocalJour() {
-    assurerElawsData();
-    setElawsMode('briefing');
-    const tj = utilisateur.tableauJour || {};
-    const m = utilisateur.elawsMeta || {};
-    const prompt = `Fais mon résumé vocal du jour (à lire à voix haute, style oral, 40 à 70 secondes max). Actions: pro «${tj.pro||'non définie'}», perso «${tj.perso||'non définie'}», formation «${tj.formation||'non définie'}». Série briefing: ${m.streak||0} jours. Motive brièvement et dis la prochaine micro-action.`;
-    const input = document.getElementById('elawsInput');
-    if (input) { input.value = prompt; poserQuestionElaws(true); }
-}
-
-function lancerBriefingMatinElaws() {
-    assurerElawsData();
-    setElawsMode('briefing');
-    const tj = utilisateur.tableauJour || {};
-    const prompt = `Briefing du matin. Actions — pro: «${tj.pro||'vide'}», perso: «${tj.perso||'vide'}», formation: «${tj.formation||'vide'}». Priorise, 1 conseil par axe, ce qu'éviter. Court et concret.`;
-    switchTab('elaws-ia');
-    const input = document.getElementById('elawsInput');
-    if (input) { input.value = prompt; poserQuestionElaws(true); }
-}
-
-async function poserQuestionElaws(isBriefing) {
+async function poserQuestionElaws() {
     const input = document.getElementById('elawsInput');
     const question = (input?.value || '').trim();
     if (!question || !utilisateur || elawsBusy) return;
@@ -697,49 +609,82 @@ async function poserQuestionElaws(isBriefing) {
     if (!chatBox) return;
 
     elawsBusy = true;
-    chatBox.innerHTML += `<div style="background:rgba(255,255,255,0.05);padding:10px;border-radius:10px;text-align:right;"><strong style="color:var(--success);font-size:12px;">👤 ${esc(utilisateur.nom)}</strong><p style="margin:4px 0 0;font-size:12.5px;">${esc(question)}</p></div>`;
+    const { srcName, dstName } = getTradLangs();
+    const modeInfo = ELAWS_MODES[elawsMode] || ELAWS_MODES.general;
+
+    if (elawsMode === 'traduction') {
+        chatBox.innerHTML += `<div style="background:rgba(255,255,255,0.05);padding:10px;border-radius:10px;text-align:right;">
+            <strong style="color:var(--success);font-size:11px;">🎧 Source</strong>
+            <p style="margin:4px 0 0;font-size:12.5px;">${esc(question)}</p>
+            <div style="font-size:10px;color:var(--text-secondary);margin-top:4px;">${esc(srcName)} → ${esc(dstName)}</div>
+        </div>`;
+    } else {
+        chatBox.innerHTML += `<div style="background:rgba(255,255,255,0.05);padding:10px;border-radius:10px;text-align:right;">
+            <strong style="color:var(--success);font-size:12px;">👤 ${esc(utilisateur.nom)}</strong>
+            <p style="margin:4px 0 0;font-size:12.5px;">${esc(question)}</p>
+        </div>`;
+    }
     input.value = '';
     chatBox.scrollTop = chatBox.scrollHeight;
 
     const loadingId = 'elaws-load-' + Date.now();
-    const modeInfo = ELAWS_MODES[elawsMode] || ELAWS_MODES.general;
-    chatBox.innerHTML += `<div id="${loadingId}" style="background:rgba(59,130,246,0.1);border:1px solid var(--accent);padding:10px;border-radius:10px;"><strong style="color:var(--accent);font-size:12px;">🤖 ELAWS · ${modeInfo.label}</strong><p style="font-size:12px;margin:6px 0 0;color:var(--text-secondary);">Réflexion…</p></div>`;
+    chatBox.innerHTML += `<div id="${loadingId}" style="background:rgba(59,130,246,0.1);border:1px solid var(--accent);padding:10px;border-radius:10px;">
+        <strong style="color:var(--accent);font-size:12px;">🤖 ELAWS · ${esc(modeInfo.label)}</strong>
+        <p style="font-size:12px;margin:6px 0 0;color:var(--text-secondary);">${elawsMode === 'traduction' ? 'Traduction…' : 'Réflexion…'}</p>
+    </div>`;
 
     let reponse = '';
     try { reponse = await appelerIAMondiale(question); }
-    catch (e) { reponse = reponseLocaleElaws(question); }
+    catch (e) { reponse = 'Erreur de traduction / réseau.'; }
 
-    if (isBriefing || elawsMode === 'briefing') enregistrerStreakBriefing();
+    derniereReponseElaws = reponse;
+    if (elawsMode === 'traduction') derniereTraduction = reponse;
 
     elawsHistory.push({ role: 'user', content: question });
     elawsHistory.push({ role: 'assistant', content: reponse });
     if (elawsHistory.length > 20) elawsHistory = elawsHistory.slice(-16);
 
-    derniereReponseElaws = reponse;
-    dernieresActionsElaws = detecterActionsElaws(question, reponse);
-
+    const dst = document.getElementById('tradLangCible')?.value || 'fr';
     const html = `<div style="background:rgba(59,130,246,0.1);border:1px solid var(--accent);padding:10px;border-radius:10px;">
-      <strong style="color:var(--accent);font-size:12px;">🤖 ELAWS · ${esc(modeInfo.label)}</strong>
-      <p style="margin:4px 0 0;font-size:12.5px;line-height:1.5;white-space:pre-wrap;">${esc(reponse)}</p>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">
-        <button onclick="parlerElaws(derniereReponseElaws)" class="btn-action" style="width:auto;padding:5px 10px;font-size:10px;background:rgba(16,185,129,0.2);color:var(--success);border:1px solid rgba(16,185,129,0.4);">🔊 Écouter</button>
-      </div>
-      ${rendreBoutonsActions(dernieresActionsElaws)}
+        <strong style="color:var(--accent);font-size:12px;">🤖 ELAWS · ${esc(modeInfo.label)}${elawsMode === 'traduction' ? ' → ' + esc(dstName) : ''}</strong>
+        <p style="margin:4px 0 0;font-size:12.5px;line-height:1.5;white-space:pre-wrap;">${esc(reponse)}</p>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">
+            <button onclick="parlerElaws(derniereReponseElaws, '${esc(dst)}')" class="btn-action" style="width:auto;padding:5px 10px;font-size:10px;background:rgba(16,185,129,0.2);color:var(--success);border:1px solid rgba(16,185,129,0.4);">🔊 Écouter</button>
+            ${elawsMode === 'traduction' ? `<button onclick="navigator.clipboard&&navigator.clipboard.writeText(derniereTraduction)" class="btn-action" style="width:auto;padding:5px 10px;font-size:10px;background:rgba(59,130,246,0.2);color:var(--accent);border:1px solid var(--accent);">📋 Copier</button>` : ''}
+        </div>
     </div>`;
     const el = document.getElementById(loadingId);
     if (el) el.outerHTML = html; else chatBox.innerHTML += html;
     chatBox.scrollTop = chatBox.scrollHeight;
     elawsBusy = false;
-    parlerElaws(reponse);
+
+    // Lecture auto en mode traduction (écouteur)
+    parlerElaws(reponse, elawsMode === 'traduction' ? dst : 'fr');
 }
 
 function initElawsUI() {
+    // remplir selects langues si vides
+    const src = document.getElementById('tradLangSource');
+    const dst = document.getElementById('tradLangCible');
+    if (src && src.options.length === 0) {
+        LANGUES_TRAD.forEach(l => {
+            const o = document.createElement('option');
+            o.value = l.code; o.textContent = l.name;
+            src.appendChild(o);
+        });
+        src.value = 'auto';
+    }
+    if (dst && dst.options.length === 0) {
+        LANGUES_TRAD.filter(l => l.code !== 'auto').forEach(l => {
+            const o = document.createElement('option');
+            o.value = l.code; o.textContent = l.name;
+            dst.appendChild(o);
+        });
+        dst.value = 'fr';
+    }
     setElawsMode(elawsMode);
     const btn = document.getElementById('btnSpeakElaws');
-    if (btn) {
-        btn.textContent = elawsVoixActive ? '🔊' : '🔇';
-    }
-    majElawsStreakUI();
+    if (btn) btn.textContent = elawsVoixActive ? '🔊' : '🔇';
 }
 
 function toggleMenu(e) {
@@ -773,7 +718,7 @@ function switchTab(tabId) {
     fermerTousLesMenus();
 
     if(tabId === 'contacts') afficherContacts();
-    if(tabId === 'elaws-ia') { initElawsUI(); }
+    if(tabId === 'elaws-ia') initElawsUI();
     if(tabId === 'map') {
         setTimeout(() => {
             if(!mapInstance) {
@@ -1209,6 +1154,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     afficherNotesBlocNotes();
     afficherMessagesLocaux();
+    initElawsUI();
 });
 
 async function demanderPermissionsEtActiverProfil() {

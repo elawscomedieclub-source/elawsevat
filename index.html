@@ -130,28 +130,33 @@
             <section id="tab-elaws-ia" class="tab-content" style="display:none;">
                 <div class="card">
                     <h2>🤖 ELAWS <span id="elawsModeLabel" style="font-size:12px;font-weight:600;color:var(--text-secondary);">🤖 Général</span></h2>
-                    <div id="elawsStreakBox" style="margin-bottom:10px;"></div>
                     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">
                         <button type="button" data-mode="general" class="elaws-mode-btn btn-action active" onclick="setElawsMode('general')" style="width:auto;padding:7px 10px;font-size:11px;">🤖 Général</button>
                         <button type="button" data-mode="briefing" class="elaws-mode-btn btn-action" onclick="setElawsMode('briefing')" style="width:auto;padding:7px 10px;font-size:11px;">🌅 Briefing</button>
                         <button type="button" data-mode="redaction" class="elaws-mode-btn btn-action" onclick="setElawsMode('redaction')" style="width:auto;padding:7px 10px;font-size:11px;">✍️ Rédaction</button>
                         <button type="button" data-mode="terrain" class="elaws-mode-btn btn-action" onclick="setElawsMode('terrain')" style="width:auto;padding:7px 10px;font-size:11px;">📍 Terrain</button>
                         <button type="button" data-mode="negociation" class="elaws-mode-btn btn-action" onclick="setElawsMode('negociation')" style="width:auto;padding:7px 10px;font-size:11px;">🤝 Négociation</button>
+                        <button type="button" data-mode="traduction" class="elaws-mode-btn btn-action" onclick="setElawsMode('traduction')" style="width:auto;padding:7px 10px;font-size:11px;">🌐 Traduction</button>
                     </div>
-                    <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
-                        <button onclick="lancerBriefingMatinElaws()" class="btn-action" style="width:auto;flex:1;min-width:140px;padding:8px;font-size:11px;background:var(--success);">🌅 Briefing du matin</button>
-                        <button onclick="lancerResumeVocalJour()" class="btn-action" style="width:auto;flex:1;min-width:140px;padding:8px;font-size:11px;">🎧 Résumé vocal</button>
+                    <div id="elawsTradPanel" style="display:none;margin-bottom:12px;padding:12px;border:1px solid var(--border-color);border-radius:12px;background:rgba(59,130,246,0.06);">
+                        <div style="font-size:12px;color:var(--accent);font-weight:600;margin-bottom:8px;">🌐 Traduction phrase par phrase</div>
+                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                            <select id="tradLangSource" class="input" style="margin:0;flex:1;min-width:120px;"></select>
+                            <button type="button" onclick="inverserLanguesTrad()" class="btn-action" style="width:auto;padding:8px 10px;font-size:14px;background:rgba(59,130,246,0.2);color:var(--accent);border:1px solid var(--accent);">⇄</button>
+                            <select id="tradLangCible" class="input" style="margin:0;flex:1;min-width:120px;"></select>
+                        </div>
+                        <p style="font-size:11px;color:var(--text-secondary);margin:8px 0 0 0;">1) Choisis les langues · 2) 🎙️ Écouter (ou tape) · 3) Traduction + lecture dans l'écouteur. Les dialectes dépendent du support micro de ton téléphone.</p>
                     </div>
-                    <div id="elawsChatBox" style="background:var(--bg-color); border:1px solid var(--border-color); border-radius:10px; padding:10px; height:240px; overflow-y:auto; margin-bottom:10px; display:flex; flex-direction:column; gap:8px;">
+                    <div id="elawsChatBox" style="background:var(--bg-color); border:1px solid var(--border-color); border-radius:10px; padding:10px; height:220px; overflow-y:auto; margin-bottom:10px; display:flex; flex-direction:column; gap:8px;">
                         <div style="background:rgba(59,130,246,0.1); border:1px solid var(--accent); padding:8px; border-radius:8px;">
                             <strong style="color:var(--accent); font-size:11.5px;">🤖 ELAWS</strong>
-                            <p style="font-size:12px; margin:3px 0 0 0;">Choisis un mode, pose ta question. Je réponds à l'écrit et à la voix. Des boutons d'action apparaîtront quand je pourrai créer une relance, un client ou une tâche.</p>
+                            <p style="font-size:12px; margin:3px 0 0 0;">Modes disponibles, dont <b>Traduction</b> : écoute → traduit → lit à voix haute (écouteurs OK).</p>
                         </div>
                     </div>
                     <div style="display:flex; gap:6px;">
                         <input type="text" id="elawsInput" class="input" placeholder="Pose ta question…" style="margin-bottom:0; flex:1;" onkeypress="if(event.key==='Enter') poserQuestionElaws()">
-                        <button onclick="basculerEcouteVocaleIA()" class="btn-action" style="width:auto; padding:0 12px; background:rgba(59,130,246,0.2); color:var(--accent); border:1px solid var(--accent);" title="Dicter">🎙️</button>
-                        <button id="btnSpeakElaws" onclick="basculerVoixElaws()" class="btn-action" style="width:auto; padding:0 12px; background:rgba(16,185,129,0.2); color:var(--success); border:1px solid rgba(16,185,129,0.4);" title="Voix">🔊</button>
+                        <button onclick="basculerEcouteVocaleIA()" class="btn-action" style="width:auto; padding:0 12px; background:rgba(59,130,246,0.2); color:var(--accent); border:1px solid var(--accent);" title="Écouter / dicter">🎙️</button>
+                        <button id="btnSpeakElaws" onclick="basculerVoixElaws()" class="btn-action" style="width:auto; padding:0 12px; background:rgba(16,185,129,0.2); color:var(--success); border:1px solid rgba(16,185,129,0.4);" title="Voix on/off">🔊</button>
                         <button onclick="poserQuestionElaws()" class="btn-action" style="width:auto; padding:0 16px; background:var(--success); color:#fff;">Envoyer</button>
                     </div>
                     <div id="micStatusElaws" style="font-size:11px; color:var(--text-secondary); margin-top:4px; text-align:right;"></div>
