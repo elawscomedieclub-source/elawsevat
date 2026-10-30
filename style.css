@@ -200,5 +200,3 @@ body {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
-
-.contact-card:hover { border-color: var(--border-strong, rgba(62,203,255,0.45)) !important; }

@@ -148,18 +148,15 @@
             <section id="tab-contacts" class="tab-content" style="display:none;">
                 <div class="card">
                     <h2>📇 Annuaire & Contacts</h2>
-                    <p style="font-size:12px;color:var(--text-secondary);margin:-6px 0 12px 0;">Appelle, écris, organise — tous tes contacts EVAT au même endroit.</p>
-                    <input type="search" id="rechercheContact" class="input" placeholder="🔍 Rechercher un nom, numéro, métier…" style="margin-bottom:12px;" oninput="filtrerContactsListe()">
-                    <div style="background:var(--bg-color); padding:12px; border-radius:12px; border:1px solid var(--border-color); margin-bottom:14px;">
-                        <strong style="font-size:12px; color:var(--accent);">➕ Nouveau contact</strong>
+                    <div style="background:var(--bg-color); padding:10px; border-radius:10px; border:1px solid var(--border-color); margin-bottom:12px;">
+                        <strong style="font-size:12px; color:var(--accent);">➕ Enregistrer un contact</strong>
                         <div style="display:flex; flex-direction:column; gap:6px; margin-top:8px;">
-                            <input type="text" id="nouveauNomContact" class="input" placeholder="Nom complet" style="margin-bottom:0;">
-                            <input type="tel" id="nouveauTelContact" class="input" placeholder="Numéro avec indicatif (ex: +228…)" style="margin-bottom:0;">
-                            <input type="text" id="nouveauMetierContact" class="input" placeholder="Métier ou note (optionnel)" style="margin-bottom:0;">
-                            <button onclick="ajouterNouveauContact()" class="btn-action" style="background:linear-gradient(135deg,#10b981,#059669);">Enregistrer le contact</button>
+                            <input type="text" id="nouveauNomContact" class="input" placeholder="Nom..." style="margin-bottom:0;">
+                            <input type="text" id="nouveauTelContact" class="input" placeholder="Numéro avec indicatif (ex: +228...)" style="margin-bottom:0;">
+                            <button onclick="ajouterNouveauContact()" class="btn-action" style="background:var(--success);">Enregistrer</button>
                         </div>
                     </div>
-                    <div id="listeContactsContainer" style="display:flex; flex-direction:column; gap:0;"></div>
+                    <div id="listeContactsContainer" style="display:flex; flex-direction:column; gap:8px;"></div>
                 </div>
             </section>
 
@@ -212,21 +209,40 @@
             <section id="tab-parametres" class="tab-content" style="display:none;">
                 <div class="card">
                     <h2>⚙️ Paramètres & Sonneries</h2>
-                    <p style="font-size:12px; color:var(--text-secondary); margin-bottom:14px;">Personnalisez la sonnerie de vos appels entrants.</p>
-                    
-                    <label style="font-size:11.5px; color:var(--text-primary); display:block; margin-bottom:6px;">Type de Sonnerie :</label>
-                    <select id="selectSonnerieType" class="input" style="margin-bottom:14px;">
-                        <option value="iphone">📱 Style iPhone (Marimba)</option>
-                        <option value="motorola">📟 Style Motorola (Électronique)</option>
-                        <option value="samsung">🎶 Style Samsung (Over the Horizon)</option>
-                        <option value="classique">🔔 Sonnerie Classique</option>
-                        <option value="custom">🎵 Fichier MP3 Personnel</option>
+                    <p style="font-size:12px; color:var(--text-secondary); margin-bottom:14px;">Choisis la sonnerie des appels entrants EVAT. Écoute un aperçu avant d'enregistrer.</p>
+
+                    <label style="font-size:11.5px; color:var(--text-primary); display:block; margin-bottom:6px;">Sonnerie active</label>
+                    <select id="selectSonnerieType" class="input" style="margin-bottom:10px;" onchange="previsualiserSonnerie(this.value)">
+                        <option value="evat">◈ EVAT Quantum</option>
+                        <option value="iphone">📱 iPhone (Marimba)</option>
+                        <option value="motorola">📟 Motorola</option>
+                        <option value="samsung">🎶 Samsung</option>
+                        <option value="classique">🔔 Classique</option>
+                        <option value="doux">🌊 Doux</option>
+                        <option value="alerte">🚨 Alerte</option>
+                        <option value="pulse">💫 Pulse</option>
+                        <option value="crystal">✨ Crystal</option>
+                        <option value="custom">🎵 Fichier MP3 personnel</option>
                     </select>
 
-                    <label style="font-size:11.5px; color:var(--text-primary); display:block; margin-bottom:6px;">Importer un fichier MP3 (Max 1 Mo) :</label>
-                    <input type="file" id="inputCustomRingtone" accept="audio/mp3,audio/*" class="input" onchange="chargerSonneriePerso(event)" style="margin-bottom:16px;">
+                    <div style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
+                        <button type="button" onclick="previsualiserSonnerie()" class="btn-action" style="width:auto; flex:1; min-width:120px; background:rgba(59,130,246,0.2); color:var(--accent); border:1px solid var(--accent);">▶️ Écouter l'aperçu</button>
+                        <button type="button" onclick="arreterSonSonnerie()" class="btn-action" style="width:auto; flex:1; min-width:100px; background:rgba(248,113,113,0.15); color:#f87171; border:1px solid rgba(248,113,113,0.4);">⏹ Stop</button>
+                    </div>
 
-                    <button onclick="sauvegarderParametresApp()" class="btn-action" style="background:var(--success);">💾 Enregistrer les Paramètres</button>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:16px;">
+                        <button type="button" onclick="previsualiserSonnerie('evat')" class="btn-action" style="font-size:11px; padding:8px; background:rgba(59,130,246,0.12); color:var(--accent); border:1px solid var(--border-color); box-shadow:none;">◈ EVAT</button>
+                        <button type="button" onclick="previsualiserSonnerie('doux')" class="btn-action" style="font-size:11px; padding:8px; background:rgba(59,130,246,0.12); color:var(--accent); border:1px solid var(--border-color); box-shadow:none;">🌊 Doux</button>
+                        <button type="button" onclick="previsualiserSonnerie('pulse')" class="btn-action" style="font-size:11px; padding:8px; background:rgba(59,130,246,0.12); color:var(--accent); border:1px solid var(--border-color); box-shadow:none;">💫 Pulse</button>
+                        <button type="button" onclick="previsualiserSonnerie('alerte')" class="btn-action" style="font-size:11px; padding:8px; background:rgba(59,130,246,0.12); color:var(--accent); border:1px solid var(--border-color); box-shadow:none;">🚨 Alerte</button>
+                        <button type="button" onclick="previsualiserSonnerie('crystal')" class="btn-action" style="font-size:11px; padding:8px; background:rgba(59,130,246,0.12); color:var(--accent); border:1px solid var(--border-color); box-shadow:none;">✨ Crystal</button>
+                        <button type="button" onclick="previsualiserSonnerie('classique')" class="btn-action" style="font-size:11px; padding:8px; background:rgba(59,130,246,0.12); color:var(--accent); border:1px solid var(--border-color); box-shadow:none;">🔔 Classique</button>
+                    </div>
+
+                    <label style="font-size:11.5px; color:var(--text-primary); display:block; margin-bottom:6px;">Ou importer un MP3 (max 1 Mo)</label>
+                    <input type="file" id="inputCustomRingtone" accept="audio/mp3,audio/*,.mp3,.wav,.ogg" class="input" onchange="chargerSonneriePerso(event)" style="margin-bottom:16px;">
+
+                    <button onclick="sauvegarderParametresApp()" class="btn-action" style="background:linear-gradient(135deg,#10b981,#059669);">💾 Enregistrer la sonnerie</button>
                 </div>
             </section>
 
