@@ -141,12 +141,13 @@ function sauvegarderProfilBase() {
         ],
         historiqueElaws: [],
         parametres: {
-            sonnerieType: 'iphone', // 'iphone', 'motorola', 'classique', 'custom'
+            sonnerieType: 'iphone',
             customRingtoneBase64: null,
             vibration: true
         }
     };
 
+    // Stockage automatique et transparent en base interne locale
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
     document.getElementById('welcomeModal').style.display = 'none';
     socket.emit('register_user', { nom: utilisateur.nom, telephone: utilisateur.telephone, metier: utilisateur.metier });
@@ -185,7 +186,7 @@ function sauvegarderParametresApp() {
     }
     
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
-    alert("⚙️ Paramètres enregistrés avec succès !");
+    alert("⚙️ Paramètres enregistrés automatiquement dans le stockage interne !");
 }
 
 function chargerSonneriePerso(event) {
@@ -201,7 +202,7 @@ function chargerSonneriePerso(event) {
         utilisateur.parametres.customRingtoneBase64 = e.target.result;
         utilisateur.parametres.sonnerieType = 'custom';
         localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
-        alert("🎵 Sonnerie MP3 personnelle chargée et enregistrée avec succès !");
+        alert("🎵 Sonnerie MP3 personnelle enregistrée automatiquement !");
     };
     reader.readAsDataURL(file);
 }
@@ -304,7 +305,7 @@ function ajouterNouveauContact() {
     document.getElementById('nouveauTelContact').value = '';
     afficherContacts();
     verifierEtSynchroniserContacts();
-    alert("✅ Contact enregistré !");
+    alert("✅ Contact enregistré dans le stockage interne !");
 }
 
 function modifierContact(index) {
@@ -335,7 +336,7 @@ function ecrireAuContact(nom, tel) {
     utilisateur.messagesLocaux.push({ expediteur: utilisateur.nom || "Moi", texte: `À ${nom} : ${message}`, heure: new Date().toLocaleTimeString() });
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
     switchTab('messagerie');
-    alert("✅ Message transmis !");
+    alert("✅ Message enregistré et transmis !");
 }
 
 function preparerAppel(tel) {
@@ -458,14 +459,6 @@ socket.on('signal', (data) => {
     }
 });
 
-function selectionnerDossierStockageTelephone() {
-    if ('showDirectoryPicker' in window) {
-        window.showDirectoryPicker().then(dir => {
-            document.getElementById('fileAccessStatus').innerHTML = `<span style="color:var(--success);">✅ Lié</span>`;
-        }).catch(err => {});
-    }
-}
-
 function envoyerMessageChatLocal() {
     const input = document.getElementById('chatLocalInput');
     const texte = input.value.trim();
@@ -537,7 +530,7 @@ function exporterDonneesCloud() {
 }
 
 // ---------------------------------------------------------------------------
-// GESTION VoIP P2P, SONNERIES PERSONNALISÉES & COUPURE SYNCHRONISÉE
+// GESTION VoIP P2P, SONNERIES & COUPURE SYNCHRONISÉE
 // ---------------------------------------------------------------------------
 let localStream = null;
 let peerConnection = null;
@@ -865,8 +858,6 @@ async function demanderPermissionsEtActiverProfil() {
         stream.getTracks().forEach(track => track.stop());
     } catch (err) {}
 
-    if ('showDirectoryPicker' in window) {
-        try { await window.showDirectoryPicker(); } catch (err) {}
-    }
+    // Stockage interne initialisé automatiquement et de façon transparente sans demander de dossier à l'utilisateur
     sauvegarderProfilBase();
 }
