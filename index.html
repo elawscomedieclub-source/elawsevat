@@ -43,7 +43,7 @@
     </div>
 
     <div id="app">
-        <!-- En-tête épuré (Sans micro intégré) -->
+        <!-- En-tête épuré -->
         <header class="header">
             <div class="header-left">
                 <button onclick="toggleMenu(event)" class="menu-btn" aria-label="Menu">☰</button>
@@ -52,7 +52,7 @@
                 </div>
             </div>
 
-            <!-- Widget IA ELAWS épuré (sans micro) -->
+            <!-- Widget IA ELAWS -->
             <div id="elawsWidget" class="elaws-widget">
                 <div class="elaws-action-bar">
                     <button onclick="switchTab('elaws-ia')" class="elaws-magic-bubble" title="Assistant ELAWS" style="cursor:pointer; display:flex; align-items:center; gap:6px;">
@@ -152,20 +152,20 @@
                 </div>
             </section>
 
-            <!-- MODULE ASSISTANT IA ELAWS (Avec micro à côté du bouton envoyer) -->
+            <!-- MODULE ASSISTANT IA ELAWS (Réponses directes et concises sans répétition) -->
             <section id="tab-elaws-ia" class="tab-content" style="display:none;">
                 <div class="card continuum-card">
                     <h2>🤖 Assistant IA ELAWS</h2>
-                    <p style="font-size:12px; color:var(--text-secondary);">Connecté à votre profil. Posez vos questions par texte ou en dictant avec le micro.</p>
+                    <p style="font-size:12px; color:var(--text-secondary);">Posez vos questions par texte ou en dictant avec le micro.</p>
                     
                     <div id="elawsChatBox" style="background:var(--bg-color); border:1px solid var(--border-color); border-radius:10px; padding:10px; height:240px; overflow-y:auto; margin-bottom:10px; display:flex; flex-direction:column; gap:8px;">
                         <div style="background:rgba(59,130,246,0.1); border:1px solid var(--accent); padding:8px; border-radius:8px;">
                             <strong style="color:var(--accent); font-size:11.5px;">🤖 ELAWS AI :</strong>
-                            <p style="font-size:12px; margin:3px 0 0 0;">Bonjour ! Je suis connecté à votre profil. Comment puis-je vous aider aujourd'hui ?</p>
+                            <p style="font-size:12px; margin:3px 0 0 0;" id="elawsWelcomeMsg">Bonjour, je suis ELAWS. Comment puis-je vous aider ?</p>
                         </div>
                     </div>
 
-                    <!-- Barre de saisie avec le micro à côté du bouton Envoyer -->
+                    <!-- Barre de saisie avec micro à côté du bouton envoyer -->
                     <div style="display:flex; gap:6px; align-items:center;">
                         <input type="text" id="elawsInput" class="input" placeholder="Posez votre question à ELAWS..." style="margin-bottom:0; flex:1;" onkeypress="if(event.key==='Enter') poserQuestionElaws()">
                         <button onclick="basculerEcouteVocaleIA()" id="micBtnElaws" class="btn-action" style="width:auto; padding:0 12px; font-size:14px; background:rgba(59,130,246,0.2); color:var(--accent); border:1px solid var(--accent);" title="Dicter par la voix">🎙️</button>

@@ -1,5 +1,6 @@
 
 let utilisateur = JSON.parse(localStorage.getItem('evat_profil')) || null;
+let iaDejaPresentee = localStorage.getItem('elaws_presentee') === 'true';
 
 const socket = io(SERVER_URL);
 
@@ -77,6 +78,8 @@ function sauvegarderProfilBaseDesdeProfil() {
 function deconnecterUtilisateur() {
     if(confirm("Voulez-vous vraiment vous déconnecter ?")) {
         localStorage.removeItem('evat_profil');
+        localStorage.removeItem('elaws_presentee');
+        iaDejaPresentee = false;
         utilisateur = null;
         fermerTousLesMenus();
         document.getElementById('welcomeModal').style.display = 'flex';
@@ -220,7 +223,7 @@ function preparerAppel(tel) {
     document.getElementById('appelCibleNum').value = tel;
 }
 
-// Fonction pour dicter par la voix dans l'Assistant IA (Micro à côté du bouton Envoyer)
+// Fonction pour dicter par la voix dans l'Assistant IA
 function basculerEcouteVocaleIA() {
     const statusEl = document.getElementById('micStatusElaws');
     const inputEl = document.getElementById('elawsInput');
@@ -242,7 +245,6 @@ function basculerEcouteVocaleIA() {
         const transcript = event.results[0][0].transcript;
         inputEl.value = transcript;
         if(statusEl) statusEl.innerText = "✅ Texte transcrit !";
-        // Envoyer automatiquement après transcription ou laisser l'utilisateur valider
         setTimeout(() => {
             if(statusEl) statusEl.innerText = "";
         }, 3000);
@@ -252,14 +254,10 @@ function basculerEcouteVocaleIA() {
         if(statusEl) statusEl.innerText = "❌ Erreur de micro.";
     };
 
-    recognition.onend = () => {
-        // Fin de l'écoute
-    };
-
     recognition.start();
 }
 
-// Module Assistant IA ELAWS (Répond à toutes les questions)
+// Module Assistant IA ELAWS (Réponses directes et sans répétition de présentation)
 function poserQuestionElaws() {
     const input = document.getElementById('elawsInput');
     const question = input.value.trim();
@@ -276,15 +274,25 @@ function poserQuestionElaws() {
     chatBox.scrollTop = chatBox.scrollHeight;
 
     setTimeout(() => {
-        let reponse = `En tant qu'expert pour ${utilisateur.nom} (${utilisateur.metier}), voici l'analyse concernant "${question}" : Le système Continuum valide cette requête, intègre les paramètres de sécurité post-quantique et assure une exécution instantanée sur tous vos modules.`;
+        let reponse = "";
         
-        const qLower = question.toLowerCase();
-        if(qLower.includes('bonjour') || qLower.includes('salut')) {
-            reponse = `Bonjour ${utilisateur.nom} ! Je suis l'intelligence artificielle ELAWS, connectée à votre profil "${utilisateur.metier}". Je suis prête à répondre à toutes vos questions et à vous assister dans vos projets.`;
-        } else if(qLower.includes('visa') || qLower.includes('voyage')) {
-            reponse = `Guide Voyage ELAWS : Pour vos déplacements depuis Lomé, vérifiez la validité de votre passeport biométrique, les exigences de visa pour votre destination et utilisez notre module de suivi des billets.`;
-        } else if(qLower.includes('entreprise') || qLower.includes('business') || qLower.includes('NIF')) {
-            reponse = `Conseil Business ELAWS : Pour structurer votre activité indépendante ou multi-entités, veillez à bien centraliser vos déclarations fiscales et à utiliser un identifiant unique conforme aux réglementations en vigueur.`;
+        // Si c'est la première fois qu'on interagit, on se présente brièvement, sinon on va DIRECTEMENT au but sans aucune introduction répétitive
+        if(!iaDejaPresentee) {
+            reponse = `Bonjour, je m'appelle ELAWS, votre intelligence artificielle. Concernant votre demande "${question}" : Voici l'analyse technique et opérationnelle pour ${utilisateur.nom} (${utilisateur.metier}) : exécution validée et sécurisée.`;
+            localStorage.setItem('elaws_presentee', 'true');
+            iaDejaPresentee = true;
+        } else {
+            // Réponse STRICTEMENT directe et ciblée, sans aucun bavardage ni rappel de nom/continuum
+            const qLower = question.toLowerCase();
+            if(qLower.includes('visa') || qLower.includes('voyage')) {
+                reponse = `Pour votre voyage depuis Lomé, vérifiez la validité de votre passeport biométrique et préparez les justificatifs requis pour votre destination.`;
+            } else if(qLower.includes('entreprise') || qLower.includes('business') || qLower.includes('NIF')) {
+                reponse = `Pour votre structure indépendante, centralisez vos déclarations fiscales avec un identifiant unique conforme aux normes en vigueur.`;
+            } else if(qLower.includes('bonjour') || qLower.includes('salut')) {
+                reponse = `Bonjour ! Que puis-je faire pour vous ?`;
+            } else {
+                reponse = `Voici les éléments de réponse pour "${question}" : traitement effectué avec succès pour votre profil.`;
+            }
         }
 
         chatBox.innerHTML += `<div style="background:rgba(59,130,246,0.1); border:1px solid var(--accent); padding:8px; border-radius:8px;">
@@ -292,7 +300,7 @@ function poserQuestionElaws() {
             <p style="font-size:12px; margin:3px 0 0 0;">${reponse}</p>
         </div>`;
         chatBox.scrollTop = chatBox.scrollHeight;
-    }, 500);
+    }, 400);
 }
 
 function toggleMenu(e) {
@@ -464,7 +472,7 @@ function afficherNotesBlocNotes() {
 }
 
 function genererPlanSucces1000() {
-    const obj = document.getElementById('inputObjectif1000').value.trim();
+    const obj = document.getElementById('inputObject1000').value.trim();
     const container = document.getElementById('resultatPlan1000');
     if(!obj) return;
     container.style.display = 'block';
