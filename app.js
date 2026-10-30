@@ -139,7 +139,12 @@ function sauvegarderProfilBase() {
             { nom: "Directeur Cabinet", telephone: "+22898231401", metier: "Cosmétiques & Management" },
             { nom: "Support Technique", telephone: "+22898231402", metier: "Ingénierie Continuum" }
         ],
-        historiqueElaws: []
+        historiqueElaws: [],
+        parametres: {
+            sonnerieType: 'iphone', // 'iphone', 'motorola', 'classique', 'custom'
+            customRingtoneBase64: null,
+            vibration: true
+        }
     };
 
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
@@ -170,6 +175,37 @@ function sauvegarderProfilBaseDesdeProfil() {
     alert("✅ Profil mis à jour !");
 }
 
+function sauvegarderParametresApp() {
+    if(!utilisateur) return;
+    if(!utilisateur.parametres) utilisateur.parametres = {};
+    
+    const selectSon = document.getElementById('selectSonnerieType');
+    if(selectSon) {
+        utilisateur.parametres.sonnerieType = selectSon.value;
+    }
+    
+    localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
+    alert("⚙️ Paramètres enregistrés avec succès !");
+}
+
+function chargerSonneriePerso(event) {
+    const file = event.target.files[0];
+    if(!file) return;
+    if(file.size > 1024 * 1024) {
+        alert("Fichier trop volumineux. Choisissez un fichier MP3 de moins de 1 Mo.");
+        return;
+    }
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        if(!utilisateur.parametres) utilisateur.parametres = {};
+        utilisateur.parametres.customRingtoneBase64 = e.target.result;
+        utilisateur.parametres.sonnerieType = 'custom';
+        localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
+        alert("🎵 Sonnerie MP3 personnelle chargée et enregistrée avec succès !");
+    };
+    reader.readAsDataURL(file);
+}
+
 function deconnecterUtilisateur() {
     if(confirm("Voulez-vous vraiment vous déconnecter ?")) {
         localStorage.removeItem('evat_profil');
@@ -189,6 +225,10 @@ function appliquerInfosProfil() {
             { nom: "Support Technique", telephone: "+22898231402", metier: "Ingénierie Continuum" }
         ];
     }
+    if(!utilisateur.parametres) {
+        utilisateur.parametres = { sonnerieType: 'iphone', customRingtoneBase64: null };
+    }
+
     if(document.getElementById('inputNom')) document.getElementById('inputNom').value = utilisateur.nom;
     if(document.getElementById('inputNomProfil')) document.getElementById('inputNomProfil').value = utilisateur.nom;
     if(document.getElementById('inputTelProfil')) document.getElementById('inputTelProfil').value = utilisateur.telephone;
@@ -201,6 +241,11 @@ function appliquerInfosProfil() {
     if(document.getElementById('dashUserName')) document.getElementById('dashUserName').innerText = utilisateur.nom.toUpperCase();
     if(document.getElementById('dashUserMetier')) document.getElementById('dashUserMetier').innerText = utilisateur.metier;
     if(document.getElementById('voipStatusDisplay')) document.getElementById('voipStatusDisplay').innerText = "ID : " + utilisateur.telephone;
+
+    const selectSon = document.getElementById('selectSonnerieType');
+    if(selectSon && utilisateur.parametres.sonnerieType) {
+        selectSon.value = utilisateur.parametres.sonnerieType;
+    }
     
     verifierEtSynchroniserContacts();
     afficherContacts();
@@ -492,12 +537,13 @@ function exporterDonneesCloud() {
 }
 
 // ---------------------------------------------------------------------------
-// GESTION VoIP P2P & COUPURE SYNCHRONISÉE (HANGUP)
+// GESTION VoIP P2P, SONNERIES PERSONNALISÉES & COUPURE SYNCHRONISÉE
 // ---------------------------------------------------------------------------
 let localStream = null;
 let peerConnection = null;
 let audioRingContext = null;
 let ringInterval = null;
+let customAudioRing = null;
 let appelTimeoutTimer = null;
 let incomingTimeout = null;
 let pendingOfferData = null;
@@ -512,27 +558,54 @@ const servers = {
 
 function jouerSonSonnerie() {
     try {
+        const type = utilisateur && utilisateur.parametres ? utilisateur.parametres.sonnerieType : 'iphone';
+
+        if (type === 'custom' && utilisateur.parametres.customRingtoneBase64) {
+            if(customAudioRing) return;
+            customAudioRing = new Audio(utilisateur.parametres.customRingtoneBase64);
+            customAudioRing.loop = true;
+            customAudioRing.play().catch(e => {});
+            return;
+        }
+
         if(audioRingContext) return;
         audioRingContext = new (window.AudioContext || window.webkitAudioContext)();
+        
+        let freq1 = 440;
+        let freq2 = 480;
+        let pattern = 2000;
+
+        if (type === 'motorola') {
+            freq1 = 600;
+            freq2 = 750;
+            pattern = 1500;
+        } else if (type === 'classique') {
+            freq1 = 900;
+            freq2 = 1200;
+            pattern = 1000;
+        }
+
         ringInterval = setInterval(() => {
             if(!audioRingContext) return;
             const osc = audioRingContext.createOscillator();
             const gain = audioRingContext.createGain();
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(440, audioRingContext.currentTime);
+            osc.type = type === 'motorola' ? 'square' : 'sine';
+            osc.frequency.setValueAtTime(freq1, audioRingContext.currentTime);
+            osc.frequency.setValueAtTime(freq2, audioRingContext.currentTime + 0.3);
             gain.gain.setValueAtTime(0.15, audioRingContext.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, audioRingContext.currentTime + 1.0);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioRingContext.currentTime + 0.8);
             osc.connect(gain);
             gain.connect(audioRingContext.destination);
             osc.start();
-            osc.stop(audioRingContext.currentTime + 1.0);
-        }, 2000);
+            osc.stop(audioRingContext.currentTime + 0.8);
+        }, pattern);
     } catch(e) {}
 }
 
 function arreterSonSonnerie() {
     if(ringInterval) { clearInterval(ringInterval); ringInterval = null; }
     if(audioRingContext) { audioRingContext.close().catch(() => {}); audioRingContext = null; }
+    if(customAudioRing) { customAudioRing.pause(); customAudioRing.currentTime = 0; customAudioRing = null; }
     if(appelTimeoutTimer) { clearTimeout(appelTimeoutTimer); appelTimeoutTimer = null; }
     if(incomingTimeout) { clearTimeout(incomingTimeout); incomingTimeout = null; }
 }
@@ -676,7 +749,6 @@ socket.on('p2p_signal', async (data) => {
             await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
         } catch(e) {}
     } else if (data.type === 'hangup' || data.type === 'reject') {
-        // Coupure simultanée instantanée chez les deux correspondants
         fermerAppelTotalLocally();
         if(logEl) logEl.innerText = "❌ Appel terminé par le correspondant.";
     }
@@ -706,10 +778,9 @@ async function accepterAppelEntrant() {
             peerConnection.addTrack(track, localStream);
         });
 
-        // Afficher la vidéo locale si c'est un appel vidéo
         const remoteVideo = document.getElementById('remoteVideo');
         if(remoteVideo && activeCallType === 'video') {
-            remoteVideo.srcObject = localStream; // ou flux distant via ontrack
+            remoteVideo.srcObject = localStream;
         }
 
         await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
@@ -736,7 +807,6 @@ function rejeterAppelEntrant() {
     fermerAppelTotalLocally();
 }
 
-// Fonction pour raccrocher et notifier l'autre correspondant en temps réel
 function raccrocherAppel(isTimeout = false) {
     let targetTel = document.getElementById('appelCibleNum').value.trim();
     if(pendingOfferData && pendingOfferData.sender) {
@@ -752,7 +822,6 @@ function raccrocherAppel(isTimeout = false) {
     }
 }
 
-// Nettoyage complet et arrêt immédiat caméra/micro des deux côtés
 function fermerAppelTotalLocally() {
     arreterSonSonnerie();
     cacherModalAppelEntrant();
@@ -763,12 +832,11 @@ function fermerAppelTotalLocally() {
     }
     if(localStream) {
         localStream.getTracks().forEach(track => {
-            track.stop(); // Coupe instantanément la caméra et le micro
+            track.stop();
         });
         localStream = null;
     }
     
-    // Nettoyer les balises vidéo/audio distantes et locales
     const remoteAudio = document.getElementById('remoteAudio');
     const remoteVideo = document.getElementById('remoteVideo');
     if(remoteAudio) remoteAudio.srcObject = null;
