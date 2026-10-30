@@ -3,11 +3,30 @@ let utilisateur = JSON.parse(localStorage.getItem('evat_profil')) || null;
 let iaDejaPresentee = localStorage.getItem('elaws_presentee') === 'true';
 let deferredPrompt = null;
 
+// Enregistrement du Service Worker pour maintenir le PWA actif
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js').catch(err => {});
+        navigator.serviceWorker.register('sw.js').then(reg => {
+            console.log('ServiceWorker enregistré avec succès.');
+        }).catch(err => {});
     });
 }
+
+// Tentative de maintien de l'éveil (Wake Lock API) pour éviter la mise en veille profonde du processeur en arrière-plan
+let wakeLock = null;
+async function requestWakeLock() {
+    try {
+        if ('wakeLock' in navigator) {
+            wakeLock = await navigator.wakeLock.request('screen');
+        }
+    } catch (err) {}
+}
+document.addEventListener('visibilitychange', async () => {
+    if (wakeLock !== null && document.visibilityState === 'visible') {
+        await requestWakeLock();
+    }
+});
+requestWakeLock();
 
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
@@ -50,7 +69,12 @@ function mettreAJourIndicatif() {
     telInput.value = prefix + currentVal;
 }
 
-const socket = io(SERVER_URL);
+const socket = io(SERVER_URL, {
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 1000,
+    timeout: 20000
+});
 
 socket.on('connect', () => {
     const statusEl = document.getElementById('serverConnectionStatus');
@@ -573,7 +597,7 @@ function lancerAnalyseVoyageAvance() {
     container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:12px; border:1px solid var(--accent);"><h4 style="color:var(--accent); font-size:13px;">✈️ ${dest}</h4><p style="font-size:12px;">Analyse des documents et formalités validée.</p></div>`;
 }
 
-void function exporterDonneesCloud() {
+function exporterDonneesCloud() {
     if(!utilisateur) return;
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(utilisateur, null, 2));
     const dl = document.createElement('a');
@@ -585,7 +609,7 @@ void function exporterDonneesCloud() {
 }
 
 // ---------------------------------------------------------------------------
-// GESTION DES APPELS P2P PLEIN ÉCRAN AVEC OVERLAY D'APPEL ENTRANT
+// GESTION CORRIGÉE DES APPELS P2P (Caméra, Micro et Plein Écran)
 // ---------------------------------------------------------------------------
 let localStream = null;
 let peerConnection = null;
@@ -594,6 +618,7 @@ let ringInterval = null;
 let appelTimeoutTimer = null;
 let incomingTimeout = null;
 let pendingOfferData = null;
+let activeCallType = 'audio';
 
 const servers = { 
     iceServers: [
@@ -641,26 +666,27 @@ function arreterSonSonnerie() {
     }
 }
 
-// Afficher l'overlay plein écran d'appel entrant
-function afficherModalAppelEntrant(senderTel) {
+function afficherModalAppelEntrant(senderTel, typeAppel) {
     let modal = document.getElementById('incomingCallModal');
+    let typeTxt = typeAppel === 'video' ? '📹 Appel Vidéo Entrant' : '📞 Appel Audio Entrant';
     if(!modal) {
         modal = document.createElement('div');
         modal.id = 'incomingCallModal';
-        modal.style.cssText = "position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(3,7,18,0.92); z-index:99999; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px; box-sizing:border-box; text-align:center; animation: fadeIn 0.3s ease;";
+        modal.style.cssText = "position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(3,7,18,0.95); z-index:99999; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px; box-sizing:border-box; text-align:center;";
         modal.innerHTML = `
             <div style="background:rgba(255,255,255,0.05); border:1px solid var(--border-color); padding:30px; border-radius:24px; max-width:340px; width:100%; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
-                <div style="font-size:50px; margin-bottom:15px; animation: bounce 1.5s infinite;">📞</div>
-                <h2 style="color:var(--text-primary); font-size:20px; margin:0 0 8px 0;">Appel Entrant...</h2>
+                <div style="font-size:50px; margin-bottom:15px;">📞</div>
+                <h2 id="incomingCallTitle" style="color:var(--text-primary); font-size:20px; margin:0 0 8px 0;">${typeTxt}</h2>
                 <p id="incomingCallerName" style="color:var(--accent); font-size:15px; font-weight:bold; margin:0 0 25px 0;">${senderTel}</p>
                 <div style="display:flex; gap:15px; justify-content:center;">
-                    <button onclick="rejeterAppelEntrant()" style="background:#ef4444; color:#fff; border:none; padding:12px 24px; border-radius:50px; font-size:14px; font-weight:bold; cursor:pointer; flex:1; box-shadow:0 4px 12px rgba(239,68,68,0.4);">Rejeter ❌</button>
-                    <button onclick="accepterAppelEntrant()" style="background:#10b981; color:#fff; border:none; padding:12px 24px; border-radius:50px; font-size:14px; font-weight:bold; cursor:pointer; flex:1; box-shadow:0 4px 12px rgba(16,185,129,0.4);">Décrocher 🟢</button>
+                    <button onclick="rejeterAppelEntrant()" style="background:#ef4444; color:#fff; border:none; padding:12px 24px; border-radius:50px; font-size:14px; font-weight:bold; cursor:pointer; flex:1;">Rejeter ❌</button>
+                    <button onclick="accepterAppelEntrant()" style="background:#10b981; color:#fff; border:none; padding:12px 24px; border-radius:50px; font-size:14px; font-weight:bold; cursor:pointer; flex:1;">Décrocher 🟢</button>
                 </div>
             </div>
         `;
         document.body.appendChild(modal);
     } else {
+        document.getElementById('incomingCallTitle').innerText = typeTxt;
         document.getElementById('incomingCallerName').innerText = senderTel;
         modal.style.display = 'flex';
     }
@@ -677,6 +703,7 @@ async function lancerAppelDirectPeer(type) {
     const cibleTel = document.getElementById('appelCibleNum').value.trim();
     const logEl = document.getElementById('callStatusLog');
     const container = document.getElementById('callContainer');
+    activeCallType = type;
 
     if(!cibleTel) {
         alert("Veuillez entrer ou sélectionner le numéro complet du contact à appeler (ex: +228...).");
@@ -689,10 +716,15 @@ async function lancerAppelDirectPeer(type) {
     }
 
     try {
-        if(logEl) logEl.innerText = "🔄 Initialisation appel vers " + cibleTel + "...";
+        if(logEl) logEl.innerText = "🔄 Activation micro/caméra pour appel " + type + " vers " + cibleTel + "...";
         container.style.display = 'block';
 
-        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: type === 'video' });
+        // Demande explicite des flux média avec prise en charge complète caméra & micro
+        localStream = await navigator.mediaDevices.getUserMedia({ 
+            audio: true, 
+            video: type === 'video' ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false 
+        });
+
         peerConnection = new RTCPeerConnection(servers);
         
         localStream.getTracks().forEach(track => {
@@ -701,10 +733,13 @@ async function lancerAppelDirectPeer(type) {
 
         peerConnection.ontrack = event => {
             if (event.streams && event.streams[0]) {
-                document.getElementById('remoteAudio').srcObject = event.streams[0];
-                const remoteVideoEl = document.getElementById('remoteVideo');
-                if(remoteVideoEl) remoteVideoEl.srcObject = event.streams[0];
-                if(logEl) logEl.innerText = "✅ Appel décroché ! Communication active.";
+                const remoteAudio = document.getElementById('remoteAudio');
+                const remoteVideo = document.getElementById('remoteVideo');
+                if(remoteAudio) remoteAudio.srcObject = event.streams[0];
+                if(remoteVideo && type === 'video') {
+                    remoteVideo.srcObject = event.streams[0];
+                }
+                if(logEl) logEl.innerText = "✅ Connexion audio/vidéo établie avec succès !";
                 arreterSonSonnerie();
             }
         };
@@ -715,7 +750,8 @@ async function lancerAppelDirectPeer(type) {
                     target: cibleTel, 
                     sender: utilisateur.telephone, 
                     type: 'ice_candidate', 
-                    candidate: event.candidate 
+                    candidate: event.candidate,
+                    callType: type 
                 });
             }
         };
@@ -727,24 +763,25 @@ async function lancerAppelDirectPeer(type) {
             target: cibleTel, 
             sender: utilisateur.telephone, 
             type: 'offer', 
-            offer: offer 
+            offer: offer,
+            callType: type 
         });
 
         jouerSonSonnerie();
-        if(logEl) logEl.innerText = "📞 Sonnerie active... En attente de réponse (30s max)...";
+        if(logEl) logEl.innerText = "📞 Sonnerie active... En attente de réponse de " + cibleTel + "...";
 
         appelTimeoutTimer = setTimeout(() => {
             if(peerConnection && peerConnection.connectionState !== 'connected') {
                 enregistrerAppelManqueSortant(cibleTel);
                 raccrocherAppel();
                 if(logEl) logEl.innerText = "❌ Pas de réponse. Appel manqué enregistré.";
-                alert("📞 Appel non décroché. Un avis d'appel manqué a été consigné.");
+                alert("📞 Appel non décroché.");
             }
         }, 30000);
 
     } catch (error) {
-        if(logEl) logEl.innerText = "❌ Erreur d'accès au micro/caméra.";
-        alert("Impossible d'initialiser l'appel direct. Vérifiez les permissions du micro.");
+        if(logEl) logEl.innerText = "❌ Erreur d'accès au micro/caméra. Vérifiez les permissions de l'appareil.";
+        alert("Impossible d'accéder à la caméra ou au micro. Veuillez autoriser l'accès dans les paramètres du navigateur.");
     }
 }
 
@@ -763,15 +800,19 @@ function enregistrerAppelManqueSortant(tel) {
 socket.on('p2p_signal', async (data) => {
     const logEl = document.getElementById('callStatusLog');
     const container = document.getElementById('callContainer');
+    if(data.callType) activeCallType = data.callType;
 
     if (!peerConnection) {
         peerConnection = new RTCPeerConnection(servers);
         peerConnection.ontrack = event => {
             if (event.streams && event.streams[0]) {
-                document.getElementById('remoteAudio').srcObject = event.streams[0];
-                const remoteVideoEl = document.getElementById('remoteVideo');
-                if(remoteVideoEl) remoteVideoEl.srcObject = event.streams[0];
-                if(logEl) logEl.innerText = "✅ Flux audio/vidéo distant connecté !";
+                const remoteAudio = document.getElementById('remoteAudio');
+                const remoteVideo = document.getElementById('remoteVideo');
+                if(remoteAudio) remoteAudio.srcObject = event.streams[0];
+                if(remoteVideo && activeCallType === 'video') {
+                    remoteVideo.srcObject = event.streams[0];
+                }
+                if(logEl) logEl.innerText = "✅ Connexion audio/vidéo établie avec succès !";
                 arreterSonSonnerie();
             }
         };
@@ -781,7 +822,8 @@ socket.on('p2p_signal', async (data) => {
                     target: data.sender, 
                     sender: utilisateur.telephone, 
                     type: 'ice_candidate', 
-                    candidate: event.candidate 
+                    candidate: event.candidate,
+                    callType: activeCallType 
                 });
             }
         };
@@ -790,9 +832,8 @@ socket.on('p2p_signal', async (data) => {
     if (data.type === 'offer') {
         pendingOfferData = data;
         jouerSonSonnerie();
-        afficherModalAppelEntrant(data.sender);
+        afficherModalAppelEntrant(data.sender, data.callType || 'audio');
         
-        // Timeout de 30 secondes si l'appel entrant n'est pas décroché
         incomingTimeout = setTimeout(() => {
             rejeterAppelEntrant();
         }, 30000);
@@ -826,10 +867,17 @@ async function accepterAppelEntrant() {
 
     if(!pendingOfferData) return;
     const data = pendingOfferData;
+    const callTypeToUse = data.callType || 'audio';
+    activeCallType = callTypeToUse;
 
     try {
-        if(logEl) logEl.innerText = "📞 Connexion en cours avec " + data.sender + "...";
-        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+        if(logEl) logEl.innerText = "📞 Activation micro/caméra et connexion avec " + data.sender + "...";
+        
+        localStream = await navigator.mediaDevices.getUserMedia({ 
+            audio: true, 
+            video: callTypeToUse === 'video' ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false 
+        });
+
         localStream.getTracks().forEach(track => {
             peerConnection.addTrack(track, localStream);
         });
@@ -842,12 +890,13 @@ async function accepterAppelEntrant() {
             target: data.sender, 
             sender: utilisateur.telephone, 
             type: 'answer', 
-            answer: answer 
+            answer: answer,
+            callType: callTypeToUse 
         });
         if(logEl) logEl.innerText = "✅ Appel établi avec " + data.sender;
     } catch(err) {
-        if(logEl) logEl.innerText = "❌ Erreur lors de l'acceptation de l'appel (Vérifiez les permissions micro).";
-        alert("Impossible d'accéder au microphone pour décrocher.");
+        if(logEl) logEl.innerText = "❌ Erreur d'accès au micro/caméra lors de l'acceptation.";
+        alert("Impossible d'accéder au microphone ou à la caméra. Vérifiez les permissions de votre navigateur.");
     }
 }
 
