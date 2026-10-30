@@ -1,6 +1,6 @@
 {
-  "name": "EVAT | ELAWS Medical Core",
-  "short_name": "EVAT Medical",
+  "name": "EVAT | ELAWS Quantum",
+  "short_name": "EVAT",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#030712",

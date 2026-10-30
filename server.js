@@ -9,7 +9,10 @@ app.use(express.json());
 
 const server = http.createServer(app);
 const io = new Server(server, {
-    cors: { origin: "*", methods: ["GET", "POST"] }
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    }
 });
 
 const registeredUsers = new Map();
@@ -20,6 +23,8 @@ function nettoyerTel(tel) {
 }
 
 io.on('connection', (socket) => {
+    console.log('Un opérateur s\'est connecté:', socket.id);
+
     socket.on('register_user', (data) => {
         if(data && data.telephone) {
             const cleanTel = nettoyerTel(data.telephone);
@@ -28,6 +33,8 @@ io.on('connection', (socket) => {
                 metier: data.metier,
                 socketId: socket.id
             });
+            console.log(`Utilisateur enregistré : ${data.nom} (${cleanTel}) - Socket: ${socket.id}`);
+            
             socket.broadcast.emit('contact_registered', {
                 nom: data.nom,
                 telephone: cleanTel,
@@ -47,7 +54,9 @@ io.on('connection', (socket) => {
                 }
             });
         }
-        if(typeof callback === 'function') callback(resultats);
+        if(typeof callback === 'function') {
+            callback(resultats);
+        }
     });
 
     socket.on('p2p_signal', (data) => {
@@ -56,6 +65,9 @@ io.on('connection', (socket) => {
             const targetUser = registeredUsers.get(cleanTarget);
             if(targetUser && targetUser.socketId) {
                 io.to(targetUser.socketId).emit('p2p_signal', data);
+                console.log(`Signal P2P (${data.type}) acheminé de ${data.sender} vers ${cleanTarget}`);
+            } else {
+                console.log(`Échec signal P2P : destinataire ${cleanTarget} introuvable ou non connecté.`);
             }
         }
     });
@@ -65,6 +77,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
+        console.log('Un opérateur s\'est déconnecté:', socket.id);
         for (let [tel, val] of registeredUsers.entries()) {
             if (val.socketId === socket.id) {
                 registeredUsers.delete(tel);
@@ -76,5 +89,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`Serveur Médical EVAT actif sur le port ${PORT}`);
+    console.log(`Serveur de signalisation EVAT actif sur le port ${PORT}`);
 });
