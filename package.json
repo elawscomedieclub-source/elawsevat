@@ -1,0 +1,7 @@
+{
+  "name": "evat-quantum-ultime",
+  "version": "3.60.0",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "dependencies": { "express": "^4.19.2", "socket.io": "^4.7.5" }
+}

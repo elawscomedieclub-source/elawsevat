@@ -63,16 +63,103 @@
 .elaws-magic-bubble:hover { transform: scale(1.05); }
 .magic-sphere-core { width: 8px; height: 8px; background: #10b981; border-radius: 50%; box-shadow: 0 0 8px #10b981; }
 .magic-label { font-size: 11.5px; font-weight: 700; }
+
+/* STYLE DU GLOBE TERRESTRE QUANTIQUE ROTATIF AVEC ANNEAUX D'UNIVERS */
+.quantum-globe-container {
+    perspective: 900px;
+    width: 140px;
+    height: 140px;
+    margin: 15px auto;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.earth-globe {
+    width: 90px;
+    height: 90px;
+    background: radial-gradient(circle at 30% 30%, #38bdf8, #1d4ed8 60%, #030712 90%);
+    border-radius: 50%;
+    position: relative;
+    box-shadow: inset -12px -12px 25px rgba(0,0,0,0.7), 0 0 25px rgba(56,189,248,0.6);
+    animation: rotateGlobe 12s linear infinite;
+    overflow: hidden;
+}
+
+/* Continents simulés sur la sphère */
+.earth-globe::before {
+    content: "";
+    position: absolute;
+    top: 0; left: -100%;
+    width: 200%; height: 100%;
+    background: repeating-linear-gradient(90deg, rgba(16,185,129,0.3) 0px, transparent 20px, rgba(14,165,233,0.2) 40px);
+    animation: moveContinents 12s linear infinite;
+}
+
+@keyframes rotateGlobe {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes moveContinents {
+    0% { left: 0; }
+    100% { left: -100%; }
+}
+
+/* Anneaux orbitaux représentant l'univers */
+.orbit-ring {
+    position: absolute;
+    border: 1.5px dashed rgba(56, 189, 248, 0.6);
+    border-radius: 50%;
+    animation: rotateRing 8s linear infinite;
+}
+
+.ring-1 {
+    width: 130px;
+    height: 50px;
+    animation-duration: 6s;
+    border-color: rgba(16, 185, 129, 0.7);
+}
+
+.ring-2 {
+    width: 50px;
+    height: 130px;
+    animation-duration: 10s;
+    border-color: rgba(14, 165, 233, 0.7);
+}
+
+.ring-3 {
+    width: 140px;
+    height: 140px;
+    border: 1px solid rgba(244, 114, 182, 0.5);
+    animation-duration: 15s;
+    animation-direction: reverse;
+}
+
+@keyframes rotateRing {
+    0% { transform: rotateX(70deg) rotateZ(0deg); }
+    100% { transform: rotateX(70deg) rotateZ(360deg); }
+}
 </style>
 </head>
 <body>
     <div id="welcomeModal" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(3,7,18,0.92); z-index:9000; display:none; align-items:center; justify-content:center; padding:16px; backdrop-filter:blur(8px);">
         <div class="card" style="max-width:400px; width:100%; border:2px solid var(--accent); box-shadow:0 0 40px rgba(14,165,233,0.5); text-align:center; padding:20px;">
+            <div style="display:flex; justify-content:center; margin-bottom:12px;">
+                <div class="quantum-globe-container" style="margin:0 auto 10px auto;">
+                    <div class="earth-globe"></div>
+                    <div class="orbit-ring ring-1"></div>
+                    <div class="orbit-ring ring-2"></div>
+                </div>
+            </div>
             <h2 style="color:var(--accent); font-size:17px; margin-bottom:6px;">EVAT Quantum v3.60 Turbo</h2>
-            <p style="font-size:12.5px; color:var(--text-secondary); margin-bottom:14px;">Messagerie locale & Stockage fichiers téléphone.</p>
+            <p style="font-size:12.5px; color:var(--text-secondary); margin-bottom:14px;">Messagerie locale, Globe Quantique & Fichiers téléphone.</p>
+            
             <div style="text-align:left; margin-bottom:14px;">
                 <label style="font-size:11.5px; color:var(--text-color);">Votre Nom :</label>
                 <input type="text" id="inputNom" class="input" placeholder="Ex: Kodjo Marceline" style="margin-bottom:6px; font-size:12.5px; padding:8px;">
+                
                 <label style="font-size:11.5px; color:var(--text-color);">Votre Numéro (ID VoIP) :</label>
                 <input type="text" id="inputTelProfil" class="input" value="+22898231402" style="margin-bottom:6px; font-size:12.5px; padding:8px;">
             </div>
@@ -88,6 +175,7 @@
                     <div><h1>EVAT <span style="font-weight:300; font-size:12px; color:var(--text-secondary);">| v3.60 Turbo</span></h1></div>
                 </div>
             </div>
+
             <div id="elawsWidget" class="elaws-widget">
                 <div class="elaws-action-bar">
                     <button onclick="ouvrirModeClavierDirect(event)" class="elaws-keyboard-btn" title="Clavier"><span>⌨️</span></button>
@@ -102,13 +190,17 @@
         <nav id="sidebar" class="sidebar" onclick="event.stopPropagation()">
             <div class="sidebar-header" style="display:flex; align-items:center; gap:10px;">
                 <div>
-                    <h3>Navigation</h3>
+                    <h3>Navigation EVAT</h3>
                     <span id="sidebarUserRole" class="sidebar-badge">Kodjo • Niveau 1</span>
                 </div>
             </div>
-            <div class="sidebar-links" style="margin-top:15px; display:flex; flex-direction:column; gap:8px;">
+            <div class="sidebar-links" style="margin-top:15px; display:flex; flex-direction:column; gap:6px;">
                 <a href="#" onclick="switchTab('dashboard')" class="nav-link active" id="link-dashboard">📊 Dashboard Quantum</a>
                 <a href="#" onclick="switchTab('communications')" class="nav-link" id="link-communications">📞 Communications & VoIP</a>
+                <a href="#" onclick="switchTab('quetes')" class="nav-link" id="link-quetes">⚡ Quêtes & Qubits</a>
+                <a href="#" onclick="switchTab('succes1000')" class="nav-link" id="link-succes1000">💎 Garantie Succès 1000%</a>
+                <a href="#" onclick="switchTab('sync')" class="nav-link" id="link-sync">☁️ Cloud & Synchro</a>
+                <a href="#" onclick="switchTab('voyage')" class="nav-link" id="link-voyage">✈️ Guide Voyage, Visa</a>
                 <a href="#" onclick="switchTab('profil')" class="nav-link" id="link-profil">👤 Profil & Contacts</a>
                 <a href="#" onclick="switchTab('outils')" class="nav-link" id="link-outils">🛠️ Boîte à Outils</a>
             </div>
@@ -117,34 +209,98 @@
         <div id="appOverlay" class="app-overlay" onclick="fermerTousLesMenus()"></div>
 
         <main class="content" style="padding:16px;">
+            <!-- DASHBOARD AVEC LE GLOBE TERRESTRE QUANTIQUE ET ANNEAUX D'UNIVERS -->
             <section id="tab-dashboard" class="tab-content active">
-                <div class="card">
-                    <h2 style="color:var(--accent);">📊 Dashboard Quantum</h2>
-                    <p style="font-size:13px; color:var(--text-secondary);">Bienvenue dans votre environnement EVAT Cloud & Local.</p>
-                    <div style="background:var(--bg-color); padding:14px; border-radius:12px; margin-top:10px;">
-                        <strong style="color:var(--success);">⚡ Qubits Actifs : <span id="dashQubitsScore">365</span></strong>
+                <div class="card" style="text-align:center; border-left:4px solid var(--accent);">
+                    <h2 style="color:var(--accent); margin-bottom:4px;">🌍 Globe Quantique & Univers</h2>
+                    <p style="font-size:12px; color:var(--text-secondary);">Visualisation en temps réel de la Terre en rotation et des anneaux orbitaux de l'univers.</p>
+                    
+                    <div class="quantum-globe-container">
+                        <div class="earth-globe"></div>
+                        <div class="orbit-ring ring-1"></div>
+                        <div class="orbit-ring ring-2"></div>
+                        <div class="orbit-ring ring-3"></div>
+                    </div>
+                    <div style="font-size:11.5px; color:var(--success); font-weight:700; margin-top:8px;">🟢 Réseau Quantum Mondial Actif (Lomé / Univers)</div>
+                </div>
+
+                <div class="card" style="border-left: 4px solid var(--success);">
+                    <span style="font-size:11.5px; color:var(--success); font-weight:700; text-transform:uppercase;">⚡ Énergie Qubit Active</span>
+                    <h2 style="font-size:24px; color:var(--text-color); margin:4px 0;"><span id="dashQubitsScore">365</span> <span style="font-size:13px; color:var(--accent);">Qubits</span></h2>
+                    <p style="font-size:11.5px; color:var(--text-secondary);">Niveau Actuel : <strong style="color:var(--text-color);">Niveau 2</strong></p>
+                </div>
+            </section>
+
+            <!-- COMMUNICATIONS -->
+            <section id="tab-communications" class="tab-content" style="display:none;">
+                <div class="card" style="border-left: 4px solid var(--success);">
+                    <h2>📞 Communications & Appels VoIP</h2>
+                    <p style="font-size:12.5px; color:var(--text-secondary);">Appels WebRTC sécurisés par numéro sans GSM.</p>
+                    <div id="voipStatusDisplay" style="margin:10px 0; color:var(--accent); font-weight:700;">ID VoIP : +228 98 23 14 02</div>
+                    <button onclick="lancerAppelInternet('audio')" class="btn-action" style="background:var(--success); color:#fff; width:100%;">🎙️ Lancer Appel Audio</button>
+                </div>
+            </section>
+
+            <!-- QUETES -->
+            <section id="tab-quetes" class="tab-content" style="display:none;">
+                <div class="card" style="border-left: 4px solid var(--success);">
+                    <h2>⚡ Quêtes & Qubits</h2>
+                    <p style="font-size:12.5px; color:var(--text-secondary);">Accomplissez les quêtes pour gagner des Qubits.</p>
+                    <div id="quetesContainer" style="margin-top:10px;">
+                        <div style="background:var(--bg-color); padding:10px; border-radius:8px; margin-bottom:6px; border:1px solid var(--success);">
+                            <strong>✅ Configurer le profil & le métier</strong>
+                            <p style="font-size:11px; color:var(--accent); margin:2px 0;">+50 Qubits (Accompli)</p>
+                        </div>
                     </div>
                 </div>
             </section>
-            <section id="tab-communications" class="tab-content" style="display:none;">
-                <div class="card">
-                    <h2 style="color:var(--success);">📞 Communications WebRTC & Signalisation</h2>
-                    <p style="font-size:13px; color:var(--text-secondary);">Connecté au serveur de signalisation distant.</p>
-                    <div id="voipStatusDisplay" style="margin:10px 0; color:var(--accent); font-weight:700;">Statut : Prêt pour appel chiffré</div>
-                    <button onclick="lancerAppelInternet('audio')" class="btn-action" style="background:var(--success); color:#fff; padding:10px;">🎙️ Lancer Appel Audio</button>
+
+            <!-- SUCCES 1000% -->
+            <section id="tab-succes1000" class="tab-content" style="display:none;">
+                <div class="card" style="border-left: 4px solid var(--success);">
+                    <h2>💎 Garantie Succès 1000%</h2>
+                    <input type="text" id="inputObjectif1000" class="input" placeholder="Ex: Automatiser mes ventes">
+                    <button class="btn-action" onclick="genererPlanSucces1000()">Générer le Plan Stratégique</button>
+                    <div id="resultatPlan1000" style="margin-top:10px; display:none;"></div>
                 </div>
             </section>
+
+            <!-- CLOUD -->
+            <section id="tab-sync" class="tab-content" style="display:none;">
+                <div class="card" style="border-left: 4px solid var(--accent);">
+                    <h2>☁️ Cloud & Sauvegarde</h2>
+                    <button onclick="exporterDonneesCloud()" class="btn-action">📥 Télécharger Sauvegarde JSON</button>
+                </div>
+            </section>
+
+            <!-- VOYAGE -->
+            <section id="tab-voyage" class="tab-content" style="display:none;">
+                <div class="card" style="border-left: 4px solid var(--accent);">
+                    <h2>✈️ Guide Voyage, Visa & Billets</h2>
+                    <label style="font-size:12px;">Destination :</label><input type="text" id="voyageDestination" class="input" placeholder="Ex: Paris">
+                    <button class="btn-action" onclick="lancerAnalyseVoyageAvance()">Lancer l'Analyse</button>
+                    <div id="resultatAssistantVoyage" style="margin-top:10px; display:none;"></div>
+                </div>
+            </section>
+
+            <!-- PROFIL -->
             <section id="tab-profil" class="tab-content" style="display:none;">
-                <div class="card">
-                    <h2 style="color:var(--accent);">👤 Gestion du Profil</h2>
+                <div class="card" style="border-left: 4px solid var(--accent);">
+                    <h2>👤 Gestion du Profil & VoIP</h2>
                     <label style="font-size:12px;">Nom :</label><input type="text" id="inputNomProfil" class="input">
+                    <label style="font-size:12px;">Numéro VoIP :</label><input type="text" id="inputTelProfil" class="input" value="+22898231402">
                     <button onclick="sauvegarderProfilBase()" class="btn-action">Enregistrer Profil</button>
                 </div>
             </section>
+
+            <!-- OUTILS -->
             <section id="tab-outils" class="tab-content" style="display:none;">
-                <div class="card">
-                    <h2 style="color:var(--accent);">🛠️ Boîte à Outils</h2>
-                    <p style="font-size:13px;">Outils de développement mobile et notes locales.</p>
+                <div class="card" style="border-left: 4px solid var(--accent);">
+                    <h2>🛠️ Boîte à Outils & Bloc-Notes</h2>
+                    <input type="text" id="noteTitre" class="input" placeholder="Titre de la note...">
+                    <textarea id="noteContenu" class="input" placeholder="Contenu de la note..." style="height:60px;"></textarea>
+                    <button class="btn-action" onclick="ajouterNoteBlocNotes()">Enregistrer Note</button>
+                    <div id="listeNotesContainer" style="margin-top:10px;"></div>
                 </div>
             </section>
         </main>

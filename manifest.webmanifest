@@ -1,15 +1,8 @@
 {
-  "name": "EVAT Quantum v3.60 Turbo",
+  "name": "EVAT Quantum v3.60 Ultime",
   "short_name": "EVAT",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#030712",
-  "theme_color": "#030712",
-  "icons": [
-    {
-      "src": "logo_evat.svg",
-      "sizes": "192x192 512x512",
-      "type": "image/svg+xml"
-    }
-  ]
+  "theme_color": "#030712"
 }

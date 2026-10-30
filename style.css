@@ -44,6 +44,7 @@ body {
     padding: 10px 16px;
     font-weight: 700;
     cursor: pointer;
+    width: 100%;
 }
 .nav-link {
     color: var(--text-color);
