@@ -1,11 +1,5 @@
 
-let utilisateur = JSON.parse(localStorage.getItem('evat_profil')) || {
-    nom: "Kodjo Marceline",
-    telephone: "+22898231402",
-    qubits: 365,
-    notes: [],
-    messagesLocaux: []
-};
+let utilisateur = JSON.parse(localStorage.getItem('evat_profil')) || null;
 
 const socket = io(SERVER_URL);
 
@@ -25,27 +19,96 @@ socket.on('disconnect', () => {
     }
 });
 
+// Sauvegarde et activation automatique du profil complet
 function sauvegarderProfilBase() {
-    const nom = document.getElementById('inputNomProfil').value || document.getElementById('inputNom').value;
-    const tel = document.getElementById('inputTelProfil').value || document.getElementById('inputTelProfil2').value;
-    if(nom) utilisateur.nom = nom;
-    if(tel) utilisateur.telephone = tel;
+    const nom = document.getElementById('inputNom').value.trim();
+    const tel = document.getElementById('inputTelProfil').value.trim();
+    const metier = document.getElementById('inputMetier').value.trim();
+    
+    if(!nom || !tel) {
+        alert("Veuillez remplir votre nom et votre numéro de téléphone.");
+        return;
+    }
+
+    utilisateur = {
+        nom: nom,
+        telephone: tel,
+        metier: metier || "Opérateur",
+        qubits: 365,
+        notes: [],
+        messagesLocaux: []
+    };
+
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
     document.getElementById('welcomeModal').style.display = 'none';
+    appliquerInfosProfil();
+    alert("✅ Profil activé ! Bienvenue, " + utilisateur.nom);
+}
+
+function sauvegarderProfilBaseDesdeProfil() {
+    const nom = document.getElementById('inputNomProfil').value.trim();
+    const tel = document.getElementById('inputTelProfil2').value.trim();
+    const metier = document.getElementById('inputMetierProfil').value.trim();
+    
+    if(!nom || !tel) {
+        alert("Le nom et le téléphone sont obligatoires.");
+        return;
+    }
+
+    if(!utilisateur) utilisateur = {};
+    utilisateur.nom = nom;
+    utilisateur.telephone = tel;
+    utilisateur.metier = metier;
+
+    localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
+    appliquerInfosProfil();
+    alert("✅ Profil mis à jour avec succès !");
+}
+
+// Fonction de déconnexion : efface le profil et redemande l'inscription
+function deconnecterUtilisateur() {
+    if(confirm("Voulez-vous vraiment vous déconnecter ?")) {
+        localStorage.removeItem('evat_profil');
+        utilisateur = null;
+        fermerTousLesMenus();
+        document.getElementById('welcomeModal').style.display = 'flex';
+    }
+}
+
+function appliquerInfosProfil() {
+    if(!utilisateur) return;
+    if(document.getElementById('inputNom')) document.getElementById('inputNom').value = utilisateur.nom;
+    if(document.getElementById('inputNomProfil')) document.getElementById('inputNomProfil').value = utilisateur.nom;
+    if(document.getElementById('inputTelProfil')) document.getElementById('inputTelProfil').value = utilisateur.telephone;
+    if(document.getElementById('inputTelProfil2')) document.getElementById('inputTelProfil2').value = utilisateur.telephone;
+    if(document.getElementById('inputMetier')) document.getElementById('inputMetier').value = utilisateur.metier;
+    if(document.getElementById('inputMetierProfil')) document.getElementById('inputMetierProfil').value = utilisateur.metier;
+    
+    if(document.getElementById('sidebarUserName')) document.getElementById('sidebarUserName').innerText = utilisateur.nom;
+    if(document.getElementById('sidebarUserRole')) document.getElementById('sidebarUserRole').innerText = utilisateur.metier;
+    if(document.getElementById('dashUserName')) document.getElementById('dashUserName').innerText = utilisateur.nom.toUpperCase();
+    if(document.getElementById('dashUserMetier')) document.getElementById('dashUserMetier').innerText = utilisateur.metier;
 }
 
 function toggleMenu(e) {
-    if(e) e.stopPropagation();
+    if(e) {
+        e.stopPropagation();
+        e.preventDefault();
+    }
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('appOverlay');
-    const isOpen = sidebar.classList.toggle('open');
-    if(isOpen) overlay.classList.add('active');
-    else overlay.classList.remove('active');
+    if(sidebar && overlay) {
+        const isOpen = sidebar.classList.toggle('open');
+        if(isOpen) overlay.classList.add('active');
+        else overlay.classList.remove('active');
+    }
 }
 
 function fermerTousLesMenus() {
-    document.getElementById('sidebar').classList.remove('open');
-    document.getElementById('appOverlay').classList.remove('active');
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('appOverlay');
+    if(sidebar) sidebar.classList.remove('open');
+    if(overlay) overlay.classList.remove('active');
 }
 
 let mapInstance = null;
@@ -96,7 +159,7 @@ function centrerSurMoi() {
 }
 
 function partagerMaPositionGPS() {
-    if (navigator.geolocation) {
+    if (navigator.geolocation && utilisateur) {
         navigator.geolocation.getCurrentPosition(position => {
             const lat = position.coords.latitude;
             const lng = position.coords.longitude;
@@ -119,6 +182,7 @@ socket.on('signal', (data) => {
     if (data.type === 'location' && mapInstance) {
         const { sender, lat, lng } = data;
         L.marker([lat, lng]).addTo(mapInstance).bindPopup(`<b>📍 ${sender}</b>`);
+        if(!utilisateur) utilisateur = { messagesLocaux: [] };
         if(!utilisateur.messagesLocaux) utilisateur.messagesLocaux = [];
         utilisateur.messagesLocaux.push({ expediteur: sender, texte: `📍 Position reçue`, heure: new Date().toLocaleTimeString() });
         localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
@@ -126,12 +190,12 @@ socket.on('signal', (data) => {
 });
 
 function ouvrirModeClavierDirect(e) {
-    if(e) e.stopPropagation();
+    if(e) { e.stopPropagation(); e.preventDefault(); }
     alert("💬 Assistant ELAWS actif.");
 }
 
 function basculerEcouteVocaleLiveDirect(e) {
-    if(e) e.stopPropagation();
+    if(e) { e.stopPropagation(); e.preventDefault(); }
     alert("🎙️ Écoute vocale active.");
 }
 
@@ -146,7 +210,7 @@ function selectionnerDossierStockageTelephone() {
 function envoyerMessageChatLocal() {
     const input = document.getElementById('chatLocalInput');
     const texte = input.value.trim();
-    if(!texte) return;
+    if(!texte || !utilisateur) return;
     if(!utilisateur.messagesLocaux) utilisateur.messagesLocaux = [];
     utilisateur.messagesLocaux.push({ expediteur: utilisateur.nom || "Moi", texte, heure: new Date().toLocaleTimeString() });
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
@@ -156,7 +220,7 @@ function envoyerMessageChatLocal() {
 
 function afficherMessagesLocaux() {
     const container = document.getElementById('listeMessagesLocaux');
-    if(!container) return;
+    if(!container || !utilisateur) return;
     if(!utilisateur.messagesLocaux || utilisateur.messagesLocaux.length === 0) {
         container.innerHTML = `<p style="color:var(--text-secondary); font-size:11.5px;">Aucun message.</p>`;
         return;
@@ -178,7 +242,7 @@ function afficherMessagesLocaux() {
 function ajouterNoteBlocNotes() {
     const titre = document.getElementById('noteTitre').value.trim();
     const contenu = document.getElementById('noteContenu').value.trim();
-    if(!titre || !contenu) return;
+    if(!titre || !contenu || !utilisateur) return;
     if(!utilisateur.notes) utilisateur.notes = [];
     utilisateur.notes.unshift({ titre, contenu });
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
@@ -189,7 +253,7 @@ function ajouterNoteBlocNotes() {
 
 function afficherNotesBlocNotes() {
     const container = document.getElementById('listeNotesContainer');
-    if(!container) return;
+    if(!container || !utilisateur) return;
     if(!utilisateur.notes || utilisateur.notes.length === 0) {
         container.innerHTML = `<p style="color:var(--text-secondary); font-size:11.5px;">Aucune note.</p>`;
         return;
@@ -221,6 +285,7 @@ function lancerAnalyseVoyageAvance() {
 }
 
 function exporterDonneesCloud() {
+    if(!utilisateur) return;
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(utilisateur, null, 2));
     const dl = document.createElement('a');
     dl.setAttribute("href", dataStr);
@@ -287,13 +352,11 @@ socket.on('signal', async (data) => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
-    if(!utilisateur.nom || utilisateur.nom === "") {
+    if(!utilisateur || !utilisateur.nom) {
         document.getElementById('welcomeModal').style.display = 'flex';
+    } else {
+        appliquerInfosProfil();
     }
-    if(document.getElementById('inputNom')) document.getElementById('inputNom'].value = utilisateur.nom;
-    if(document.getElementById('inputNomProfil')) document.getElementById('inputNomProfil'].value = utilisateur.nom;
-    if(document.getElementById('inputTelProfil')) document.getElementById('inputTelProfil'].value = utilisateur.telephone;
-    if(document.getElementById('inputTelProfil2')) document.getElementById('inputTelProfil2'].value = utilisateur.telephone;
     afficherNotesBlocNotes();
     afficherMessagesLocaux();
 });
