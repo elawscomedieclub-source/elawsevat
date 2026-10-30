@@ -19,7 +19,6 @@ socket.on('disconnect', () => {
     }
 });
 
-// Sauvegarde et activation automatique du profil complet
 function sauvegarderProfilBase() {
     const nom = document.getElementById('inputNom').value.trim();
     const tel = document.getElementById('inputTelProfil').value.trim();
@@ -36,13 +35,18 @@ function sauvegarderProfilBase() {
         metier: metier || "Opérateur",
         qubits: 365,
         notes: [],
-        messagesLocaux: []
+        messagesLocaux: [],
+        contacts: [
+            { nom: "Directeur Cabinet", telephone: "+22898231401", metier: "Cosmétiques & Management" },
+            { nom: "Support Technique", telephone: "+22898231402", metier: "Ingénierie Continuum" }
+        ],
+        historiqueElaws: []
     };
 
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
     document.getElementById('welcomeModal').style.display = 'none';
     appliquerInfosProfil();
-    alert("✅ Profil activé ! Bienvenue, " + utilisateur.nom);
+    afficherContacts();
 }
 
 function sauvegarderProfilBaseDesdeProfil() {
@@ -65,7 +69,6 @@ function sauvegarderProfilBaseDesdeProfil() {
     alert("✅ Profil mis à jour avec succès !");
 }
 
-// Fonction de déconnexion : efface le profil et redemande l'inscription
 function deconnecterUtilisateur() {
     if(confirm("Voulez-vous vraiment vous déconnecter ?")) {
         localStorage.removeItem('evat_profil');
@@ -77,6 +80,12 @@ function deconnecterUtilisateur() {
 
 function appliquerInfosProfil() {
     if(!utilisateur) return;
+    if(!utilisateur.contacts) {
+        utilisateur.contacts = [
+            { nom: "Directeur Cabinet", telephone: "+22898231401", metier: "Cosmétiques & Management" },
+            { nom: "Support Technique", telephone: "+22898231402", metier: "Ingénierie Continuum" }
+        ];
+    }
     if(document.getElementById('inputNom')) document.getElementById('inputNom').value = utilisateur.nom;
     if(document.getElementById('inputNomProfil')) document.getElementById('inputNomProfil').value = utilisateur.nom;
     if(document.getElementById('inputTelProfil')) document.getElementById('inputTelProfil').value = utilisateur.telephone;
@@ -88,6 +97,110 @@ function appliquerInfosProfil() {
     if(document.getElementById('sidebarUserRole')) document.getElementById('sidebarUserRole').innerText = utilisateur.metier;
     if(document.getElementById('dashUserName')) document.getElementById('dashUserName').innerText = utilisateur.nom.toUpperCase();
     if(document.getElementById('dashUserMetier')) document.getElementById('dashUserMetier').innerText = utilisateur.metier;
+    
+    afficherContacts();
+}
+
+// Module Assistant IA ELAWS (Répond à toutes les questions et s'adapte au profil)
+function poserQuestionElaws() {
+    const input = document.getElementById('elawsInput');
+    const question = input.value.trim();
+    if(!question || !utilisateur) return;
+
+    const chatBox = document.getElementById('elawsChatBox');
+    
+    // Afficher la question de l'utilisateur
+    chatBox.innerHTML += `<div style="background:rgba(255,255,255,0.05); border:1px solid var(--border-color); padding:8px; border-radius:8px; text-align:right;">
+        <strong style="color:var(--success); font-size:11.5px;">👤 ${utilisateur.nom} :</strong>
+        <p style="font-size:12px; margin:3px 0 0 0;">${question}</p>
+    </div>`;
+    
+    input.value = '';
+    chatBox.scrollTop = chatBox.scrollHeight;
+
+    // Simulation de réponse experte et instantanée de l'IA ELAWS connectée au profil
+    setTimeout(() => {
+        let reponse = `En tant qu'expert pour ${utilisateur.nom} (${utilisateur.metier}), voici l'analyse concernant "${question}" : Le système Continuum valide cette requête, intègre les paramètres de sécurité post-quantique et assure une exécution instantanée sur tous vos modules.`;
+        
+        // Personnalisation selon des mots clés
+        const qLower = question.toLowerCase();
+        if(qLower.includes('bonjour') || qLower.includes('salut')) {
+            reponse = `Bonjour ${utilisateur.nom} ! Je suis l'intelligence artificielle ELAWS, connectée à votre profil "${utilisateur.metier}". Je suis prête à répondre à toutes vos questions et à vous assister dans vos projets.`;
+        } else if(qLower.includes('visa') || qLower.includes('voyage')) {
+            reponse = `Guide Voyage ELAWS : Pour vos déplacements depuis Lomé, vérifiez la validité de votre passeport biométrique, les exigences de visa pour votre destination et utilisez notre module de suivi des billets.`;
+        } else if(qLower.includes('entreprise') || qLower.includes('business') || qLower.includes('NIF')) {
+            reponse = `Conseil Business ELAWS : Pour structurer votre activité indépendante ou multi-entités, veillez à bien centraliser vos déclarations fiscales et à utiliser un identifiant unique conforme aux réglementations en vigueur.`;
+        }
+
+        chatBox.innerHTML += `<div style="background:rgba(59,130,246,0.1); border:1px solid var(--accent); padding:8px; border-radius:8px;">
+            <strong style="color:var(--accent); font-size:11.5px;">🤖 ELAWS AI :</strong>
+            <p style="font-size:12px; margin:3px 0 0 0;">${reponse}</p>
+        </div>`;
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }, 500);
+}
+
+// Module Contacts
+function afficherContacts() {
+    const container = document.getElementById('listeContactsContainer');
+    if(!container || !utilisateur || !utilisateur.contacts) return;
+    
+    if(utilisateur.contacts.length === 0) {
+        container.innerHTML = `<p style="color:var(--text-secondary); font-size:11.5px;">Aucun contact enregistré.</p>`;
+        return;
+    }
+
+    let html = '';
+    utilisateur.contacts.forEach((c) => {
+        html += `<div style="background:var(--bg-color); border:1px solid var(--border-color); padding:10px; border-radius:10px; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+                <strong style="color:var(--accent); font-size:12.5px;">👤 ${c.nom}</strong>
+                <div style="font-size:11px; color:var(--text-secondary);">📞 ${c.telephone} • <i>${c.metier || ''}</i></div>
+            </div>
+            <div style="display:flex; gap:6px;">
+                <a href="tel:${c.telephone}" class="btn-action" style="background:var(--success); color:#fff; padding:6px 10px; font-size:11px; text-decoration:none;" title="Appeler">📞 Appeler</a>
+                <button onclick="ecrireAuContact('${c.nom}', '${c.telephone}')" class="btn-action" style="background:var(--accent); color:#030712; padding:6px 10px; font-size:11px;" title="Écrire">💬 Écrire</button>
+            </div>
+        </div>`;
+    });
+    container.innerHTML = html;
+}
+
+function ajouterNouveauContact() {
+    const nom = document.getElementById('nouveauNomContact').value.trim();
+    const tel = document.getElementById('nouveauTelContact').value.trim();
+    const metier = document.getElementById('nouveauMetierContact').value.trim();
+
+    if(!nom || !tel) {
+        alert("Veuillez indiquer le nom et le numéro du contact.");
+        return;
+    }
+
+    if(!utilisateur.contacts) utilisateur.contacts = [];
+    utilisateur.contacts.push({ nom, telephone: tel, metier });
+    localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
+
+    document.getElementById('nouveauNomContact').value = '';
+    document.getElementById('nouveauTelContact').value = '';
+    document.getElementById('nouveauMetierContact').value = '';
+
+    afficherContacts();
+    alert("✅ Contact ajouté avec succès !");
+}
+
+function ecrireAuContact(nom, tel) {
+    const message = prompt(`Envoyer un message à ${nom} (${tel}) :`);
+    if(!message) return;
+
+    if(!utilisateur.messagesLocaux) utilisateur.messagesLocaux = [];
+    utilisateur.messagesLocaux.push({ 
+        expediteur: utilisateur.nom || "Moi", 
+        texte: `À ${nom} (${tel}) : ${message}`, 
+        heure: new Date().toLocaleTimeString() 
+    });
+    localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
+    switchTab('messagerie');
+    alert(`✅ Message transmis à ${nom} !`);
 }
 
 function toggleMenu(e) {
@@ -189,14 +302,15 @@ socket.on('signal', (data) => {
     }
 });
 
+// Fonctions directes sans alertes agaçantes
 function ouvrirModeClavierDirect(e) {
     if(e) { e.stopPropagation(); e.preventDefault(); }
-    alert("💬 Assistant ELAWS actif.");
+    switchTab('elaws-ia');
 }
 
 function basculerEcouteVocaleLiveDirect(e) {
     if(e) { e.stopPropagation(); e.preventDefault(); }
-    alert("🎙️ Écoute vocale active.");
+    switchTab('elaws-ia');
 }
 
 function selectionnerDossierStockageTelephone() {

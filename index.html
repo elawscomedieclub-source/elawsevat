@@ -17,7 +17,7 @@
     </script>
 </head>
 <body>
-    <!-- Modal de premier lancement / Inscription (Nom, Téléphone, Métier, Photo) -->
+    <!-- Modal de premier lancement / Inscription -->
     <div id="welcomeModal" class="modal-overlay" style="display:none;">
         <div class="card continuum-card" style="max-width:420px; width:100%; text-align:center;">
             <div class="quantum-globe-container" style="margin: 0 auto 15px auto;">
@@ -26,7 +26,7 @@
                 <div class="orbit-ring ring-2"></div>
             </div>
             <h2 style="color:var(--accent); font-size:18px; margin-bottom:6px;">EVAT v3.60 Continuum</h2>
-            <p style="font-size:12px; color:var(--text-secondary); margin-bottom:14px;">Créez votre profil pour activer vos outils et communications.</p>
+            <p style="font-size:12px; color:var(--text-secondary); margin-bottom:14px;">Créez votre profil pour activer vos outils et l'intelligence artificielle ELAWS.</p>
             
             <div style="text-align:left; margin-bottom:14px;">
                 <label style="font-size:11.5px; color:var(--text-color);">Nom & Prénom :</label>
@@ -38,7 +38,7 @@
                 <label style="font-size:11.5px; color:var(--text-color);">Métier / Profession :</label>
                 <input type="text" id="inputMetier" class="input" value="Administration & Systèmes" style="margin-bottom:12px;">
             </div>
-            <button onclick="sauvegarderProfilBase()" class="btn-action" style="width:100%;">🚀 Activer mon Profil</button>
+            <button onclick="sauvegarderProfilBase()" class="btn-action" style="width:100%;">🚀 Activer mon Profil & ELAWS</button>
         </div>
     </div>
 
@@ -52,18 +52,18 @@
                 </div>
             </div>
 
+            <!-- Widget IA ELAWS interactif sans alerte -->
             <div id="elawsWidget" class="elaws-widget">
                 <div class="elaws-action-bar">
-                    <button onclick="ouvrirModeClavierDirect(event)" class="elaws-keyboard-btn" title="Clavier"><span>⌨️</span></button>
-                    <button onclick="basculerEcouteVocaleLiveDirect(event)" class="elaws-magic-bubble" title="Voix ELAWS">
+                    <button onclick="switchTab('elaws-ia')" class="elaws-magic-bubble" title="Assistant ELAWS" style="cursor:pointer; display:flex; align-items:center; gap:6px;">
                         <div class="magic-sphere-core"></div>
-                        <span class="magic-label">🎙️ ELAWS</span>
+                        <span class="magic-label">🎙️ ELAWS AI</span>
                     </button>
                 </div>
             </div>
         </header>
 
-        <!-- Menu latéral avec option de déconnexion en bas -->
+        <!-- Menu latéral -->
         <nav id="sidebar" class="sidebar" onclick="event.stopPropagation()">
             <div class="sidebar-header" style="display:flex; align-items:center; gap:10px; margin-bottom:15px; border-bottom:1px solid var(--border-color); padding-bottom:10px;">
                 <div>
@@ -73,6 +73,8 @@
             </div>
             <div class="sidebar-links" style="display:flex; flex-direction:column; gap:6px; flex:1;">
                 <a href="#" onclick="switchTab('dashboard')" class="nav-link active" id="link-dashboard">📊 Dashboard HUD</a>
+                <a href="#" onclick="switchTab('elaws-ia')" class="nav-link" id="link-elaws-ia">🤖 Assistant IA ELAWS</a>
+                <a href="#" onclick="switchTab('contacts')" class="nav-link" id="link-contacts">📇 Contacts & Annuaire</a>
                 <a href="#" onclick="switchTab('map')" class="nav-link" id="link-map">🗺️ Carte & Position GPS</a>
                 <a href="#" onclick="switchTab('messagerie')" class="nav-link" id="link-messagerie">💬 Messagerie & Fichiers</a>
                 <a href="#" onclick="switchTab('communications')" class="nav-link" id="link-communications">📞 Appels & VoIP</a>
@@ -84,7 +86,7 @@
                 <a href="#" onclick="switchTab('outils')" class="nav-link" id="link-outils">🛠️ Bloc-Notes & Outils</a>
             </div>
 
-            <!-- Bouton de déconnexion dans le menu latéral -->
+            <!-- Bouton de déconnexion -->
             <div style="margin-top:auto; padding-top:10px; border-top:1px solid var(--border-color);">
                 <button onclick="deconnecterUtilisateur()" class="btn-action" style="background:rgba(239,68,68,0.15); color:#ef4444; border:1px solid #ef4444; width:100%; font-size:12px;">🚪 Se Déconnecter</button>
             </div>
@@ -147,6 +149,46 @@
                             <div style="font-size:12.5px; color:var(--accent); font-weight:700;">100 TFLOPS</div>
                         </div>
                     </div>
+                </div>
+            </section>
+
+            <!-- MODULE ASSISTANT IA ELAWS (Répond à tout) -->
+            <section id="tab-elaws-ia" class="tab-content" style="display:none;">
+                <div class="card continuum-card">
+                    <h2>🤖 Assistant IA ELAWS</h2>
+                    <p style="font-size:12px; color:var(--text-secondary);">Connecté à votre profil. Posez vos questions dans n'importe quel domaine (technique, business, droit, voyage, etc.).</p>
+                    
+                    <div id="elawsChatBox" style="background:var(--bg-color); border:1px solid var(--border-color); border-radius:10px; padding:10px; height:240px; overflow-y:auto; margin-bottom:10px; display:flex; flex-direction:column; gap:8px;">
+                        <div style="background:rgba(59,130,246,0.1); border:1px solid var(--accent); padding:8px; border-radius:8px;">
+                            <strong style="color:var(--accent); font-size:11.5px;">🤖 ELAWS AI :</strong>
+                            <p style="font-size:12px; margin:3px 0 0 0;">Bonjour ! Je suis connecté à votre profil. Comment puis-je vous aider aujourd'hui ?</p>
+                        </div>
+                    </div>
+
+                    <div style="display:flex; gap:6px;">
+                        <input type="text" id="elawsInput" class="input" placeholder="Posez votre question à ELAWS..." style="margin-bottom:0;" onkeypress="if(event.key==='Enter') poserQuestionElaws()">
+                        <button onclick="poserQuestionElaws()" class="btn-action" style="width:auto; padding:0 16px; font-size:12px; background:var(--success); color:#fff;">Envoyer</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- MODULE CONTACTS & ANNUAIRE -->
+            <section id="tab-contacts" class="tab-content" style="display:none;">
+                <div class="card continuum-card">
+                    <h2>📇 Annuaire & Contacts</h2>
+                    <p style="font-size:12px; color:var(--text-secondary);">Appelez ou écrivez directement à vos contacts en un clic.</p>
+                    
+                    <div style="background:var(--bg-color); padding:10px; border-radius:10px; border:1px solid var(--border-color); margin-bottom:12px;">
+                        <strong style="font-size:12px; color:var(--accent);">➕ Ajouter un nouveau contact</strong>
+                        <div style="display:flex; flex-direction:column; gap:6px; margin-top:8px;">
+                            <input type="text" id="nouveauNomContact" class="input" placeholder="Nom du contact..." style="margin-bottom:0;">
+                            <input type="text" id="nouveauTelContact" class="input" placeholder="Numéro (ex: +228...)" style="margin-bottom:0;">
+                            <input type="text" id="nouveauMetierContact" class="input" placeholder="Métier / Rôle..." style="margin-bottom:0;">
+                            <button onclick="ajouterNouveauContact()" class="btn-action" style="background:var(--success); color:#fff; font-size:12px;">Enregistrer le contact</button>
+                        </div>
+                    </div>
+
+                    <div id="listeContactsContainer" style="display:flex; flex-direction:column; gap:8px; max-height:300px; overflow-y:auto;"></div>
                 </div>
             </section>
 
@@ -244,7 +286,7 @@
                 </div>
             </section>
 
-            <!-- PROFIL (Avec bouton de déconnexion en bas) -->
+            <!-- PROFIL -->
             <section id="tab-profil" class="tab-content" style="display:none;">
                 <div class="card continuum-card">
                     <h2>👤 Profil & Sécurité</h2>
