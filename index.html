@@ -43,7 +43,7 @@
     </div>
 
     <div id="app">
-        <!-- En-tête épuré -->
+        <!-- En-tête épuré (Sans micro intégré) -->
         <header class="header">
             <div class="header-left">
                 <button onclick="toggleMenu(event)" class="menu-btn" aria-label="Menu">☰</button>
@@ -52,12 +52,12 @@
                 </div>
             </div>
 
-            <!-- Widget IA ELAWS interactif sans alerte -->
+            <!-- Widget IA ELAWS épuré (sans micro) -->
             <div id="elawsWidget" class="elaws-widget">
                 <div class="elaws-action-bar">
                     <button onclick="switchTab('elaws-ia')" class="elaws-magic-bubble" title="Assistant ELAWS" style="cursor:pointer; display:flex; align-items:center; gap:6px;">
                         <div class="magic-sphere-core"></div>
-                        <span class="magic-label">🎙️ ELAWS AI</span>
+                        <span class="magic-label">🤖 ELAWS AI</span>
                     </button>
                 </div>
             </div>
@@ -152,11 +152,11 @@
                 </div>
             </section>
 
-            <!-- MODULE ASSISTANT IA ELAWS -->
+            <!-- MODULE ASSISTANT IA ELAWS (Avec micro à côté du bouton envoyer) -->
             <section id="tab-elaws-ia" class="tab-content" style="display:none;">
                 <div class="card continuum-card">
                     <h2>🤖 Assistant IA ELAWS</h2>
-                    <p style="font-size:12px; color:var(--text-secondary);">Connecté à votre profil. Posez vos questions dans n'importe quel domaine (technique, business, droit, voyage, etc.).</p>
+                    <p style="font-size:12px; color:var(--text-secondary);">Connecté à votre profil. Posez vos questions par texte ou en dictant avec le micro.</p>
                     
                     <div id="elawsChatBox" style="background:var(--bg-color); border:1px solid var(--border-color); border-radius:10px; padding:10px; height:240px; overflow-y:auto; margin-bottom:10px; display:flex; flex-direction:column; gap:8px;">
                         <div style="background:rgba(59,130,246,0.1); border:1px solid var(--accent); padding:8px; border-radius:8px;">
@@ -165,14 +165,17 @@
                         </div>
                     </div>
 
-                    <div style="display:flex; gap:6px;">
-                        <input type="text" id="elawsInput" class="input" placeholder="Posez votre question à ELAWS..." style="margin-bottom:0;" onkeypress="if(event.key==='Enter') poserQuestionElaws()">
+                    <!-- Barre de saisie avec le micro à côté du bouton Envoyer -->
+                    <div style="display:flex; gap:6px; align-items:center;">
+                        <input type="text" id="elawsInput" class="input" placeholder="Posez votre question à ELAWS..." style="margin-bottom:0; flex:1;" onkeypress="if(event.key==='Enter') poserQuestionElaws()">
+                        <button onclick="basculerEcouteVocaleIA()" id="micBtnElaws" class="btn-action" style="width:auto; padding:0 12px; font-size:14px; background:rgba(59,130,246,0.2); color:var(--accent); border:1px solid var(--accent);" title="Dicter par la voix">🎙️</button>
                         <button onclick="poserQuestionElaws()" class="btn-action" style="width:auto; padding:0 16px; font-size:12px; background:var(--success); color:#fff;">Envoyer</button>
                     </div>
+                    <div id="micStatusElaws" style="font-size:11px; color:var(--text-secondary); margin-top:4px; text-align:right;"></div>
                 </div>
             </section>
 
-            <!-- MODULE CONTACTS & ANNUAIRE (Avec synchronisation automatique du métier) -->
+            <!-- MODULE CONTACTS & ANNUAIRE -->
             <section id="tab-contacts" class="tab-content" style="display:none;">
                 <div class="card continuum-card">
                     <h2>📇 Annuaire & Contacts</h2>
@@ -230,7 +233,7 @@
                 </div>
             </section>
 
-            <!-- COMMUNICATIONS (Appels directs pair-à-pair WebRTC) -->
+            <!-- COMMUNICATIONS -->
             <section id="tab-communications" class="tab-content" style="display:none;">
                 <div class="card continuum-card">
                     <h2>📞 Appels Directs & VoIP</h2>
@@ -244,7 +247,6 @@
                     <button onclick="lancerAppelDirectPeer('audio')" class="btn-action" style="background:var(--success); color:#fff; margin-bottom:8px;">🎙️ Appel Audio Direct</button>
                     <button onclick="lancerAppelDirectPeer('video')" class="btn-action" style="background:var(--accent); color:#030712; margin-bottom:8px;">📹 Appel Vidéo Direct</button>
                     
-                    <!-- Conteneur vidéo/audio distant -->
                     <div id="callContainer" style="margin-top:10px; display:none; background:#000; border-radius:10px; padding:10px; text-align:center;">
                         <video id="remoteVideo" autoplay playsinline style="width:100%; max-height:200px; border-radius:8px; background:#111;"></video>
                         <audio id="remoteAudio" autoplay></audio>

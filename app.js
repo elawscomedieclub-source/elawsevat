@@ -9,7 +9,6 @@ socket.on('connect', () => {
         statusEl.innerHTML = "🟢 Connecté";
         statusEl.style.color = "var(--success)";
     }
-    // Enregistrer notre numéro et métier sur le serveur pour la synchronisation des contacts
     if(utilisateur) {
         socket.emit('register_user', { nom: utilisateur.nom, telephone: utilisateur.telephone, metier: utilisateur.metier });
     }
@@ -107,17 +106,15 @@ function appliquerInfosProfil() {
     verifierEtSynchroniserContacts();
 }
 
-// Synchronisation automatique des métiers des contacts via le serveur
 function verifierEtSynchroniserContacts() {
     if(!utilisateur || !utilisateur.contacts) return;
     
-    // Demander au serveur les informations actualisées des contacts
     socket.emit('query_contacts', utilisateur.contacts.map(c => c.telephone), (reponses) => {
         if(reponses && Array.isArray(reponses)) {
             reponses.forEach(info => {
                 const contact = utilisateur.contacts.find(c => c.telephone === info.telephone);
                 if(contact && info.metier) {
-                    contact.metier = info.metier; // Met à jour avec le vrai métier configuré par la personne
+                    contact.metier = info.metier;
                 }
             });
             localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
@@ -223,124 +220,46 @@ function preparerAppel(tel) {
     document.getElementById('appelCibleNum').value = tel;
 }
 
-// Système d'appel direct Pair-à-Pair (WebRTC) de système à système
-let localStream;
-let peerConnection;
-const servers = {
-    iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
-    ]
-};
+// Fonction pour dicter par la voix dans l'Assistant IA (Micro à côté du bouton Envoyer)
+function basculerEcouteVocaleIA() {
+    const statusEl = document.getElementById('micStatusElaws');
+    const inputEl = document.getElementById('elawsInput');
 
-async function lancerAppelDirectPeer(type) {
-    const cibleTel = document.getElementById('appelCibleNum').value.trim();
-    const logEl = document.getElementById('callStatusLog');
-    const container = document.getElementById('callContainer');
-
-    if(!cibleTel) {
-        alert("Veuillez entrer ou sélectionner le numéro du contact à appeler.");
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        alert("La reconnaissance vocale n'est pas supportée par votre navigateur actuel. Utilisez Chrome ou Edge.");
         return;
     }
 
-    try {
-        if(logEl) logEl.innerText = "Appel en cours vers " + cibleTel + " (sonnerie)...";
-        container.style.display = 'block';
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'fr-FR';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
 
-        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: type === 'video' });
-        if(type === 'video') {
-            // Afficher sa propre vidéo ou préparer l'appel
-        }
+    if(statusEl) statusEl.innerText = "🎙️ Écoute en cours... Parlez maintenant.";
 
-        peerConnection = new RTCPeerConnection(servers);
-        localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+    recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        inputEl.value = transcript;
+        if(statusEl) statusEl.innerText = "✅ Texte transcrit !";
+        // Envoyer automatiquement après transcription ou laisser l'utilisateur valider
+        setTimeout(() => {
+            if(statusEl) statusEl.innerText = "";
+        }, 3000);
+    };
 
-        peerConnection.ontrack = event => {
-            const remoteVideo = document.getElementById('remoteVideo');
-            const remoteAudio = document.getElementById('remoteAudio');
-            if (event.streams && event.streams[0]) {
-                if(type === 'video') {
-                    remoteVideo.srcObject = event.streams[0];
-                } else {
-                    remoteAudio.srcObject = event.streams[0];
-                }
-            }
-        };
+    recognition.onerror = (event) => {
+        if(statusEl) statusEl.innerText = "❌ Erreur de micro.";
+    };
 
-        peerConnection.onicecandidate = event => {
-            if (event.candidate) {
-                socket.emit('p2p_signal', { target: cibleTel, sender: utilisateur.telephone, type: 'ice_candidate', candidate: event.candidate });
-            }
-        };
+    recognition.onend = () => {
+        // Fin de l'écoute
+    };
 
-        const offer = await peerConnection.createOffer();
-        await peerConnection.setLocalDescription(offer);
-
-        socket.emit('p2p_signal', { target: cibleTel, sender: utilisateur.telephone, type: 'offer', offer: offer });
-        if(logEl) logEl.innerText = "📞 Sonnerie active chez " + cibleTel + "...";
-
-    } catch (error) {
-        if(logEl) logEl.innerText = "Erreur d'accès au micro/caméra ou réseau.";
-        alert("Impossible d'initialiser l'appel direct.");
-    }
+    recognition.start();
 }
 
-// Réception des signaux d'appel d'un autre utilisateur
-socket.on('p2p_signal', async (data) => {
-    const logEl = document.getElementById('callStatusLog');
-    const container = document.getElementById('callContainer');
-
-    if (!peerConnection) {
-        peerConnection = new RTCPeerConnection(servers);
-        peerConnection.ontrack = event => {
-            if (event.streams && event.streams[0]) {
-                document.getElementById('remoteAudio').srcObject = event.streams[0];
-                document.getElementById('remoteVideo').srcObject = event.streams[0];
-            }
-        };
-        peerConnection.onicecandidate = event => {
-            if (event.candidate) {
-                socket.emit('p2p_signal', { target: data.sender, sender: utilisateur.telephone, type: 'ice_candidate', candidate: event.candidate });
-            }
-        };
-    }
-
-    if (data.type === 'offer') {
-        if(confirm(`📞 Appel entrant de ${data.sender}. Voulez-vous décrocher ?`)) {
-            container.style.display = 'block';
-            if(logEl) logEl.innerText = "📞 Appel connecté avec " + data.sender;
-            
-            localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-            const answer = await peerConnection.createAnswer();
-            await peerConnection.setLocalDescription(answer);
-            socket.emit('p2p_signal', { target: data.sender, sender: utilisateur.telephone, type: 'answer', answer: answer });
-        }
-    } else if (data.type === 'answer') {
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-        if(logEl) logEl.innerText = "✅ Appel établi !";
-    } else if (data.type === 'ice_candidate' && data.candidate) {
-        try {
-            await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
-        } catch(e) {}
-    }
-});
-
-function raccrocherAppel() {
-    if(peerConnection) {
-        peerConnection.close();
-        peerConnection = null;
-    }
-    if(localStream) {
-        localStream.getTracks().forEach(track => track.stop());
-    }
-    document.getElementById('callContainer').style.display = 'none';
-    document.getElementById('callStatusLog').innerText = "Appel terminé.";
-}
-
-// Module Assistant IA ELAWS
+// Module Assistant IA ELAWS (Répond à toutes les questions)
 function poserQuestionElaws() {
     const input = document.getElementById('elawsInput');
     const question = input.value.trim();
@@ -475,16 +394,6 @@ socket.on('signal', (data) => {
     }
 });
 
-function ouvrirModeClavierDirect(e) {
-    if(e) { e.stopPropagation(); e.preventDefault(); }
-    switchTab('elaws-ia');
-}
-
-function basculerEcouteVocaleLiveDirect(e) {
-    if(e) { e.stopPropagation(); e.preventDefault(); }
-    switchTab('elaws-ia');
-}
-
 function selectionnerDossierStockageTelephone() {
     if ('showDirectoryPicker' in window) {
         window.showDirectoryPicker().then(dirHandle => {
@@ -579,6 +488,107 @@ function exporterDonneesCloud() {
     document.body.appendChild(dl);
     dl.click();
     dl.remove();
+}
+
+// Système d'appel direct P2P
+let localStream;
+let peerConnection;
+const servers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+async function lancerAppelDirectPeer(type) {
+    const cibleTel = document.getElementById('appelCibleNum').value.trim();
+    const logEl = document.getElementById('callStatusLog');
+    const container = document.getElementById('callContainer');
+
+    if(!cibleTel) {
+        alert("Veuillez entrer ou sélectionner le numéro du contact à appeler.");
+        return;
+    }
+
+    try {
+        if(logEl) logEl.innerText = "Appel en cours vers " + cibleTel + " (sonnerie)...";
+        container.style.display = 'block';
+
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: type === 'video' });
+        peerConnection = new RTCPeerConnection(servers);
+        localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+        peerConnection.ontrack = event => {
+            if (event.streams && event.streams[0]) {
+                document.getElementById('remoteAudio').srcObject = event.streams[0];
+                document.getElementById('remoteVideo').srcObject = event.streams[0];
+            }
+        };
+
+        peerConnection.onicecandidate = event => {
+            if (event.candidate) {
+                socket.emit('p2p_signal', { target: cibleTel, sender: utilisateur.telephone, type: 'ice_candidate', candidate: event.candidate });
+            }
+        };
+
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        socket.emit('p2p_signal', { target: cibleTel, sender: utilisateur.telephone, type: 'offer', offer: offer });
+        if(logEl) logEl.innerText = "📞 Sonnerie active chez " + cibleTel + "...";
+
+    } catch (error) {
+        if(logEl) logEl.innerText = "Erreur d'accès au micro/caméra ou réseau.";
+        alert("Impossible d'initialiser l'appel direct.");
+    }
+}
+
+socket.on('p2p_signal', async (data) => {
+    const logEl = document.getElementById('callStatusLog');
+    const container = document.getElementById('callContainer');
+
+    if (!peerConnection) {
+        peerConnection = new RTCPeerConnection(servers);
+        peerConnection.ontrack = event => {
+            if (event.streams && event.streams[0]) {
+                document.getElementById('remoteAudio').srcObject = event.streams[0];
+                document.getElementById('remoteVideo').srcObject = event.streams[0];
+            }
+        };
+        peerConnection.onicecandidate = event => {
+            if (event.candidate) {
+                socket.emit('p2p_signal', { target: data.sender, sender: utilisateur.telephone, type: 'ice_candidate', candidate: event.candidate });
+            }
+        };
+    }
+
+    if (data.type === 'offer') {
+        if(confirm(`📞 Appel entrant de ${data.sender}. Voulez-vous décrocher ?`)) {
+            container.style.display = 'block';
+            if(logEl) logEl.innerText = "📞 Appel connecté avec " + data.sender;
+            
+            localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+            socket.emit('p2p_signal', { target: data.sender, sender: utilisateur.telephone, type: 'answer', answer: answer });
+        }
+    } else if (data.type === 'answer') {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+        if(logEl) logEl.innerText = "✅ Appel établi !";
+    } else if (data.type === 'ice_candidate' && data.candidate) {
+        try {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+        } catch(e) {}
+    }
+});
+
+function raccrocherAppel() {
+    if(peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+    }
+    if(localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+    }
+    document.getElementById('callContainer').style.display = 'none';
+    document.getElementById('callStatusLog').innerText = "Appel terminé.";
 }
 
 document.addEventListener('DOMContentLoaded', () => {
