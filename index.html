@@ -42,6 +42,17 @@
         </div>
     </div>
 
+    <!-- Notification d'inscription de contact -->
+    <div id="notificationBanner" style="position:fixed; top:12px; left:50%; transform:translateX(-50%); z-index:9999; width:90%; max-width:400px; display:none; background:rgba(16,185,129,0.95); color:#fff; padding:12px; border-radius:12px; box-shadow:0 8px 25px rgba(0,0,0,0.5); border:1px solid #34d399; animation: slideDown 0.3s ease;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+                <strong style="font-size:13px; display:block;">🚨 Alerte Sentinelle Continuum</strong>
+                <span id="notificationText" style="font-size:12px;">Un contact vient de s'inscrire !</span>
+            </div>
+            <button onclick="fermerNotification()" style="background:none; border:none; color:#fff; font-size:16px; cursor:pointer;">✕</button>
+        </div>
+    </div>
+
     <div id="app">
         <!-- En-tête épuré -->
         <header class="header">
@@ -152,7 +163,7 @@
                 </div>
             </section>
 
-            <!-- MODULE ASSISTANT IA ELAWS (Réponses directes et concises sans répétition) -->
+            <!-- MODULE ASSISTANT IA ELAWS -->
             <section id="tab-elaws-ia" class="tab-content" style="display:none;">
                 <div class="card continuum-card">
                     <h2>🤖 Assistant IA ELAWS</h2>
@@ -165,7 +176,6 @@
                         </div>
                     </div>
 
-                    <!-- Barre de saisie avec micro à côté du bouton envoyer -->
                     <div style="display:flex; gap:6px; align-items:center;">
                         <input type="text" id="elawsInput" class="input" placeholder="Posez votre question à ELAWS..." style="margin-bottom:0; flex:1;" onkeypress="if(event.key==='Enter') poserQuestionElaws()">
                         <button onclick="basculerEcouteVocaleIA()" id="micBtnElaws" class="btn-action" style="width:auto; padding:0 12px; font-size:14px; background:rgba(59,130,246,0.2); color:var(--accent); border:1px solid var(--accent);" title="Dicter par la voix">🎙️</button>
@@ -175,11 +185,11 @@
                 </div>
             </section>
 
-            <!-- MODULE CONTACTS & ANNUAIRE -->
+            <!-- MODULE CONTACTS & ANNUAIRE (Correction de l'affichage immédiat) -->
             <section id="tab-contacts" class="tab-content" style="display:none;">
                 <div class="card continuum-card">
                     <h2>📇 Annuaire & Contacts</h2>
-                    <p style="font-size:12px; color:var(--text-secondary);">Le système synchronise automatiquement le métier de vos contacts connectés.</p>
+                    <p style="font-size:12px; color:var(--text-secondary);">Vos contacts enregistrés s'affichent instantanément ci-dessous.</p>
                     
                     <div style="background:var(--bg-color); padding:10px; border-radius:10px; border:1px solid var(--border-color); margin-bottom:12px;">
                         <strong style="font-size:12px; color:var(--accent);">➕ Enregistrer un contact</strong>

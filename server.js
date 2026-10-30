@@ -16,13 +16,12 @@ const io = new Server(server, {
     }
 });
 
-// Base de données en mémoire des utilisateurs enregistrés (numéro -> {nom, metier, socketId})
 const registeredUsers = new Map();
 
 io.on('connection', (socket) => {
     console.log('Un opérateur s'est connecté:', socket.id);
 
-    // Enregistrement du profil utilisateur
+    // Enregistrement du profil utilisateur et notification sentinelle aux autres
     socket.on('register_user', (data) => {
         if(data && data.telephone) {
             registeredUsers.set(data.telephone, {
@@ -31,10 +30,16 @@ io.on('connection', (socket) => {
                 socketId: socket.id
             });
             console.log(`Utilisateur enregistré : ${data.nom} (${data.telephone}) - Métier: ${data.metier}`);
+            
+            // Diffuser à tout le réseau qu'un numéro vient de s'inscrire (Sentinelle)
+            socket.broadcast.emit('contact_registered', {
+                nom: data.nom,
+                telephone: data.telephone,
+                metier: data.metier
+            });
         }
     });
 
-    // Synchronisation des contacts : recherche dans la base des utilisateurs
     socket.on('query_contacts', (telephones, callback) => {
         const resultats = [];
         if(Array.isArray(telephones)) {
@@ -50,9 +55,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Routage des signaux d'appel direct Pair-à-Pair (P2P) d'un système à un autre
     socket.on('p2p_signal', (data) => {
-        // data contient { target, sender, type, offer, answer, candidate }
         const targetUser = registeredUsers.get(data.target);
         if(targetUser && targetUser.socketId) {
             io.to(targetUser.socketId).emit('p2p_signal', data);
@@ -65,7 +68,6 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         console.log('Un opérateur s'est déconnecté:', socket.id);
-        // Nettoyage de la map des utilisateurs
         for (let [tel, val] of registeredUsers.entries()) {
             if (val.socketId === socket.id) {
                 registeredUsers.delete(tel);

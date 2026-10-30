@@ -23,6 +23,40 @@ socket.on('disconnect', () => {
     }
 });
 
+// Écoute de l'alerte sentinelle : lorsqu'un numéro de nos contacts s'inscrit sur le réseau
+socket.on('contact_registered', (data) => {
+    // data contient { nom, telephone, metier }
+    if(utilisateur && utilisateur.contacts) {
+        const match = utilisateur.contacts.find(c => c.telephone === data.telephone);
+        if(match) {
+            // Mettre à jour son métier automatiquement
+            match.metier = data.metier;
+            localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
+            afficherContacts();
+
+            // Afficher la notification sentinelle
+            montrerNotification(`🚨 Votre contact ${match.nom} (${data.telephone}) vient de s'inscrire sur le système ! Métier : ${data.metier}`);
+        }
+    }
+});
+
+function montrerNotification(texte) {
+    const banner = document.getElementById('notificationBanner');
+    const textEl = document.getElementById('notificationText');
+    if(banner && textEl) {
+        textEl.innerText = texte;
+        banner.style.display = 'block';
+        setTimeout(() => {
+            fermerNotification();
+        }, 10000);
+    }
+}
+
+function fermerNotification() {
+    const banner = document.getElementById('notificationBanner');
+    if(banner) banner.style.display = 'none';
+}
+
 function sauvegarderProfilBase() {
     const nom = document.getElementById('inputNom').value.trim();
     const tel = document.getElementById('inputTelProfil').value.trim();
@@ -107,6 +141,7 @@ function appliquerInfosProfil() {
     if(document.getElementById('dashUserMetier')) document.getElementById('dashUserMetier').innerText = utilisateur.metier;
     
     verifierEtSynchroniserContacts();
+    afficherContacts();
 }
 
 function verifierEtSynchroniserContacts() {
@@ -163,14 +198,23 @@ function ajouterNouveauContact() {
     }
 
     if(!utilisateur.contacts) utilisateur.contacts = [];
+    // Vérifier si le contact existe déjà
+    const existing = utilisateur.contacts.find(c => c.telephone === tel);
+    if(existing) {
+        alert("Ce numéro est déjà dans vos contacts !");
+        return;
+    }
+
     utilisateur.contacts.push({ nom, telephone: tel, metier: "Recherche..." });
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
 
     document.getElementById('nouveauNomContact').value = '';
     document.getElementById('nouveauTelContact').value = '';
 
+    // Affichage immédiat et synchronisation
+    afficherContacts();
     verifierEtSynchroniserContacts();
-    alert("✅ Contact enregistré ! Le système synchronise son métier.");
+    alert("✅ Contact enregistré et affiché !");
 }
 
 function modifierContact(index) {
@@ -189,6 +233,7 @@ function modifierContact(index) {
     utilisateur.contacts[index].telephone = nouveauTel.trim();
 
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
+    afficherContacts();
     verifierEtSynchroniserContacts();
     alert("✅ Contact modifié !");
 }
@@ -276,13 +321,11 @@ function poserQuestionElaws() {
     setTimeout(() => {
         let reponse = "";
         
-        // Si c'est la première fois qu'on interagit, on se présente brièvement, sinon on va DIRECTEMENT au but sans aucune introduction répétitive
         if(!iaDejaPresentee) {
             reponse = `Bonjour, je m'appelle ELAWS, votre intelligence artificielle. Concernant votre demande "${question}" : Voici l'analyse technique et opérationnelle pour ${utilisateur.nom} (${utilisateur.metier}) : exécution validée et sécurisée.`;
             localStorage.setItem('elaws_presentee', 'true');
             iaDejaPresentee = true;
         } else {
-            // Réponse STRICTEMENT directe et ciblée, sans aucun bavardage ni rappel de nom/continuum
             const qLower = question.toLowerCase();
             if(qLower.includes('visa') || qLower.includes('voyage')) {
                 reponse = `Pour votre voyage depuis Lomé, vérifiez la validité de votre passeport biométrique et préparez les justificatifs requis pour votre destination.`;
@@ -335,6 +378,10 @@ function switchTab(tabId) {
     const link = document.getElementById('link-' + tabId);
     if(link) link.classList.add('active');
     fermerTousLesMenus();
+
+    if(tabId === 'contacts') {
+        afficherContacts();
+    }
 
     if(tabId === 'map') {
         setTimeout(() => {
@@ -472,7 +519,7 @@ function afficherNotesBlocNotes() {
 }
 
 function genererPlanSucces1000() {
-    const obj = document.getElementById('inputObject1000').value.trim();
+    const obj = document.getElementById('inputObjectif1000').value.trim();
     const container = document.getElementById('resultatPlan1000');
     if(!obj) return;
     container.style.display = 'block';
@@ -604,6 +651,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('welcomeModal').style.display = 'flex';
     } else {
         appliquerInfosProfil();
+        afficherContacts();
     }
     afficherNotesBlocNotes();
     afficherMessagesLocaux();
