@@ -272,11 +272,43 @@
             <section id="tab-profil" class="tab-content">
                 <div class="card" style="border-left: 4px solid var(--accent);">
                     <h2>👤 Gestion du Profil & VoIP</h2>
+                    
+                    <!-- Cadre Photo de Profil -->
+                    <div style="text-align:center; margin-bottom:14px;">
+                        <div style="width:76px; height:76px; margin:0 auto 8px auto; border-radius:50%; border:2px solid var(--accent); overflow:hidden; background:var(--bg-color); display:flex; align-items:center; justify-content:center; position:relative;">
+                            <img id="avatarPreviewImg" src="logo_evat.svg" alt="Photo de Profil" style="width:100%; height:100%; object-fit:cover;">
+                        </div>
+                        <label style="font-size:11.5px; color:var(--accent); cursor:pointer; text-decoration:underline;">
+                            📷 Changer ma photo
+                            <input type="file" id="inputPhotoProfil" accept="image/*" style="display:none;" onchange="chargerPhotoProfil(event)">
+                        </label>
+                    </div>
+
                     <label style="font-size:12px;">Nom :</label><input type="text" id="inputNom" class="input">
                     <label style="font-size:12px;">Métier :</label><input type="text" id="inputMetierProfil" class="input">
-                    <label style="font-size:12px;">Numéro Téléphone (ID VoIP) :</label><input type="text" id="inputTelProfil" class="input">
+                    
+                    <!-- Sélecteur de Pays / Indicatif & Numéro VoIP -->
+                    <label style="font-size:12px;">Pays & Indicatif Téléphone :</label>
+                    <select id="selectPaysIndicatif" class="input" style="margin-bottom:6px;" onchange="mettreAJourIndicatifPays()">
+                        <option value="+228">🇹🇬 Togo (+228)</option>
+                        <option value="+225">🇨🇮 Côte d'Ivoire (+225)</option>
+                        <option value="+233">🇬🇭 Ghana (+233)</option>
+                        <option value="+234">🇳🇬 Nigéria (+234)</option>
+                        <option value="+33">🇫🇷 France (+33)</option>
+                        <option value="+1">🇺🇸 États-Unis (+1)</option>
+                        <option value="+221">🇸🇳 Sénégal (+221)</option>
+                    </select>
+
+                    <label style="font-size:12px;">Numéro Téléphone (ID VoIP) :</label>
+                    <input type="text" id="inputTelProfil" class="input" placeholder="Ex: 98231402">
+
                     <label style="font-size:12px;">Ton IA :</label>
-                    <select id="inputIaTon" class="input"><option value="standard">Standard Quantum</option><option value="pedagogique">Tuteur</option><option value="business">Business</option><option value="technique">Technique</option></select>
+                    <select id="inputIaTon" class="input">
+                        <option value="standard">Standard Quantum</option>
+                        <option value="pedagogique">Tuteur</option>
+                        <option value="business">Business</option>
+                        <option value="technique">Technique</option>
+                    </select>
                     <button class="btn-action ripple-effect" onclick="sauvegarderProfilBase()" style="margin-bottom:15px;">Enregistrer Profil</button>
                     
                     <h3 style="font-size:14px; margin-bottom:8px;">📖 Contacts, Messages & Appels Directs</h3>

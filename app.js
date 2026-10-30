@@ -554,8 +554,13 @@ function ajouterBulleElaws(txt, exp) {
 function sauvegarderProfilBase() {
     utilisateur.nom = document.getElementById('inputNom').value.trim() || "Utilisateur";
     utilisateur.metier = document.getElementById('inputMetierProfil').value.trim() || "Polyvalent";
+    
+    const indicatif = document.getElementById('selectPaysIndicatif').value;
+    const telBrut = document.getElementById('inputTelProfil').value.trim().replace(/^\+/, '');
+    utilisateur.telephone = indicatif + (telBrut.startsWith(indicatif.replace('+', '')) ? telBrut.replace(indicatif.replace('+', ''), '') : telBrut);
+    
     const telInput = document.getElementById('inputTelProfil');
-    if(telInput) utilisateur.telephone = telInput.value.trim() || "+22898231402";
+    if(telInput) telInput.value = utilisateur.telephone;
     const selectTon = document.getElementById('inputIaTon');
     if(selectTon) utilisateur.iaTon = selectTon.value;
     
@@ -916,4 +921,25 @@ async function lancerAppelContactDirect(type) {
     } catch(err) {
         statusDiv.innerHTML = `<span style="color:var(--danger);">❌ Erreur d'appel : ${err.message}</span>`;
     }
+}
+
+
+
+// --- GESTION PHOTO DE PROFIL & INDICATIF PAYS ---
+function chargerPhotoProfil(event) {
+    const file = event.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const base64Img = e.target.result;
+        document.getElementById('avatarPreviewImg').src = base64Img;
+        utilisateur.photoAvatar = base64Img;
+        localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
+        alert("✅ Photo de profil enregistrée avec succès !");
+    };
+    reader.readAsDataURL(file);
+}
+
+function mettreAJourIndicatifPays() {
+    // Fonction utilitaire pour ajuster l'indicatif si besoin
 }
