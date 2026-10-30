@@ -1,6 +1,42 @@
 
 let utilisateur = JSON.parse(localStorage.getItem('evat_profil')) || null;
 let iaDejaPresentee = localStorage.getItem('elaws_presentee') === 'true';
+let deferredPrompt = null;
+
+// Enregistrement du Service Worker pour activer la PWA et l'installation
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(err => {});
+    });
+}
+
+// Interception de l'invite d'installation automatique du navigateur
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    const banner = document.getElementById('installBanner');
+    if(banner) banner.style.display = 'flex';
+});
+
+function declencherInstallationApp() {
+    const banner = document.getElementById('installBanner');
+    if (deferredPrompt) {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then((choiceResult) => {
+            if (choiceResult.outcome === 'accepted') {
+                if(banner) banner.style.display = 'none';
+            }
+            deferredPrompt = null;
+        });
+    } else {
+        alert("Pour installer l'application, utilisez le menu de votre navigateur (Chrome / Safari) et sélectionnez 'Ajouter à l'écran d'accueil'.");
+    }
+}
+
+function fermerBanniereInstall() {
+    const banner = document.getElementById('installBanner');
+    if(banner) banner.style.display = 'none';
+}
 
 const socket = io(SERVER_URL);
 
@@ -23,18 +59,13 @@ socket.on('disconnect', () => {
     }
 });
 
-// Écoute de l'alerte sentinelle : lorsqu'un numéro de nos contacts s'inscrit sur le réseau
 socket.on('contact_registered', (data) => {
-    // data contient { nom, telephone, metier }
     if(utilisateur && utilisateur.contacts) {
         const match = utilisateur.contacts.find(c => c.telephone === data.telephone);
         if(match) {
-            // Mettre à jour son métier automatiquement
             match.metier = data.metier;
             localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
             afficherContacts();
-
-            // Afficher la notification sentinelle
             montrerNotification(`🚨 Votre contact ${match.nom} (${data.telephone}) vient de s'inscrire sur le système ! Métier : ${data.metier}`);
         }
     }
@@ -198,7 +229,6 @@ function ajouterNouveauContact() {
     }
 
     if(!utilisateur.contacts) utilisateur.contacts = [];
-    // Vérifier si le contact existe déjà
     const existing = utilisateur.contacts.find(c => c.telephone === tel);
     if(existing) {
         alert("Ce numéro est déjà dans vos contacts !");
@@ -211,7 +241,6 @@ function ajouterNouveauContact() {
     document.getElementById('nouveauNomContact').value = '';
     document.getElementById('nouveauTelContact').value = '';
 
-    // Affichage immédiat et synchronisation
     afficherContacts();
     verifierEtSynchroniserContacts();
     alert("✅ Contact enregistré et affiché !");
@@ -268,7 +297,6 @@ function preparerAppel(tel) {
     document.getElementById('appelCibleNum').value = tel;
 }
 
-// Fonction pour dicter par la voix dans l'Assistant IA
 function basculerEcouteVocaleIA() {
     const statusEl = document.getElementById('micStatusElaws');
     const inputEl = document.getElementById('elawsInput');
@@ -302,7 +330,6 @@ function basculerEcouteVocaleIA() {
     recognition.start();
 }
 
-// Module Assistant IA ELAWS (Réponses directes et sans répétition de présentation)
 function poserQuestionElaws() {
     const input = document.getElementById('elawsInput');
     const question = input.value.trim();
@@ -320,7 +347,6 @@ function poserQuestionElaws() {
 
     setTimeout(() => {
         let reponse = "";
-        
         if(!iaDejaPresentee) {
             reponse = `Bonjour, je m'appelle ELAWS, votre intelligence artificielle. Concernant votre demande "${question}" : Voici l'analyse technique et opérationnelle pour ${utilisateur.nom} (${utilisateur.metier}) : exécution validée et sécurisée.`;
             localStorage.setItem('elaws_presentee', 'true');
@@ -545,7 +571,6 @@ function exporterDonneesCloud() {
     dl.remove();
 }
 
-// Système d'appel direct P2P
 let localStream;
 let peerConnection;
 const servers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };

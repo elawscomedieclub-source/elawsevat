@@ -42,8 +42,20 @@
         </div>
     </div>
 
+    <!-- Bannière d'installation automatique / manuelle -->
+    <div id="installBanner" style="position:fixed; bottom:15px; left:50%; transform:translateX(-50%); z-index:9999; width:90%; max-width:400px; display:none; background:rgba(15,23,42,0.95); color:#fff; padding:12px 16px; border-radius:14px; box-shadow:0 10px 30px rgba(0,0,0,0.6); border:1px solid var(--accent); align-items:center; justify-content:space-between; gap:10px;">
+        <div>
+            <strong style="font-size:12.5px; color:var(--accent); display:block;">📱 Installer EVAT Continuum</strong>
+            <span style="font-size:11px; color:var(--text-secondary);">Ajoutez l'application sur votre écran d'accueil.</span>
+        </div>
+        <div style="display:flex; gap:6px;">
+            <button onclick="declencherInstallationApp()" class="btn-action" style="background:var(--success); color:#fff; padding:6px 12px; font-size:11px; width:auto;">Installer</button>
+            <button onclick="fermerBanniereInstall()" style="background:transparent; border:1px solid var(--border-color); color:var(--text-secondary); padding:6px 8px; font-size:11px; border-radius:8px; cursor:pointer;">✕</button>
+        </div>
+    </div>
+
     <!-- Notification d'inscription de contact -->
-    <div id="notificationBanner" style="position:fixed; top:12px; left:50%; transform:translateX(-50%); z-index:9999; width:90%; max-width:400px; display:none; background:rgba(16,185,129,0.95); color:#fff; padding:12px; border-radius:12px; box-shadow:0 8px 25px rgba(0,0,0,0.5); border:1px solid #34d399; animation: slideDown 0.3s ease;">
+    <div id="notificationBanner" style="position:fixed; top:12px; left:50%; transform:translateX(-50%); z-index:9999; width:90%; max-width:400px; display:none; background:rgba(16,185,129,0.95); color:#fff; padding:12px; border-radius:12px; box-shadow:0 8px 25px rgba(0,0,0,0.5); border:1px solid #34d399;">
         <div style="display:flex; justify-content:space-between; align-items:center;">
             <div>
                 <strong style="font-size:13px; display:block;">🚨 Alerte Sentinelle Continuum</strong>
@@ -185,7 +197,7 @@
                 </div>
             </section>
 
-            <!-- MODULE CONTACTS & ANNUAIRE (Correction de l'affichage immédiat) -->
+            <!-- MODULE CONTACTS & ANNUAIRE -->
             <section id="tab-contacts" class="tab-content" style="display:none;">
                 <div class="card continuum-card">
                     <h2>📇 Annuaire & Contacts</h2>
