@@ -3,14 +3,12 @@ let utilisateur = JSON.parse(localStorage.getItem('evat_profil')) || null;
 let iaDejaPresentee = localStorage.getItem('elaws_presentee') === 'true';
 let deferredPrompt = null;
 
-// Enregistrement du Service Worker pour activer la PWA et l'installation
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('sw.js').catch(err => {});
     });
 }
 
-// Interception de l'invite d'installation automatique du navigateur
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
@@ -36,6 +34,21 @@ function declencherInstallationApp() {
 function fermerBanniereInstall() {
     const banner = document.getElementById('installBanner');
     if(banner) banner.style.display = 'none';
+}
+
+function mettreAJourIndicatif() {
+    const select = document.getElementById('selectPays');
+    const telInput = document.getElementById('inputTelProfil');
+    if(!select || !telInput) return;
+    const prefix = select.value;
+    let currentVal = telInput.value.trim();
+    // Nettoyer les anciens indicatifs courants
+    ['+228', '+233', '+225', '+33', '+1'].forEach(p => {
+        if(currentVal.startsWith(p)) {
+            currentVal = currentVal.substring(p.length);
+        }
+    });
+    telInput.value = prefix + currentVal;
 }
 
 const socket = io(SERVER_URL);
@@ -170,6 +183,7 @@ function appliquerInfosProfil() {
     if(document.getElementById('sidebarUserRole')) document.getElementById('sidebarUserRole').innerText = utilisateur.metier;
     if(document.getElementById('dashUserName')) document.getElementById('dashUserName').innerText = utilisateur.nom.toUpperCase();
     if(document.getElementById('dashUserMetier')) document.getElementById('dashUserMetier').innerText = utilisateur.metier;
+    if(document.getElementById('voipStatusDisplay')) document.getElementById('voipStatusDisplay').innerText = "ID : " + utilisateur.telephone;
     
     verifierEtSynchroniserContacts();
     afficherContacts();
@@ -224,7 +238,7 @@ function ajouterNouveauContact() {
     const tel = document.getElementById('nouveauTelContact').value.trim();
 
     if(!nom || !tel) {
-        alert("Veuillez indiquer le nom et le numéro du contact.");
+        alert("Veuillez indiquer le nom et le numéro avec indicatif du contact (ex: +228...).");
         return;
     }
 
@@ -250,7 +264,7 @@ function modifierContact(index) {
     const c = utilisateur.contacts[index];
     const nouveauNom = prompt("Modifier le nom du contact :", c.nom);
     if(nouveauNom === null) return;
-    const nouveauTel = prompt("Modifier le numéro de téléphone :", c.telephone);
+    const nouveauTel = prompt("Modifier le numéro de téléphone (avec indicatif) :", c.telephone);
     if(nouveauTel === null) return;
 
     if(!nouveauNom.trim() || !nouveauTel.trim()) {
@@ -571,9 +585,49 @@ function exporterDonneesCloud() {
     dl.remove();
 }
 
-let localStream;
-let peerConnection;
-const servers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+// ---------------------------------------------------------------------------
+// CORRECTION ROBUSTE DES APPELS P2P (WebRTC avec sonnerie Web Audio API et logs)
+// ---------------------------------------------------------------------------
+let localStream = null;
+let peerConnection = null;
+let audioRingContext = null;
+let ringInterval = null;
+const servers = { 
+    iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+    ] 
+};
+
+function jouerSonSonnerie() {
+    try {
+        audioRingContext = new (window.AudioContext || window.webkitAudioContext)();
+        ringInterval = setInterval(() => {
+            if(!audioRingContext) return;
+            const osc = audioRingContext.createOscillator();
+            const gain = audioRingContext.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(440, audioRingContext.currentTime); // Note La
+            gain.gain.setValueAtTime(0.1, audioRingContext.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioRingContext.currentTime + 1.0);
+            osc.connect(gain);
+            gain.connect(audioRingContext.destination);
+            osc.start();
+            osc.stop(audioRingContext.currentTime + 1.0);
+        }, 2000);
+    } catch(e) {}
+}
+
+function arreterSonSonnerie() {
+    if(ringInterval) {
+        clearInterval(ringInterval);
+        ringInterval = null;
+    }
+    if(audioRingContext) {
+        audioRingContext.close().catch(() => {});
+        audioRingContext = null;
+    }
+}
 
 async function lancerAppelDirectPeer(type) {
     const cibleTel = document.getElementById('appelCibleNum').value.trim();
@@ -581,39 +635,64 @@ async function lancerAppelDirectPeer(type) {
     const container = document.getElementById('callContainer');
 
     if(!cibleTel) {
-        alert("Veuillez entrer ou sélectionner le numéro du contact à appeler.");
+        alert("Veuillez entrer ou sélectionner le numéro complet du contact à appeler (ex: +228...).");
+        return;
+    }
+
+    if(cibleTel === utilisateur.telephone) {
+        alert("Vous ne pouvez pas vous appeler vous-même !");
         return;
     }
 
     try {
-        if(logEl) logEl.innerText = "Appel en cours vers " + cibleTel + " (sonnerie)...";
+        if(logEl) logEl.innerText = "🔄 Initialisation micro/caméra pour appel vers " + cibleTel + "...";
         container.style.display = 'block';
 
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: type === 'video' });
+        
         peerConnection = new RTCPeerConnection(servers);
-        localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+        
+        localStream.getTracks().forEach(track => {
+            peerConnection.addTrack(track, localStream);
+        });
 
         peerConnection.ontrack = event => {
             if (event.streams && event.streams[0]) {
                 document.getElementById('remoteAudio').srcObject = event.streams[0];
-                document.getElementById('remoteVideo').srcObject = event.streams[0];
+                const remoteVideoEl = document.getElementById('remoteVideo');
+                if(remoteVideoEl) remoteVideoEl.srcObject = event.streams[0];
+                if(logEl) logEl.innerText = "✅ Flux audio/vidéo distant connecté !";
+                arreterSonSonnerie();
             }
         };
 
         peerConnection.onicecandidate = event => {
             if (event.candidate) {
-                socket.emit('p2p_signal', { target: cibleTel, sender: utilisateur.telephone, type: 'ice_candidate', candidate: event.candidate });
+                socket.emit('p2p_signal', { 
+                    target: cibleTel, 
+                    sender: utilisateur.telephone, 
+                    type: 'ice_candidate', 
+                    candidate: event.candidate 
+                });
             }
         };
 
         const offer = await peerConnection.createOffer();
         await peerConnection.setLocalDescription(offer);
-        socket.emit('p2p_signal', { target: cibleTel, sender: utilisateur.telephone, type: 'offer', offer: offer });
-        if(logEl) logEl.innerText = "📞 Sonnerie active chez " + cibleTel + "...";
+        
+        socket.emit('p2p_signal', { 
+            target: cibleTel, 
+            sender: utilisateur.telephone, 
+            type: 'offer', 
+            offer: offer 
+        });
+
+        jouerSonSonnerie();
+        if(logEl) logEl.innerText = "📞 Sonnerie active... En attente de réponse de " + cibleTel + "...";
 
     } catch (error) {
-        if(logEl) logEl.innerText = "Erreur d'accès au micro/caméra ou réseau.";
-        alert("Impossible d'initialiser l'appel direct.");
+        if(logEl) logEl.innerText = "❌ Erreur d'accès au micro/caméra ou réseau P2P.";
+        alert("Impossible d'initialiser l'appel direct. Vérifiez les permissions de votre navigateur.");
     }
 }
 
@@ -626,49 +705,86 @@ socket.on('p2p_signal', async (data) => {
         peerConnection.ontrack = event => {
             if (event.streams && event.streams[0]) {
                 document.getElementById('remoteAudio').srcObject = event.streams[0];
-                document.getElementById('remoteVideo').srcObject = event.streams[0];
+                const remoteVideoEl = document.getElementById('remoteVideo');
+                if(remoteVideoEl) remoteVideoEl.srcObject = event.streams[0];
+                if(logEl) logEl.innerText = "✅ Flux audio/vidéo distant connecté !";
+                arreterSonSonnerie();
             }
         };
         peerConnection.onicecandidate = event => {
             if (event.candidate) {
-                socket.emit('p2p_signal', { target: data.sender, sender: utilisateur.telephone, type: 'ice_candidate', candidate: event.candidate });
+                socket.emit('p2p_signal', { 
+                    target: data.sender, 
+                    sender: utilisateur.telephone, 
+                    type: 'ice_candidate', 
+                    candidate: event.candidate 
+                });
             }
         };
     }
 
     if (data.type === 'offer') {
+        jouerSonSonnerie();
         if(confirm(`📞 Appel entrant de ${data.sender}. Voulez-vous décrocher ?`)) {
+            arreterSonSonnerie();
             container.style.display = 'block';
-            if(logEl) logEl.innerText = "📞 Appel connecté avec " + data.sender;
+            if(logEl) logEl.innerText = "📞 Connexion en cours avec " + data.sender + "...";
             
-            localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+                localStream.getTracks().forEach(track => {
+                    peerConnection.addTrack(track, localStream);
+                });
 
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-            const answer = await peerConnection.createAnswer();
-            await peerConnection.setLocalDescription(answer);
-            socket.emit('p2p_signal', { target: data.sender, sender: utilisateur.telephone, type: 'answer', answer: answer });
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                
+                socket.emit('p2p_signal', { 
+                    target: data.sender, 
+                    sender: utilisateur.telephone, 
+                    type: 'answer', 
+                    answer: answer 
+                });
+                if(logEl) logEl.innerText = "✅ Appel établi avec " + data.sender;
+            } catch(err) {
+                if(logEl) logEl.innerText = "❌ Erreur lors de l'acceptation de l'appel.";
+            }
+        } else {
+            arreterSonSonnerie();
+            socket.emit('p2p_signal', { target: data.sender, sender: utilisateur.telephone, type: 'reject' });
         }
     } else if (data.type === 'answer') {
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-        if(logEl) logEl.innerText = "✅ Appel établi !";
+        try {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+            arreterSonSonnerie();
+            if(logEl) logEl.innerText = "✅ Appel décroché ! Communication active.";
+        } catch(e) {}
     } else if (data.type === 'ice_candidate' && data.candidate) {
         try {
             await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
         } catch(e) {}
+    } else if (data.type === 'reject') {
+        arreterSonSonnerie();
+        if(logEl) logEl.innerText = "❌ Appel rejeté par le correspondant.";
+        raccrocherAppel();
     }
 });
 
 function raccrocherAppel() {
+    arreterSonSonnerie();
     if(peerConnection) {
         peerConnection.close();
         peerConnection = null;
     }
     if(localStream) {
         localStream.getTracks().forEach(track => track.stop());
+        localStream = null;
     }
-    document.getElementById('callContainer').style.display = 'none';
-    document.getElementById('callStatusLog').innerText = "Appel terminé.";
+    const container = document.getElementById('callContainer');
+    if(container) container.style.display = 'none';
+    const logEl = document.getElementById('callStatusLog');
+    if(logEl) logEl.innerText = "Appel terminé. Système prêt.";
 }
 
 document.addEventListener('DOMContentLoaded', () => {
