@@ -329,9 +329,9 @@ function actualiserListeContacts() {
     }
     let html = '';
     utilisateur.contacts.forEach((c, index) => {
-        html += `<div style="background:var(--bg-color); border:1px solid var(--border-color); padding:8px 10px; border-radius:8px; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
-            <div><strong style="color:var(--text-color); font-size:12.5px;">👤 ${c.nom}</strong><p style="color:var(--accent); font-size:11px; margin:2px 0;">📞 ${c.tel}</p></div>
-            <button onclick="supprimerContact(${index})" style="background:none; border:none; color:var(--danger); cursor:pointer;">🗑️</button>
+        html += `<div onclick="ouvrirChatContact(${index})" style="background:var(--bg-color); border:1px solid var(--border-color); padding:10px; border-radius:8px; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; transition:all 0.2s;" title="Cliquer pour ouvrir la discussion et les appels">
+            <div><strong style="color:var(--text-color); font-size:12.5px;">👤 ${c.nom}</strong><p style="color:var(--accent); font-size:11px; margin:2px 0;">📞 ${c.tel} • <span style="color:var(--success);">💬 Cliquer pour chatter & appeler</span></p></div>
+            <button onclick="event.stopPropagation(); supprimerContact(${index})" style="background:none; border:none; color:var(--danger); cursor:pointer; padding:6px;">🗑️</button>
         </div>`;
     });
     container.innerHTML = html;
@@ -818,5 +818,102 @@ function arreterSonnerieAppel() {
     if (intervalSonnerie) {
         clearInterval(intervalSonnerie);
         intervalSonnerie = null;
+    }
+}
+
+
+
+// --- GESTION DES CONTACTS ET CHAT DIRECT AVEC APPELS ---
+let contactActifCourant = null;
+
+function ouvrirChatContact(index) {
+    if(!utilisateur.contacts || !utilisateur.contacts[index]) return;
+    contactActifCourant = utilisateur.contacts[index];
+    
+    document.getElementById('chatContactNomTitre').innerText = "👤 " + contactActifCourant.nom;
+    document.getElementById('chatContactTelSousTitre').innerText = "📞 " + contactActifCourant.tel;
+    document.getElementById('modalChatContact').style.display = 'flex';
+    
+    actualiserMessagesContactDirect();
+}
+
+function fermerChatContactDirect() {
+    document.getElementById('modalChatContact').style.display = 'none';
+    const vidContainer = document.getElementById('videoCallContainerContact');
+    if(vidContainer) vidContainer.style.display = 'none';
+    raccrocherAppelInternet();
+}
+
+function envoyerMessageContactDirect() {
+    const input = document.getElementById('inputMessageContactDirect');
+    const txt = input.value.trim();
+    if(!txt || !contactActifCourant) return;
+    
+    if(!contactActifCourant.messages) contactActifCourant.messages = [];
+    const heure = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    
+    contactActifCourant.messages.push({
+        expediteur: utilisateur.nom || "Moi",
+        texte: txt,
+        heure: heure
+    });
+    
+    localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
+    input.value = '';
+    actualiserMessagesContactDirect();
+    ajouterQubits(5, "Message envoyé au contact");
+}
+
+function actualiserMessagesContactDirect() {
+    const container = document.getElementById('listeMessagesContactDirect');
+    if(!container || !contactActifCourant) return;
+    
+    if(!contactActifCourant.messages || contactActifCourant.messages.length === 0) {
+        container.innerHTML = `<p style="color:var(--text-secondary); font-size:12px; text-align:center; margin-top:20px;">Aucun message avec ${contactActifCourant.nom}. Commencez la discussion !</p>`;
+        return;
+    }
+    
+    let html = '';
+    contactActifCourant.messages.forEach(m => {
+        const estMoi = m.expediteur === (utilisateur.nom || "Moi");
+        html += `<div style="background:var(--bg-color); border:1px solid ${estMoi ? 'var(--accent)' : 'var(--border-color)'}; padding:6px 10px; border-radius:8px;">
+            <div style="display:flex; justify-content:space-between; font-size:10.5px; color:var(--text-secondary); margin-bottom:2px;">
+                <span>${m.expediteur}</span>
+                <span>${m.heure}</span>
+            </div>
+            <p style="color:var(--text-color); font-size:12px; margin:0;">${m.texte}</p>
+        </div>`;
+    });
+    container.innerHTML = html;
+    container.scrollTop = container.scrollHeight;
+}
+
+async function lancerAppelContactDirect(type) {
+    if(!contactActifCourant) return;
+    const statusDiv = document.getElementById('chatContactTelSousTitre');
+    const videoContainer = document.getElementById('videoCallContainerContact');
+    const localVideo = document.getElementById('localVideoElementContact');
+    
+    try {
+        statusDiv.innerHTML = `<span style="color:var(--accent);">🔄 Appel ${type.toUpperCase()} vers ${contactActifCourant.nom} (${contactActifCourant.tel})...</span>`;
+        
+        const constraints = {
+            audio: true,
+            video: type === 'video' ? { width: { ideal: 640 }, height: { ideal: 480 } } : false
+        };
+
+        localStream = await navigator.mediaDevices.getUserMedia(constraints);
+        jouerSonnerieAppel();
+        appelEnCours = true;
+        
+        if(type === 'video' && localVideo) {
+            localVideo.srcObject = localStream;
+            videoContainer.style.display = 'block';
+        }
+        
+        statusDiv.innerHTML = `<span style="color:var(--success); font-weight:700;">🟢 Appel ${type.toUpperCase()} en cours avec ${contactActifCourant.nom}</span>`;
+        ajouterQubits(40, `Appel ${type} direct avec contact`);
+    } catch(err) {
+        statusDiv.innerHTML = `<span style="color:var(--danger);">❌ Erreur d'appel : ${err.message}</span>`;
     }
 }
