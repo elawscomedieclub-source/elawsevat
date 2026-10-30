@@ -9,6 +9,40 @@
     <link rel="icon" href="logo_evat.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="logo_evat.svg">
     <meta name="theme-color" content="#030712">
+
+<style>
+/* Correction critique pour l'affichage mobile du menu latéral */
+.sidebar {
+    position: fixed;
+    top: 0;
+    left: -280px;
+    width: 260px;
+    height: 100vh;
+    background: var(--card-bg);
+    border-right: 1px solid var(--border-color);
+    transition: left 0.3s ease;
+    z-index: 9999;
+    padding: 20px;
+    box-sizing: border-box;
+    overflow-y: auto;
+}
+.sidebar.open {
+    left: 0;
+}
+.app-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0,0,0,0.6);
+    display: none;
+    z-index: 9988;
+}
+.app-overlay.active {
+    display: block;
+}
+</style>
 </head>
 <body>
     <div id="welcomeModal" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(3,7,18,0.92); z-index:9000; display:none; align-items:center; justify-content:center; padding:16px; backdrop-filter:blur(8px);">

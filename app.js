@@ -551,29 +551,33 @@ function ajouterBulleElaws(txt, exp) {
     chat.scrollTop = chat.scrollHeight;
 }
 
+
 function sauvegarderProfilBase() {
-    utilisateur.nom = document.getElementById('inputNom').value.trim() || "Utilisateur";
-    utilisateur.metier = document.getElementById('inputMetierProfil').value.trim() || "Polyvalent";
-    
-    const indicatif = document.getElementById('selectPaysIndicatif').value;
-    const telBrut = document.getElementById('inputTelProfil').value.trim().replace(/^\+/, '');
-    utilisateur.telephone = indicatif + (telBrut.startsWith(indicatif.replace('+', '')) ? telBrut.replace(indicatif.replace('+', ''), '') : telBrut);
-    
-    const telInput = document.getElementById('inputTelProfil');
-    if(telInput) telInput.value = utilisateur.telephone;
+    const nomInput = document.getElementById('inputNom').value.trim();
+    const metierInput = document.getElementById('inputMetierProfil').value.trim();
+    const telInput = document.getElementById('inputTelProfil').value.trim();
+    const indicatif = document.getElementById('selectPaysIndicatif') ? document.getElementById('selectPaysIndicatif').value : "+228";
     const selectTon = document.getElementById('inputIaTon');
+
+    if(nomInput) utilisateur.nom = nomInput;
+    if(metierInput) utilisateur.metier = metierInput;
+    if(telInput) {
+        const telBrut = telInput.replace(/^\+/, '');
+        utilisateur.telephone = indicatif + (telBrut.startsWith(indicatif.replace('+', '')) ? telBrut.replace(indicatif.replace('+', ''), '') : telBrut);
+    }
     if(selectTon) utilisateur.iaTon = selectTon.value;
-    
+
     const qProfil = utilisateur.quetes.find(q => q.id === 1);
     if(qProfil) qProfil.fait = true;
-    
+
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
     actualiserDashboard();
-    
+
     const modal = document.getElementById('welcomeModal');
     if(modal) modal.style.display = 'none';
-    alert("Profil, numéro VoIP et intelligence ELAWS mis à jour !");
+    alert("✅ Profil de " + utilisateur.nom + " enregistré avec succès !");
 }
+
 
 function verifierPremierLancement() {
     const modal = document.getElementById('welcomeModal');
