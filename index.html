@@ -129,34 +129,16 @@
 
             <section id="tab-elaws-ia" class="tab-content" style="display:none;">
                 <div class="card">
-                    <h2>🤖 ELAWS <span id="elawsModeLabel" style="font-size:12px;font-weight:600;color:var(--text-secondary);">🤖 Général</span></h2>
-                    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">
-                        <button type="button" data-mode="general" class="elaws-mode-btn btn-action active" onclick="setElawsMode('general')" style="width:auto;padding:7px 10px;font-size:11px;">🤖 Général</button>
-                        <button type="button" data-mode="briefing" class="elaws-mode-btn btn-action" onclick="setElawsMode('briefing')" style="width:auto;padding:7px 10px;font-size:11px;">🌅 Briefing</button>
-                        <button type="button" data-mode="redaction" class="elaws-mode-btn btn-action" onclick="setElawsMode('redaction')" style="width:auto;padding:7px 10px;font-size:11px;">✍️ Rédaction</button>
-                        <button type="button" data-mode="terrain" class="elaws-mode-btn btn-action" onclick="setElawsMode('terrain')" style="width:auto;padding:7px 10px;font-size:11px;">📍 Terrain</button>
-                        <button type="button" data-mode="negociation" class="elaws-mode-btn btn-action" onclick="setElawsMode('negociation')" style="width:auto;padding:7px 10px;font-size:11px;">🤝 Négociation</button>
-                        <button type="button" data-mode="traduction" class="elaws-mode-btn btn-action" onclick="setElawsMode('traduction')" style="width:auto;padding:7px 10px;font-size:11px;">🌐 Traduction</button>
-                    </div>
-                    <div id="elawsTradPanel" style="display:none;margin-bottom:12px;padding:12px;border:1px solid var(--border-color);border-radius:12px;background:rgba(59,130,246,0.06);">
-                        <div style="font-size:12px;color:var(--accent);font-weight:600;margin-bottom:8px;">🌐 Traduction phrase par phrase</div>
-                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-                            <select id="tradLangSource" class="input" style="margin:0;flex:1;min-width:120px;"></select>
-                            <button type="button" onclick="inverserLanguesTrad()" class="btn-action" style="width:auto;padding:8px 10px;font-size:14px;background:rgba(59,130,246,0.2);color:var(--accent);border:1px solid var(--accent);">⇄</button>
-                            <select id="tradLangCible" class="input" style="margin:0;flex:1;min-width:120px;"></select>
-                        </div>
-                        <p style="font-size:11px;color:var(--text-secondary);margin:8px 0 0 0;">1) Choisis les langues · 2) 🎙️ Écouter (ou tape) · 3) Traduction + lecture dans l'écouteur. Les dialectes dépendent du support micro de ton téléphone.</p>
-                    </div>
+                    <h2>🤖 Assistant IA ELAWS</h2>
                     <div id="elawsChatBox" style="background:var(--bg-color); border:1px solid var(--border-color); border-radius:10px; padding:10px; height:220px; overflow-y:auto; margin-bottom:10px; display:flex; flex-direction:column; gap:8px;">
                         <div style="background:rgba(59,130,246,0.1); border:1px solid var(--accent); padding:8px; border-radius:8px;">
-                            <strong style="color:var(--accent); font-size:11.5px;">🤖 ELAWS</strong>
-                            <p style="font-size:12px; margin:3px 0 0 0;">Modes disponibles, dont <b>Traduction</b> : écoute → traduit → lit à voix haute (écouteurs OK).</p>
+                            <strong style="color:var(--accent); font-size:11.5px;">🤖 ELAWS AI :</strong>
+                            <p style="font-size:12px; margin:3px 0 0 0;">Bonjour ! Je suis prêt. Parlez ou écrivez, je réponds instantanément !</p>
                         </div>
                     </div>
                     <div style="display:flex; gap:6px;">
-                        <input type="text" id="elawsInput" class="input" placeholder="Pose ta question…" style="margin-bottom:0; flex:1;" onkeypress="if(event.key==='Enter') poserQuestionElaws()">
-                        <button onclick="basculerEcouteVocaleIA()" class="btn-action" style="width:auto; padding:0 12px; background:rgba(59,130,246,0.2); color:var(--accent); border:1px solid var(--accent);" title="Écouter / dicter">🎙️</button>
-                        <button id="btnSpeakElaws" onclick="basculerVoixElaws()" class="btn-action" style="width:auto; padding:0 12px; background:rgba(16,185,129,0.2); color:var(--success); border:1px solid rgba(16,185,129,0.4);" title="Voix on/off">🔊</button>
+                        <input type="text" id="elawsInput" class="input" placeholder="Posez votre question..." style="margin-bottom:0; flex:1;" onkeypress="if(event.key==='Enter') poserQuestionElaws()">
+                        <button onclick="basculerEcouteVocaleIA()" class="btn-action" style="width:auto; padding:0 12px; background:rgba(59,130,246,0.2); color:var(--accent); border:1px solid var(--accent);">🎙️</button>
                         <button onclick="poserQuestionElaws()" class="btn-action" style="width:auto; padding:0 16px; background:var(--success); color:#fff;">Envoyer</button>
                     </div>
                     <div id="micStatusElaws" style="font-size:11px; color:var(--text-secondary); margin-top:4px; text-align:right;"></div>
@@ -166,15 +148,18 @@
             <section id="tab-contacts" class="tab-content" style="display:none;">
                 <div class="card">
                     <h2>📇 Annuaire & Contacts</h2>
-                    <div style="background:var(--bg-color); padding:10px; border-radius:10px; border:1px solid var(--border-color); margin-bottom:12px;">
-                        <strong style="font-size:12px; color:var(--accent);">➕ Enregistrer un contact</strong>
+                    <p style="font-size:12px;color:var(--text-secondary);margin:-6px 0 12px 0;">Appelle, écris, organise — tous tes contacts EVAT au même endroit.</p>
+                    <input type="search" id="rechercheContact" class="input" placeholder="🔍 Rechercher un nom, numéro, métier…" style="margin-bottom:12px;" oninput="filtrerContactsListe()">
+                    <div style="background:var(--bg-color); padding:12px; border-radius:12px; border:1px solid var(--border-color); margin-bottom:14px;">
+                        <strong style="font-size:12px; color:var(--accent);">➕ Nouveau contact</strong>
                         <div style="display:flex; flex-direction:column; gap:6px; margin-top:8px;">
-                            <input type="text" id="nouveauNomContact" class="input" placeholder="Nom..." style="margin-bottom:0;">
-                            <input type="text" id="nouveauTelContact" class="input" placeholder="Numéro avec indicatif (ex: +228...)" style="margin-bottom:0;">
-                            <button onclick="ajouterNouveauContact()" class="btn-action" style="background:var(--success);">Enregistrer</button>
+                            <input type="text" id="nouveauNomContact" class="input" placeholder="Nom complet" style="margin-bottom:0;">
+                            <input type="tel" id="nouveauTelContact" class="input" placeholder="Numéro avec indicatif (ex: +228…)" style="margin-bottom:0;">
+                            <input type="text" id="nouveauMetierContact" class="input" placeholder="Métier ou note (optionnel)" style="margin-bottom:0;">
+                            <button onclick="ajouterNouveauContact()" class="btn-action" style="background:linear-gradient(135deg,#10b981,#059669);">Enregistrer le contact</button>
                         </div>
                     </div>
-                    <div id="listeContactsContainer" style="display:flex; flex-direction:column; gap:8px;"></div>
+                    <div id="listeContactsContainer" style="display:flex; flex-direction:column; gap:0;"></div>
                 </div>
             </section>
 
