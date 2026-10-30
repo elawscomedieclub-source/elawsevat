@@ -75,10 +75,8 @@ const socket = io(SERVER_URL, {
 socket.on('connect', () => {
     const statusEl = document.getElementById('serverConnectionStatus');
     if(statusEl) {
-        statusEl.innerHTML = '<span class="status-dot"></span> Connecté';
-        statusEl.style.color = '';
-        statusEl.style.background = 'rgba(52, 211, 153, 0.12)';
-        statusEl.style.borderColor = 'rgba(52, 211, 153, 0.3)';
+        statusEl.innerHTML = "🟢 Connecté";
+        statusEl.style.color = "var(--success)";
     }
     if(utilisateur) {
         socket.emit('register_user', { nom: utilisateur.nom, telephone: utilisateur.telephone, metier: utilisateur.metier });
@@ -88,10 +86,8 @@ socket.on('connect', () => {
 socket.on('disconnect', () => {
     const statusEl = document.getElementById('serverConnectionStatus');
     if(statusEl) {
-        statusEl.innerHTML = '<span class="status-dot" style="background:#f87171;box-shadow:0 0 8px #f87171;"></span> Déconnecté';
-        statusEl.style.background = 'rgba(248, 113, 113, 0.12)';
-        statusEl.style.borderColor = 'rgba(248, 113, 113, 0.3)';
-        statusEl.style.color = '#f87171';
+        statusEl.innerHTML = "🔴 Déconnecté";
+        statusEl.style.color = "var(--danger)";
     }
 });
 
@@ -374,178 +370,358 @@ function basculerEcouteVocaleIA() {
     recognition.start();
 }
 
-// ========== ELAWS AI — autonome, réactif, humain ==========
+// ========== ELAWS FORMATION PRATIQUE ÉTENDUE ==========
 let elawsBusy = false;
 let elawsHistory = [];
+let elawsMode = 'chat';
 
-function echapperHtml(str) {
-    const d = document.createElement('div');
-    d.textContent = str;
-    return d.innerHTML;
+const PARCOURS_FORMATION = {
+  commerce: { titre: 'Commerce & Vente', modules: [
+    { id:'c1', titre:'Accueillir le client', duree:'10 min', lecon:'1) Saluez.\n2) Question ouverte sur le besoin.\n3) Reformulez.\n4) Proposez 1–2 options avec prix.\n5) Concluez (paiement + remerciement).\n\nAstuce: un client écouté achète plus facilement.', exercice:'Écris ta phrase d’accueil + 2 questions ouvertes.' },
+    { id:'c2', titre:'Prix et marge', duree:'12 min', lecon:'Prix = coût total + marge.\nCoût = achat + transport + pertes.\nExemple: coût 700, marge 30% → prix ≈ 1000.\nNe vends jamais sous ton coût réel.', exercice:'Calcule le prix de 3 produits avec 25% de marge.' },
+    { id:'c3', titre:'Fidéliser', duree:'10 min', lecon:'Qualité constante, souvenir du client, petit suivi, offre régulier, demande de recommandation.', exercice:'1 geste de fidélisation pour demain.' },
+    { id:'c4', titre:'Gérer les objections', duree:'12 min', lecon:'Écoute → reconnais → réponds par un fait → propose une alternative.\n« C’est cher » → montre la durée / la qualité / une option plus légère.', exercice:'Réponds à « c’est trop cher » pour ton produit principal.' },
+    { id:'c5', titre:'Vente du jour', duree:'8 min', lecon:'Objectif du jour (montant ou nombre de ventes).\nMidi: point intermédiaire.\nSoir: bilan 3 lignes.', exercice:'Fixe ton objectif ventes pour demain.' }
+  ]},
+  agri: { titre: 'Agriculture de terrain', modules: [
+    { id:'a1', titre:'Plan de saison', duree:'15 min', lecon:'Pluies/sèche → 1–2 cultures prioritaires → budget semences/main-d’œuvre → calendrier semis/entretien/récolte → réserve 10–15%.', exercice:'Calendrier des 3 prochains mois.' },
+    { id:'a2', titre:'Coûts et récolte', duree:'10 min', lecon:'Note dépenses chaque semaine. À la récolte: quantité + prix. Bénéfice = ventes − dépenses.', exercice:'Liste 5 dépenses récentes.' },
+    { id:'a3', titre:'Stockage et perte', duree:'10 min', lecon:'Séchage, propreté, protection humidité/rongeurs. Une bonne conservation = revenu sauvé.', exercice:'Où et comment stockes-tu aujourd’hui ? 1 amélioration.' },
+    { id:'a4', titre:'Vendre la récolte', duree:'12 min', lecon:'Connais 3 prix de marché. Évite de tout vendre le même jour au plus bas. Négocie volume + qualité.', exercice:'Note 3 prix observés cette semaine.' }
+  ]},
+  artisan: { titre: 'Artisanat & BTP', modules: [
+    { id:'ar1', titre:'Devis en 5 lignes', duree:'12 min', lecon:'Description, main-d’œuvre, matériaux, total + délai, acompte/reste.', exercice:'Mini-devis pour un job typique.' },
+    { id:'ar2', titre:'Chantier organisé', duree:'10 min', lecon:'Avant: matériaux, outils, accord. Pendant: étapes + notes. Après: contrôle client + paiement.', exercice:'Checklist avant démarrage.' },
+    { id:'ar3', titre:'Sécurité basique', duree:'8 min', lecon:'EPI adaptés, zone rangée, couper le courant si besoin, ne jamais précipiter une fin de journée risquée.', exercice:'3 risques sur ton prochain chantier + parade.' },
+    { id:'ar4', titre:'Client difficile', duree:'10 min', lecon:'Écrit (devis signé), photos avant/après, acomptes, rester calme, proposer options pas des excuses.', exercice:'Phrase type pour demander un acompte.' }
+  ]},
+  admin: { titre: 'Administration efficace', modules: [
+    { id:'ad1', titre:'3 priorités du jour', duree:'8 min', lecon:'1 critique, 1 importante, 1 utile. Focus 25 min / pause 5 min.', exercice:'Tes 3 priorités demain.' },
+    { id:'ad2', titre:'Message pro court', duree:'10 min', lecon:'Salut – pourquoi – demande claire – remerciement – signature.', exercice:'Message de 5–7 lignes pour une demande réelle.' },
+    { id:'ad3', titre:'Classer pour retrouver', duree:'10 min', lecon:'Dossiers: En cours / À relancer / Archivé. Nomme fichiers: DATE_sujet.', exercice:'3 dossiers que tu crées cette semaine.' },
+    { id:'ad4', titre:'Réunion utile', duree:'10 min', lecon:'Objectif, durée, décisions, responsables, deadline. Sinon ce n’est pas une réunion.', exercice:'Ordre du jour en 4 lignes.' }
+  ]},
+  tech: { titre: 'Tech pratique', modules: [
+    { id:'t1', titre:'Débugger méthodiquement', duree:'12 min', lecon:'Reproduire → message exact → isolé le changement → 1 hypothèse à la fois → noter la fix.', exercice:'Un bug récent et ta méthode.' },
+    { id:'t2', titre:'Livrer petit', duree:'15 min', lecon:'Objectif user → critères « terminé » → tâches → test → livraison.', exercice:'3 critères de fin pour une feature.' },
+    { id:'t3', titre:'Sauvegarder', duree:'8 min', lecon:'Backup avant changement risqué. Versionne. Documente en 2 lignes.', exercice:'Où est ton dernier backup ?' },
+    { id:'t4', titre:'Expliquer technique simplement', duree:'10 min', lecon:'Problème → impact → solution en langage non technique → prochaine étape.', exercice:'Explique un souci technique à un non-tech.' }
+  ]},
+  entrepreneur: { titre: 'Entrepreneuriat terrain', modules: [
+    { id:'e1', titre:'Offre en une phrase', duree:'10 min', lecon:'J’aide [qui] à [résultat] grâce à [offre].', exercice:'Ta phrase d’offre.' },
+    { id:'e2', titre:'Trésorerie simple', duree:'12 min', lecon:'Entrées, sorties, solde chaque semaine. Réserve 2–4 semaines de charges.', exercice:'Estime entrées/sorties du mois.' },
+    { id:'e3', titre:'Trouver des clients', duree:'12 min', lecon:'Liste 20 contacts. Message clair. Suivi J+3. Compte les réponses, pas les espoirs.', exercice:'5 personnes à contacter cette semaine.' },
+    { id:'e4', titre:'Augmenter le panier', duree:'10 min', lecon:'Produit principal + option complémentaire utile. Jamais forcer: proposer.', exercice:'1 vente additionnelle possible demain.' }
+  ]},
+  education: { titre: 'Transmission', modules: [
+    { id:'ed1', titre:'Séance 30 min', duree:'12 min', lecon:'Objectif – accroche – activité – pratique – feedback.', exercice:'Plan d’une séance 30 min.' },
+    { id:'ed2', titre:'Faire pratiquer', duree:'10 min', lecon:'Moins de monologue, plus d’exercice. Corrige 1 point à la fois.', exercice:'1 exercice pour ton prochain cours.' },
+    { id:'ed3', titre:'Évaluer simplement', duree:'10 min', lecon:'Grille: compréhension, application, participation, autonomie (0–5).', exercice:'Note un apprenant fictif sur 4 critères.' }
+  ]},
+  sante: { titre: 'Organisation soin / bien-être', modules: [
+    { id:'s1', titre:'Accueil et écoute', duree:'10 min', lecon:'Accueil calme, écoute active, reformulation, limite de ton rôle (pas de diagnostic hors cadre).', exercice:'Phrase d’accueil professionnelle.' },
+    { id:'s2', titre:'Agenda de journée', duree:'8 min', lecon:'Créneaux, pauses, urgences possibles. Évite le surbook.', exercice:'Découpe ta prochaine journée en créneaux.' },
+    { id:'s3', titre:'Hygiène et matériel', duree:'8 min', lecon:'Checklist ouverture/fermeture, stock mini, expiration.', exercice:'Ta checklist d’ouverture.' }
+  ]},
+  transport: { titre: 'Transport & livraison', modules: [
+    { id:'tr1', titre:'Feuille de route', duree:'10 min', lecon:'Ordre des arrêts, contacts, carburant, imprévus 15%.', exercice:'Route type pour demain.' },
+    { id:'tr2', titre:'Relation client livraison', duree:'8 min', lecon:'Appel avant arrivée si possible, preuve de remise, politesse = pourboire/fidélité.', exercice:'SMS type « j’arrive dans 15 min ».' },
+    { id:'tr3', titre:'Entretien véhicule', duree:'8 min', lecon:'Niveaux, pneus, freins, carnet de dates. Panne = perte de revenus.', exercice:'Prochain entretien à planifier.' }
+  ]},
+  general: { titre: 'Compétences universelles', modules: [
+    { id:'g1', titre:'Apprendre en faisant', duree:'8 min', lecon:'Observer → essayer → noter → recommencer. 15 min de pratique > 1 h passive.', exercice:'Pratique de 15 min aujourd’hui.' },
+    { id:'g2', titre:'Parler clair', duree:'10 min', lecon:'Qui, quoi, quand, résultat attendu.', exercice:'Réécris un message flou en clair.' },
+    { id:'g3', titre:'Gérer le stress', duree:'8 min', lecon:'Respiration 4-4-4, une tâche à la fois, demander de l’aide tôt.', exercice:'Ta technique anti-stress en 1 ligne.' },
+    { id:'g4', titre:'Épargner un peu', duree:'10 min', lecon:'Règle 10%: mets de côté avant de dépenser si possible. Objectif nommé.', exercice:'Montant et objectif d’épargne du mois.' }
+  ]}
+};
+
+const QUIZ_FORMATION = {
+  c2: { q: 'Si ton coût total est 800 et tu veux 25% de marge sur le prix, prix ≈ ?', options: ['1000', '1050', '800', '1200'], ok: 0 },
+  e1: { q: 'Une bonne offre répond surtout à :', options: ['Ton ego', 'Le résultat pour le client', 'Le logo', 'Le concurrent'], ok: 1 },
+  ad1: { q: 'Combien de priorités max le matin ?', options: ['10', '3', '1 seule jamais', '20'], ok: 1 },
+  g1: { q: 'Le meilleur moyen d’apprendre un geste :', options: ['Lire 3h', 'Pratiquer en cycles courts', 'Attendre d’être parfait', 'Regarder sans faire'], ok: 1 }
+};
+
+function detecterParcoursFormation(metier) {
+  const m = (metier || '').toLowerCase();
+  if (/commerc|vente|vendeur|boutique|magasin|retail/.test(m)) return 'commerce';
+  if (/agri|élev|ferme|culture|pêche/.test(m)) return 'agri';
+  if (/artisan|maçonn|plomb|électric|menuis|btp|mécanicien|chantier/.test(m)) return 'artisan';
+  if (/admin|secrét|comptable|bureau|rh|assistant/.test(m)) return 'admin';
+  if (/dev|info|tech|program|software|réseau|data|ingénieur/.test(m)) return 'tech';
+  if (/entrepr|business|startup|freelance|commerçant/.test(m)) return 'entrepreneur';
+  if (/enseign|prof|formateur|éduc|coach|tuteur/.test(m)) return 'education';
+  if (/santé|médic|infirm|pharmac|soin|thérapie/.test(m)) return 'sante';
+  if (/transport|chauffeur|livreur|logistique|taxi/.test(m)) return 'transport';
+  return 'general';
 }
 
-function reponseLocaleElaws(question, profil) {
-    const prenom = profil?.nom ? profil.nom.split(' ')[0] : '';
-    const q = (question || '').toLowerCase().trim();
-
-    if (/^(bonjour|salut|hello|hi|hey|bonsoir)\b/.test(q))
-        return prenom ? `Salut ${prenom}. Qu'est-ce qui t'amène ?` : `Salut. Qu'est-ce qui t'amène ?`;
-    if (/merci|thanks|thank you/.test(q))
-        return `De rien. Tu as autre chose en tête ?`;
-    if (/qui es[- ]?tu|who are you|c'est quoi elaws/.test(q))
-        return `Je suis ELAWS. On discute, je t'aide à y voir plus clair — questions pratiques, idées, explications. Vas-y.`;
-    if (/aide|help|que peux[- ]?tu|capable/.test(q))
-        return `Pose-moi ce que tu veux : une explication, un conseil, un plan, une idée. Je réponds directement.`;
-    if (/contact|appel|call|téléph/.test(q))
-        return `Les onglets Contacts et Appels VoIP sont là pour ça. Ton identifiant s'affiche dans Appels.`;
-    // Ne jamais répéter la question
-    return `Je n'ai pas le réseau pour le moment. Reformule ou réessaie dans une seconde — je te répondrai clairement.`;
+function getProgressionFormation() {
+  if (!utilisateur) return { termines: [], notes: {}, quiz: {} };
+  if (!utilisateur.formation) utilisateur.formation = { termines: [], notes: {}, quiz: {} };
+  if (!utilisateur.formation.termines) utilisateur.formation.termines = [];
+  if (!utilisateur.formation.notes) utilisateur.formation.notes = {};
+  if (!utilisateur.formation.quiz) utilisateur.formation.quiz = {};
+  return utilisateur.formation;
+}
+function sauvegarderFormation() {
+  if (utilisateur) localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
 }
 
-async function appelerIAMondiale(question, profil) {
-    const prenom = profil?.nom ? profil.nom.split(' ')[0] : 'toi';
-
-    // Prompt strict : réponse humaine, directe, sans répétition
-    const systemPrompt = `Tu es ELAWS, un interlocuteur intelligent intégré dans l'app EVAT Continuum.
-
-RÈGLES STRICTES :
-- Réponds UNIQUEMENT avec ta réponse. Ne répète JAMAIS la question de l'utilisateur.
-- Ne dis jamais « tu as demandé », « concernant ta question », « j'ai bien reçu », « analyse de… ».
-- Parle comme un humain brillant et naturel : clair, direct, utile, un peu chaleureux sans en faire trop.
-- Pas de formules robotiques. Pas de listes inutiles sauf si vraiment pertinent.
-- Réponds dans la langue de l'utilisateur.
-- Sois réactif : va à l'essentiel, développe seulement si la question le demande.
-- Si tu ne sais pas, dis-le simplement et propose une piste.
-- L'utilisateur s'appelle ${prenom}. Ne le salue pas à chaque message sauf s'il te salue.
-
-Tu as une intelligence large (science, business, vie pratique, tech, culture, conseils). Réponds comme quelqu'un de compétent qui écoute vraiment.`;
-
-    const messages = [{ role: 'system', content: systemPrompt }];
-    elawsHistory.slice(-8).forEach(m => messages.push(m));
-    messages.push({ role: 'user', content: question });
-
-    // 1) Pollinations POST
-    try {
-        const ctrl = new AbortController();
-        const t = setTimeout(() => ctrl.abort(), 28000);
-        const res = await fetch('https://text.pollinations.ai/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                messages,
-                model: 'openai',
-                seed: Math.floor(Math.random() * 99999)
-            }),
-            signal: ctrl.signal
-        });
-        clearTimeout(t);
-        if (res.ok) {
-            let text = (await res.text()).trim();
-            text = nettoyerReponseIA(text, question);
-            if (text.length > 3) return text;
-        }
-    } catch (e) { console.warn('AI POST', e); }
-
-    // 2) Pollinations GET
-    try {
-        const prompt = encodeURIComponent(
-            systemPrompt + '\n\nUtilisateur: ' + question + '\nELAWS:'
-        );
-        const ctrl2 = new AbortController();
-        const t2 = setTimeout(() => ctrl2.abort(), 22000);
-        const res2 = await fetch('https://text.pollinations.ai/' + prompt + '?model=openai', { signal: ctrl2.signal });
-        clearTimeout(t2);
-        if (res2.ok) {
-            let text2 = (await res2.text()).trim();
-            text2 = nettoyerReponseIA(text2, question);
-            if (text2.length > 3) return text2;
-        }
-    } catch (e) { console.warn('AI GET', e); }
-
-    // 3) Serveur EVAT
-    try {
-        const res3 = await new Promise((resolve, reject) => {
-            const t = setTimeout(() => reject(new Error('timeout')), 12000);
-            if (typeof socket === 'undefined' || !socket.connected) { clearTimeout(t); reject(new Error('offline')); return; }
-            socket.emit('ai_query', { question, nom: prenom }, (reply) => {
-                clearTimeout(t);
-                resolve(reply);
-            });
-        });
-        if (res3 && res3.reponse) {
-            return nettoyerReponseIA(String(res3.reponse).trim(), question);
-        }
-    } catch (e) { console.warn('AI server', e); }
-
-    return reponseLocaleElaws(question, profil);
+function pratiqueDuJour() {
+  const key = detecterParcoursFormation(utilisateur?.metier);
+  const p = PARCOURS_FORMATION[key] || PARCOURS_FORMATION.general;
+  const prog = getProgressionFormation();
+  const rest = p.modules.filter(m => !prog.termines.includes(m.id));
+  const mod = rest[0] || p.modules[p.modules.length - 1];
+  return mod;
 }
 
-/** Enlève les formulations qui répètent la question ou sonnent robotiques */
+function afficherFormationPratique() {
+  const box = document.getElementById('formationContainer');
+  if (!box || !utilisateur) return;
+  const key = detecterParcoursFormation(utilisateur.metier);
+  const parcours = PARCOURS_FORMATION[key] || PARCOURS_FORMATION.general;
+  const prog = getProgressionFormation();
+  const total = parcours.modules.length;
+  const done = parcours.modules.filter(m => prog.termines.includes(m.id)).length;
+  const pct = total ? Math.round(done / total * 100) : 0;
+  const jour = pratiqueDuJour();
+
+  let html = `<div style="margin-bottom:14px; padding:12px; border-radius:12px; border:1px solid var(--border-color); background:rgba(16,185,129,0.08);">
+    <strong style="color:var(--success);">🎯 Pratique du jour</strong>
+    <div style="font-size:12.5px; margin-top:4px;">${jour.titre} · ${jour.duree}</div>
+    <button onclick="lancerModuleFormation('${key}','${jour.id}')" class="btn-action" style="margin-top:8px; background:linear-gradient(135deg,#10b981,#059669); font-size:12px;">Commencer</button>
+  </div>`;
+
+  html += `<div style="margin-bottom:12px;">
+    <strong style="color:var(--accent);">📚 ${parcours.titre}</strong>
+    <div style="font-size:11px; color:var(--text-secondary);">${utilisateur.metier || 'Activité'} · ${done}/${total} (${pct}%)</div>
+    <div style="height:6px; background:rgba(56,189,248,0.15); border-radius:4px; margin-top:8px;"><div style="height:100%; width:${pct}%; background:linear-gradient(90deg,#0ea5e9,#34d399); border-radius:4px;"></div></div>
+  </div>`;
+
+  // Switch parcours
+  html += `<label style="font-size:11px;">Autre parcours</label>
+  <select id="selectParcoursFormation" class="input" onchange="changerParcoursFormation(this.value)" style="margin-bottom:12px;">
+    ${Object.keys(PARCOURS_FORMATION).map(k => `<option value="${k}" ${k===key?'selected':''}>${PARCOURS_FORMATION[k].titre}</option>`).join('')}
+  </select>`;
+
+  parcours.modules.forEach((mod, i) => {
+    const ok = prog.termines.includes(mod.id);
+    const hasQuiz = !!QUIZ_FORMATION[mod.id];
+    html += `<div style="border:1px solid var(--border-color); border-radius:12px; padding:12px; margin-bottom:8px;">
+      <strong style="font-size:13px;">${ok?'✅ ':(i+1)+'. '}${mod.titre}</strong>
+      <div style="font-size:11px; color:var(--text-secondary);">${mod.duree}</div>
+      <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">
+        <button onclick="lancerModuleFormation('${key}','${mod.id}')" class="btn-action" style="width:auto;padding:7px 10px;font-size:11px;">Leçon</button>
+        <button onclick="demanderCoachElaws('${key}','${mod.id}')" class="btn-action" style="width:auto;padding:7px 10px;font-size:11px;background:rgba(56,189,248,0.15);color:var(--accent);border:1px solid var(--border-color);box-shadow:none;">Coach</button>
+        ${hasQuiz?`<button onclick="lancerQuizFormation('${mod.id}')" class="btn-action" style="width:auto;padding:7px 10px;font-size:11px;background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.4);box-shadow:none;">Quiz</button>`:''}
+        ${!ok?`<button onclick="marquerModuleTermine('${mod.id}')" class="btn-action" style="width:auto;padding:7px 10px;font-size:11px;background:linear-gradient(135deg,#10b981,#059669);">Terminé</button>`:''}
+      </div>
+    </div>`;
+  });
+
+  html += `<div id="formationLeconActive" style="margin-top:12px;"></div>`;
+  if (pct === 100) {
+    html += `<div style="margin-top:12px; padding:12px; border-radius:12px; border:1px solid var(--success); text-align:center;">
+      <strong style="color:var(--success);">🏆 Parcours terminé</strong>
+      <p style="font-size:12px; margin:6px 0 0 0;">Tu as validé ${parcours.titre}. Choisis un autre parcours ou révise avec le coach ELAWS.</p>
+    </div>`;
+  }
+  box.innerHTML = html;
+}
+
+function changerParcoursFormation(key) {
+  // temporary override via session
+  window._parcoursOverride = key;
+  const box = document.getElementById('formationContainer');
+  if (!box || !utilisateur) return;
+  const parcours = PARCOURS_FORMATION[key] || PARCOURS_FORMATION.general;
+  const prog = getProgressionFormation();
+  // re-render with override: monkey patch detect for this view
+  const real = detecterParcoursFormation;
+  // manual render similar - just set metier hint
+  const old = utilisateur.metier;
+  const mapHint = { commerce:'Commerce', agri:'Agriculture', artisan:'Artisan', admin:'Administration', tech:'Informatique', entrepreneur:'Entrepreneur', education:'Formateur', sante:'Santé', transport:'Transport', general:'Général' };
+  utilisateur.metier = mapHint[key] || old;
+  afficherFormationPratique();
+  utilisateur.metier = old;
+  // fix select after re-render
+  setTimeout(() => {
+    const sel = document.getElementById('selectParcoursFormation');
+    if (sel) sel.value = key;
+    // re-bind modules to key - call custom
+    afficherFormationPourCle(key);
+  }, 0);
+}
+
+function afficherFormationPourCle(key) {
+  const box = document.getElementById('formationContainer');
+  if (!box || !utilisateur) return;
+  const parcours = PARCOURS_FORMATION[key] || PARCOURS_FORMATION.general;
+  const prog = getProgressionFormation();
+  const total = parcours.modules.length;
+  const done = parcours.modules.filter(m => prog.termines.includes(m.id)).length;
+  const pct = total ? Math.round(done/total*100) : 0;
+  const jour = parcours.modules.find(m => !prog.termines.includes(m.id)) || parcours.modules[0];
+  let html = `<div style="margin-bottom:14px; padding:12px; border-radius:12px; border:1px solid var(--border-color); background:rgba(16,185,129,0.08);">
+    <strong style="color:var(--success);">🎯 Pratique du jour</strong>
+    <div style="font-size:12.5px; margin-top:4px;">${jour.titre}</div>
+    <button onclick="lancerModuleFormation('${key}','${jour.id}')" class="btn-action" style="margin-top:8px; background:linear-gradient(135deg,#10b981,#059669); font-size:12px;">Commencer</button>
+  </div>
+  <div style="margin-bottom:12px;"><strong style="color:var(--accent);">📚 ${parcours.titre}</strong>
+  <div style="font-size:11px; color:var(--text-secondary);">${done}/${total} (${pct}%)</div>
+  <div style="height:6px; background:rgba(56,189,248,0.15); border-radius:4px; margin-top:8px;"><div style="height:100%; width:${pct}%; background:linear-gradient(90deg,#0ea5e9,#34d399); border-radius:4px;"></div></div></div>
+  <label style="font-size:11px;">Parcours</label>
+  <select id="selectParcoursFormation" class="input" onchange="afficherFormationPourCle(this.value)" style="margin-bottom:12px;">
+    ${Object.keys(PARCOURS_FORMATION).map(k => `<option value="${k}" ${k===key?'selected':''}>${PARCOURS_FORMATION[k].titre}</option>`).join('')}
+  </select>`;
+  parcours.modules.forEach((mod,i) => {
+    const ok = prog.termines.includes(mod.id);
+    const hasQuiz = !!QUIZ_FORMATION[mod.id];
+    html += `<div style="border:1px solid var(--border-color); border-radius:12px; padding:12px; margin-bottom:8px;">
+      <strong>${ok?'✅ ':(i+1)+'. '}${mod.titre}</strong>
+      <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">
+        <button onclick="lancerModuleFormation('${key}','${mod.id}')" class="btn-action" style="width:auto;padding:7px 10px;font-size:11px;">Leçon</button>
+        <button onclick="demanderCoachElaws('${key}','${mod.id}')" class="btn-action" style="width:auto;padding:7px 10px;font-size:11px;background:rgba(56,189,248,0.15);color:var(--accent);border:1px solid var(--border-color);box-shadow:none;">Coach</button>
+        ${hasQuiz?`<button onclick="lancerQuizFormation('${mod.id}')" class="btn-action" style="width:auto;padding:7px 10px;font-size:11px;background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.4);box-shadow:none;">Quiz</button>`:''}
+        ${!ok?`<button onclick="marquerModuleTermine('${mod.id}')" class="btn-action" style="width:auto;padding:7px 10px;font-size:11px;background:linear-gradient(135deg,#10b981,#059669);">Terminé</button>`:''}
+      </div></div>`;
+  });
+  html += `<div id="formationLeconActive" style="margin-top:12px;"></div>`;
+  box.innerHTML = html;
+}
+
+function lancerModuleFormation(parcoursKey, moduleId) {
+  const parcours = PARCOURS_FORMATION[parcoursKey] || PARCOURS_FORMATION.general;
+  const mod = parcours.modules.find(m => m.id === moduleId);
+  if (!mod) return;
+  const zone = document.getElementById('formationLeconActive');
+  if (!zone) return;
+  zone.innerHTML = `<div style="border:1px solid var(--accent); border-radius:12px; padding:14px; background:rgba(56,189,248,0.08);">
+    <strong style="color:var(--accent);">${mod.titre}</strong>
+    <pre style="white-space:pre-wrap; font-family:inherit; font-size:12.5px; line-height:1.5; margin:10px 0;">${mod.lecon}</pre>
+    <button onclick="soumettreExerciceFormation('${parcoursKey}','${moduleId}')" class="btn-action" style="background:linear-gradient(135deg,#10b981,#059669);">✍️ Soumettre l’exercice</button>
+  </div>`;
+  zone.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
+function marquerModuleTermine(moduleId) {
+  const prog = getProgressionFormation();
+  if (!prog.termines.includes(moduleId)) prog.termines.push(moduleId);
+  sauvegarderFormation();
+  afficherFormationPratique();
+}
+
+function soumettreExerciceFormation(parcoursKey, moduleId) {
+  const parcours = PARCOURS_FORMATION[parcoursKey] || PARCOURS_FORMATION.general;
+  const mod = parcours.modules.find(m => m.id === moduleId);
+  if (!mod) return;
+  const reponse = prompt('Exercice :\\n' + mod.exercice);
+  if (reponse === null || !reponse.trim()) return;
+  const prog = getProgressionFormation();
+  prog.notes[moduleId] = reponse.trim();
+  if (!prog.termines.includes(moduleId)) prog.termines.push(moduleId);
+  sauvegarderFormation();
+  elawsMode = 'formation';
+  switchTab('elaws-ia');
+  const input = document.getElementById('elawsInput');
+  if (input) {
+    input.value = `Corrige mon exercice « ${mod.titre} ». Consignes: ${mod.exercice}. Ma réponse: ${reponse.trim()}. Feedback pratique en 4–6 phrases, sans répéter ma réponse en entier.`;
+    poserQuestionElaws();
+  }
+}
+
+function demanderCoachElaws(parcoursKey, moduleId) {
+  const parcours = PARCOURS_FORMATION[parcoursKey] || PARCOURS_FORMATION.general;
+  const mod = parcours.modules.find(m => m.id === moduleId);
+  if (!mod) return;
+  elawsMode = 'formation';
+  switchTab('elaws-ia');
+  const input = document.getElementById('elawsInput');
+  if (input) {
+    input.value = `Formateur pratique. Module « ${mod.titre} ». 5 étapes max + mini-exercice pour mon métier (${utilisateur?.metier||'mon activité'}). Direct, sans blabla.`;
+    poserQuestionElaws();
+  }
+}
+
+function lancerQuizFormation(moduleId) {
+  const quiz = QUIZ_FORMATION[moduleId];
+  if (!quiz) return;
+  const opts = quiz.options.map((o,i) => (i+1)+'. '+o).join('\\n');
+  const choix = prompt(quiz.q + '\\n\\n' + opts + '\\n\\nNuméro ?');
+  const idx = parseInt(choix,10)-1;
+  const prog = getProgressionFormation();
+  if (idx === quiz.ok) {
+    prog.quiz[moduleId] = true;
+    if (!prog.termines.includes(moduleId)) prog.termines.push(moduleId);
+    sauvegarderFormation();
+    alert('Correct ✅');
+  } else {
+    prog.quiz[moduleId] = false;
+    sauvegarderFormation();
+    alert('Pas tout à fait. Revois la leçon puis réessaie.');
+  }
+  afficherFormationPratique();
+}
+
+function echapperHtml(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 function nettoyerReponseIA(texte, question) {
-    if (!texte) return texte;
-    let t = texte.trim();
-
-    // Enlever préfixes du type "ELAWS :" / "Réponse :"
-    t = t.replace(/^(ELAWS\s*(AI)?\s*[:\-–—]\s*)/i, '');
-    t = t.replace(/^(Réponse\s*[:\-–—]\s*)/i, '');
-
-    // Si la réponse commence par une reformulation de la question, tenter de couper
-    const qShort = (question || '').trim().slice(0, 40).toLowerCase();
-    if (qShort.length > 8 && t.toLowerCase().startsWith(qShort)) {
-        const cut = t.indexOf('.', qShort.length);
-        if (cut > 0 && cut < t.length - 10) t = t.slice(cut + 1).trim();
-    }
-
-    // Phrases robotiques fréquentes en début
-    const banStart = [
-        /^j'ai bien (reçu|compris|noté)[^.!]*[.!]?\s*/i,
-        /^concernant (ta|votre|la) question[^.!]*[.!]?\s*/i,
-        /^tu (as|m'as) (demandé|posé)[^.!]*[.!]?\s*/i,
-        /^vous (avez|m'avez) (demandé|posé)[^.!]*[.!]?\s*/i,
-        /^analyse (instantanée|de)[^.!]*[.!]?\s*/i,
-        /^voici (ma|une) réponse[^.!]*[.!]?\s*/i,
-        /^en réponse à[^.!]*[.!]?\s*/i
-    ];
-    for (const re of banStart) t = t.replace(re, '');
-
-    return t.trim() || texte.trim();
+  if (!texte) return texte;
+  let t = texte.trim().replace(/^(ELAWS\\s*(AI)?\\s*[:\\-–—]\\s*)/i,'').replace(/^(Réponse\\s*[:\\-–—]\\s*)/i,'');
+  [/^j'ai bien (reçu|compris|noté)[^.!]*[.!]?\\s*/i, /^concernant (ta|votre|la) question[^.!]*[.!]?\\s*/i, /^tu (as|m'as) (demandé|posé)[^.!]*[.!]?\\s*/i].forEach(re => { t=t.replace(re,''); });
+  return t.trim()||texte.trim();
 }
-
+function reponseLocaleFormation(question, profil) {
+  const q=(question||'').toLowerCase();
+  if (/bonjour|salut|hello/.test(q)) return 'On enchaîne. Que veux-tu apprendre à faire concrètement ?';
+  if (/exercice|corrige|feedback/.test(q)) return 'Vérifie si c’est actionnable demain et mesurable. Si oui, module validé. Sinon, raccourcis en une action claire.';
+  if (/formation|module|apprendre/.test(q)) return 'Ouvre Formation pratique : leçon → exercice → feedback. Ou décris le geste à maîtriser.';
+  return 'Réseau limité. Utilise Formation pratique hors-ligne, ou réessaie pour un coaching détaillé.';
+}
+async function appelerIAMondiale(question, profil) {
+  const prenom = profil?.nom ? profil.nom.split(' ')[0] : 'toi';
+  const metier = profil?.metier || 'activité de terrain';
+  const modeFormation = elawsMode==='formation' || /exercice|corrige|formateur|module|leçon|apprendre|entraîne|coach/i.test(question);
+  const systemPrompt = modeFormation
+    ? `Tu es ELAWS, formateur pratique EVAT. Réponds UNIQUEMENT le contenu utile, sans répéter la question. Méthode + exemple + mini-exercice. 4–8 phrases/étapes. Métier: ${metier}. Prénom: ${prenom}. Feedback exigeant et clair.`
+    : `Tu es ELAWS. Réponds comme un humain compétent et direct. Ne répète jamais la question. Métier: ${metier}. Si on parle d’apprendre, sois formateur pratique.`;
+  const messages = [{role:'system', content:systemPrompt}];
+  elawsHistory.slice(-8).forEach(m=>messages.push(m));
+  messages.push({role:'user', content:question});
+  try {
+    const ctrl=new AbortController(); const t=setTimeout(()=>ctrl.abort(),28000);
+    const res=await fetch('https://text.pollinations.ai/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages,model:'openai',seed:Math.floor(Math.random()*99999)}),signal:ctrl.signal});
+    clearTimeout(t);
+    if(res.ok){ let text=(await res.text()).trim(); text=nettoyerReponseIA(text,question); if(text.length>3) return text; }
+  } catch(e){}
+  try {
+    const prompt=encodeURIComponent(systemPrompt+'\\n\\nUtilisateur: '+question+'\\nELAWS:');
+    const ctrl2=new AbortController(); const t2=setTimeout(()=>ctrl2.abort(),20000);
+    const res2=await fetch('https://text.pollinations.ai/'+prompt+'?model=openai',{signal:ctrl2.signal});
+    clearTimeout(t2);
+    if(res2.ok){ let text2=(await res2.text()).trim(); text2=nettoyerReponseIA(text2,question); if(text2.length>3) return text2; }
+  } catch(e){}
+  return reponseLocaleFormation(question, profil);
+}
 async function poserQuestionElaws() {
-    const input = document.getElementById('elawsInput');
-    const question = (input?.value || '').trim();
-    if (!question || !utilisateur || elawsBusy) return;
-    const chatBox = document.getElementById('elawsChatBox');
-    if (!chatBox) return;
-
-    elawsBusy = true;
-
-    // Message utilisateur (affiché une seule fois, sans être repris par l'IA)
-    chatBox.innerHTML += `<div style="background:rgba(255,255,255,0.05); padding:10px; border-radius:10px; text-align:right;"><strong style="color:var(--success); font-size:12px;">👤 ${echapperHtml(utilisateur.nom)}</strong><p style="margin:4px 0 0 0; font-size:12.5px; line-height:1.4;">${echapperHtml(question)}</p></div>`;
-    input.value = '';
-    chatBox.scrollTop = chatBox.scrollHeight;
-
-    const loadingId = 'elaws-load-' + Date.now();
-    chatBox.innerHTML += `<div id="${loadingId}" style="background:rgba(56,189,248,0.1); border:1px solid var(--border-color); padding:10px; border-radius:10px;"><strong style="color:var(--accent); font-size:12px;">🤖 ELAWS</strong><div class="typing-indicator" style="margin-top:6px;"><span></span><span></span><span></span></div></div>`;
-    chatBox.scrollTop = chatBox.scrollHeight;
-
-    let reponse = '';
-    try {
-        reponse = await appelerIAMondiale(question, utilisateur);
-    } catch (err) {
-        reponse = reponseLocaleElaws(question, utilisateur);
-    }
-
-    elawsHistory.push({ role: 'user', content: question });
-    elawsHistory.push({ role: 'assistant', content: reponse });
-    if (elawsHistory.length > 20) elawsHistory = elawsHistory.slice(-16);
-
-    const html = `<div style="background:rgba(56,189,248,0.1); border:1px solid var(--border-color); padding:10px; border-radius:10px;"><strong style="color:var(--accent); font-size:12px;">🤖 ELAWS</strong><p style="margin:4px 0 0 0; font-size:12.5px; line-height:1.5; white-space:pre-wrap;">${echapperHtml(reponse)}</p></div>`;
-    const loadingEl = document.getElementById(loadingId);
-    if (loadingEl) loadingEl.outerHTML = html;
-    else chatBox.innerHTML += html;
-    chatBox.scrollTop = chatBox.scrollHeight;
-    elawsBusy = false;
+  const input=document.getElementById('elawsInput');
+  const question=(input?.value||'').trim();
+  if(!question||!utilisateur||elawsBusy) return;
+  const chatBox=document.getElementById('elawsChatBox'); if(!chatBox) return;
+  elawsBusy=true;
+  chatBox.innerHTML+=`<div style="background:rgba(255,255,255,0.05);padding:10px;border-radius:10px;text-align:right;"><strong style="color:var(--success);font-size:12px;">👤 ${echapperHtml(utilisateur.nom)}</strong><p style="margin:4px 0 0 0;font-size:12.5px;">${echapperHtml(question)}</p></div>`;
+  input.value=''; chatBox.scrollTop=chatBox.scrollHeight;
+  const loadingId='elaws-load-'+Date.now();
+  chatBox.innerHTML+=`<div id="${loadingId}" style="background:rgba(56,189,248,0.1);border:1px solid var(--border-color);padding:10px;border-radius:10px;"><strong style="color:var(--accent);font-size:12px;">🤖 ELAWS</strong><p style="font-size:12px;margin:6px 0 0;color:var(--text-secondary);">Réflexion…</p></div>`;
+  let reponse='';
+  try { reponse=await appelerIAMondiale(question,utilisateur); } catch(e){ reponse=reponseLocaleFormation(question,utilisateur); }
+  elawsHistory.push({role:'user',content:question}); elawsHistory.push({role:'assistant',content:reponse});
+  if(elawsHistory.length>20) elawsHistory=elawsHistory.slice(-16);
+  const html=`<div style="background:rgba(56,189,248,0.1);border:1px solid var(--border-color);padding:10px;border-radius:10px;"><strong style="color:var(--accent);font-size:12px;">🤖 ELAWS</strong><p style="margin:4px 0 0;font-size:12.5px;line-height:1.5;white-space:pre-wrap;">${echapperHtml(reponse)}</p></div>`;
+  const el=document.getElementById(loadingId); if(el) el.outerHTML=html; else chatBox.innerHTML+=html;
+  chatBox.scrollTop=chatBox.scrollHeight; elawsBusy=false; elawsMode='chat';
 }
 
 function toggleMenu(e) {
@@ -579,6 +755,7 @@ function switchTab(tabId) {
     fermerTousLesMenus();
 
     if(tabId === 'contacts') afficherContacts();
+    if(tabId === 'formation') afficherFormationPratique();
     if(tabId === 'map') {
         setTimeout(() => {
             if(!mapInstance) {
