@@ -1,7 +1,10 @@
 
-let utilisateur = JSON.parse(localStorage.getItem('evat_profil')) || null;
-let iaDejaPresentee = localStorage.getItem('elaws_presentee') === 'true';
+let utilisateur = JSON.parse(localStorage.getItem('evat_medical_profil')) || null;
 let deferredPrompt = null;
+
+let misterEloseInstance = new window.MisterElose({
+    userProfile: utilisateur
+});
 
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
@@ -42,7 +45,7 @@ function declencherInstallationApp() {
             deferredPrompt = null;
         });
     } else {
-        alert("Pour installer l'application, utilisez le menu de votre navigateur (Chrome / Safari) et sélectionnez 'Ajouter à l'écran d'accueil'.");
+        alert("Utilisez le menu du navigateur pour installer l'application.");
     }
 }
 
@@ -58,9 +61,7 @@ function mettreAJourIndicatif() {
     const prefix = select.value;
     let currentVal = telInput.value.trim();
     ['+228', '+233', '+225', '+33', '+1'].forEach(p => {
-        if(currentVal.startsWith(p)) {
-            currentVal = currentVal.substring(p.length);
-        }
+        if(currentVal.startsWith(p)) currentVal = currentVal.substring(p.length);
     });
     telInput.value = prefix + currentVal;
 }
@@ -74,10 +75,7 @@ const socket = io(SERVER_URL, {
 
 socket.on('connect', () => {
     const statusEl = document.getElementById('serverConnectionStatus');
-    if(statusEl) {
-        statusEl.innerHTML = "🟢 Connecté";
-        statusEl.style.color = "var(--success)";
-    }
+    if(statusEl) { statusEl.innerHTML = "🟢 Connecté"; statusEl.style.color = "var(--success)"; }
     if(utilisateur) {
         socket.emit('register_user', { nom: utilisateur.nom, telephone: utilisateur.telephone, metier: utilisateur.metier });
     }
@@ -85,10 +83,7 @@ socket.on('connect', () => {
 
 socket.on('disconnect', () => {
     const statusEl = document.getElementById('serverConnectionStatus');
-    if(statusEl) {
-        statusEl.innerHTML = "🔴 Déconnecté";
-        statusEl.style.color = "var(--danger)";
-    }
+    if(statusEl) { statusEl.innerHTML = "🔴 Déconnecté"; statusEl.style.color = "var(--danger)"; }
 });
 
 socket.on('contact_registered', (data) => {
@@ -96,9 +91,9 @@ socket.on('contact_registered', (data) => {
         const match = utilisateur.contacts.find(c => c.telephone === data.telephone);
         if(match) {
             match.metier = data.metier;
-            localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
+            localStorage.setItem('evat_medical_profil', JSON.stringify(utilisateur));
             afficherContacts();
-            montrerNotification(`🚨 Votre contact ${match.nom} (${data.telephone}) vient de s'inscrire ! Métier : ${data.metier}`);
+            montrerNotification(`🚨 Confrère/Patient ${match.nom} inscrit !`);
         }
     }
 });
@@ -123,100 +118,55 @@ function sauvegarderProfilBase() {
     const tel = document.getElementById('inputTelProfil').value.trim();
     const metier = document.getElementById('inputMetier').value.trim();
     
-    if(!nom || !tel) {
-        alert("Veuillez remplir votre nom et votre numéro.");
-        return;
-    }
+    if(!nom || !tel) { alert("Nom et téléphone obligatoires."); return; }
 
     utilisateur = {
         nom: nom,
         telephone: tel,
-        metier: metier || "Opérateur",
-        qubits: 365,
-        notes: [],
+        metier: metier || "Praticien de Santé",
+        dossiersPatients: [],
         messagesLocaux: [],
         contacts: [
-            { nom: "Directeur Cabinet", telephone: "+22898231401", metier: "Cosmétiques & Management" },
-            { nom: "Support Technique", telephone: "+22898231402", metier: "Ingénierie Continuum" }
+            { nom: "Urgences Médicales", telephone: "+22898231401", metier: "Permanence Clinique" },
+            { nom: "Support Technique", telephone: "+22898231402", metier: "Ingénierie Médicale" }
         ],
-        historiqueElaws: [],
-        parametres: {
-            sonnerieType: 'iphone',
-            customRingtoneBase64: null,
-            vibration: true
-        }
+        parametres: { sonnerieType: 'iphone', customRingtoneBase64: null }
     };
 
-    localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
+    localStorage.setItem('evat_medical_profil', JSON.stringify(utilisateur));
+    misterEloseInstance.updateContext(utilisateur);
+
     const welcomeModal = document.getElementById('welcomeModal');
     if(welcomeModal) welcomeModal.style.display = 'none';
     
     socket.emit('register_user', { nom: utilisateur.nom, telephone: utilisateur.telephone, metier: utilisateur.metier });
     appliquerInfosProfil();
-    verifierEtSynchroniserContacts();
 }
 
 function sauvegarderProfilBaseDesdeProfil() {
     const nom = document.getElementById('inputNomProfil').value.trim();
     const tel = document.getElementById('inputTelProfil2').value.trim();
     const metier = document.getElementById('inputMetierProfil').value.trim();
-    
-    if(!nom || !tel) {
-        alert("Le nom et le téléphone sont obligatoires.");
-        return;
-    }
+    if(!nom || !tel) return;
 
     if(!utilisateur) utilisateur = {};
     utilisateur.nom = nom;
     utilisateur.telephone = tel;
     utilisateur.metier = metier;
 
-    localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
+    localStorage.setItem('evat_medical_profil', JSON.stringify(utilisateur));
+    misterEloseInstance.updateContext(utilisateur);
     socket.emit('register_user', { nom: utilisateur.nom, telephone: utilisateur.telephone, metier: utilisateur.metier });
     appliquerInfosProfil();
-    alert("✅ Profil mis à jour ! Vous pouvez modifier vos réglages ici à tout moment.");
-}
-
-function sauvegarderParametresApp() {
-    if(!utilisateur) return;
-    if(!utilisateur.parametres) utilisateur.parametres = {};
-    
-    const selectSon = document.getElementById('selectSonnerieType');
-    if(selectSon) {
-        utilisateur.parametres.sonnerieType = selectSon.value;
-    }
-    
-    localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
-    alert("⚙️ Paramètres enregistrés !");
-}
-
-function chargerSonneriePerso(event) {
-    const file = event.target.files[0];
-    if(!file) return;
-    if(file.size > 1024 * 1024) {
-        alert("Fichier trop volumineux. Choisissez un fichier MP3 de moins de 1 Mo.");
-        return;
-    }
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        if(!utilisateur.parametres) utilisateur.parametres = {};
-        utilisateur.parametres.customRingtoneBase64 = e.target.result;
-        utilisateur.parametres.sonnerieType = 'custom';
-        localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
-        alert("🎵 Sonnerie MP3 personnelle enregistrée !");
-    };
-    reader.readAsDataURL(file);
+    alert("✅ Profil médical mis à jour !");
 }
 
 function deconnecterUtilisateur() {
-    if(confirm("Voulez-vous vraiment réinitialiser et refaire l'enregistrement ?")) {
-        localStorage.removeItem('evat_profil');
-        localStorage.removeItem('elaws_presentee');
-        iaDejaPresentee = false;
+    if(confirm("Réinitialiser le profil médical ?")) {
+        localStorage.removeItem('evat_medical_profil');
         utilisateur = null;
         fermerTousLesMenus();
-        const welcomeModal = document.getElementById('welcomeModal');
-        if(welcomeModal) welcomeModal.style.display = 'flex';
+        document.getElementById('welcomeModal').style.display = 'flex';
     }
 }
 
@@ -224,14 +174,10 @@ function appliquerInfosProfil() {
     if(!utilisateur) return;
     if(!utilisateur.contacts) {
         utilisateur.contacts = [
-            { nom: "Directeur Cabinet", telephone: "+22898231401", metier: "Cosmétiques & Management" },
-            { nom: "Support Technique", telephone: "+22898231402", metier: "Ingénierie Continuum" }
+            { nom: "Urgences Médicales", telephone: "+22898231401", metier: "Permanence Clinique" },
+            { nom: "Support Technique", telephone: "+22898231402", metier: "Ingénierie Médicale" }
         ];
     }
-    if(!utilisateur.parametres) {
-        utilisateur.parametres = { sonnerieType: 'iphone', customRingtoneBase64: null };
-    }
-
     if(document.getElementById('inputNom')) document.getElementById('inputNom').value = utilisateur.nom;
     if(document.getElementById('inputNomProfil')) document.getElementById('inputNomProfil').value = utilisateur.nom;
     if(document.getElementById('inputTelProfil')) document.getElementById('inputTelProfil').value = utilisateur.telephone;
@@ -245,48 +191,23 @@ function appliquerInfosProfil() {
     if(document.getElementById('dashUserMetier')) document.getElementById('dashUserMetier').innerText = utilisateur.metier;
     if(document.getElementById('voipStatusDisplay')) document.getElementById('voipStatusDisplay').innerText = "ID : " + utilisateur.telephone;
 
-    const selectSon = document.getElementById('selectSonnerieType');
-    if(selectSon && utilisateur.parametres.sonnerieType) {
-        selectSon.value = utilisateur.parametres.sonnerieType;
-    }
-    
-    verifierEtSynchroniserContacts();
     afficherContacts();
-}
-
-function verifierEtSynchroniserContacts() {
-    if(!utilisateur || !utilisateur.contacts) return;
-    socket.emit('query_contacts', utilisateur.contacts.map(c => c.telephone), (reponses) => {
-        if(reponses && Array.isArray(reponses)) {
-            reponses.forEach(info => {
-                const contact = utilisateur.contacts.find(c => c.telephone === info.telephone);
-                if(contact && info.metier) contact.metier = info.metier;
-            });
-            localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
-            afficherContacts();
-        }
-    });
+    afficherDossiersPatients();
 }
 
 function afficherContacts() {
     const container = document.getElementById('listeContactsContainer');
     if(!container || !utilisateur || !utilisateur.contacts) return;
-    if(utilisateur.contacts.length === 0) {
-        container.innerHTML = `<p style="color:var(--text-secondary); font-size:11.5px;">Aucun contact.</p>`;
-        return;
-    }
     let html = '';
     utilisateur.contacts.forEach((c, index) => {
         html += `<div style="background:var(--bg-color); border:1px solid var(--border-color); padding:10px; border-radius:10px; display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
             <div>
-                <strong style="color:var(--accent); font-size:12.5px;">👤 ${c.nom}</strong>
-                <div style="font-size:11px; color:var(--text-secondary);">📞 ${c.telephone} • <i style="color:var(--success);">${c.metier || 'Sync...'}</i></div>
+                <strong style="color:var(--success); font-size:12.5px;">👤 ${c.nom}</strong>
+                <div style="font-size:11px; color:var(--text-secondary);">📞 ${c.telephone} • <i style="color:var(--accent);">${c.metier}</i></div>
             </div>
-            <div style="display:flex; gap:4px; flex-wrap:wrap; justify-content:flex-end;">
-                <button onclick="preparerAppel('${c.telephone}')" class="btn-action" style="background:var(--success); color:#fff; padding:5px 8px; font-size:10.5px;" title="Appeler">📞</button>
-                <button onclick="ecrireAuContact('${c.nom}', '${c.telephone}')" class="btn-action" style="background:var(--accent); color:#030712; padding:5px 8px; font-size:10.5px;" title="Écrire">💬</button>
-                <button onclick="modifierContact(${index})" class="btn-action" style="background:rgba(59,130,246,0.2); color:var(--accent); border:1px solid var(--accent); padding:5px 8px; font-size:10.5px;" title="Modifier">✏️</button>
-                <button onclick="supprimerContact(${index})" class="btn-action" style="background:rgba(239,68,68,0.2); color:#ef4444; border:1px solid #ef4444; padding:5px 8px; font-size:10.5px;" title="Supprimer">🗑️</button>
+            <div style="display:flex; gap:4px;">
+                <button onclick="preparerAppel('${c.telephone}')" class="btn-action" style="background:var(--success); padding:5px 8px; font-size:10.5px;">📞</button>
+                <button onclick="supprimerContact(${index})" class="btn-action" style="background:rgba(239,68,68,0.2); color:#ef4444; padding:5px 8px; font-size:10.5px;">🗑️</button>
             </div>
         </div>`;
     });
@@ -296,54 +217,74 @@ function afficherContacts() {
 function ajouterNouveauContact() {
     const nom = document.getElementById('nouveauNomContact').value.trim();
     const tel = document.getElementById('nouveauTelContact').value.trim();
-    if(!nom || !tel) {
-        alert("Nom et numéro obligatoires.");
-        return;
-    }
+    if(!nom || !tel) return;
     if(!utilisateur.contacts) utilisateur.contacts = [];
-    utilisateur.contacts.push({ nom, telephone: tel, metier: "Recherche..." });
-    localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
+    utilisateur.contacts.push({ nom, telephone: tel, metier: "Patient / Confrère" });
+    localStorage.setItem('evat_medical_profil', JSON.stringify(utilisateur));
     document.getElementById('nouveauNomContact').value = '';
     document.getElementById('nouveauTelContact').value = '';
     afficherContacts();
-    verifierEtSynchroniserContacts();
-    alert("✅ Contact enregistré !");
-}
-
-function modifierContact(index) {
-    const c = utilisateur.contacts[index];
-    const nouveauNom = prompt("Modifier le nom :", c.nom);
-    if(nouveauNom === null) return;
-    const nouveauTel = prompt("Modifier le numéro :", c.telephone);
-    if(nouveauTel === null) return;
-    utilisateur.contacts[index].nom = nouveauNom.trim();
-    utilisateur.contacts[index].telephone = nouveauTel.trim();
-    localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
-    afficherContacts();
-    verifierEtSynchroniserContacts();
+    alert("✅ Contact ajouté !");
 }
 
 function supprimerContact(index) {
     if(confirm("Supprimer ce contact ?")) {
         utilisateur.contacts.splice(index, 1);
-        localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
+        localStorage.setItem('evat_medical_profil', JSON.stringify(utilisateur));
         afficherContacts();
     }
-}
-
-function ecrireAuContact(nom, tel) {
-    const message = prompt(`Message à ${nom} (${tel}) :`);
-    if(!message) return;
-    if(!utilisateur.messagesLocaux) utilisateur.messagesLocaux = [];
-    utilisateur.messagesLocaux.push({ expediteur: utilisateur.nom || "Moi", texte: `À ${nom} : ${message}`, heure: new Date().toLocaleTimeString() });
-    localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
-    switchTab('messagerie');
-    alert("✅ Message enregistré !");
 }
 
 function preparerAppel(tel) {
     switchTab('communications');
     document.getElementById('appelCibleNum').value = tel;
+}
+
+// Gestion des dossiers patients (Module Clinique)
+function ajouterDossierPatient() {
+    const nomP = document.getElementById('patientNom').value.trim();
+    const symptomesP = document.getElementById('patientSymptomes').value.trim();
+    const prescriptionP = document.getElementById('patientPrescription').value.trim();
+    if(!nomP || !symptomesP) { alert("Nom et symptômes obligatoires."); return; }
+    if(!utilisateur.dossiersPatients) utilisateur.dossiersPatients = [];
+    utilisateur.dossiersPatients.unshift({
+        nom: nomP,
+        symptomes: symptomesP,
+        prescription: prescriptionP || "Observation clinique de rigueur",
+        date: new Date().toLocaleString()
+    });
+    localStorage.setItem('evat_medical_profil', JSON.stringify(utilisateur));
+    document.getElementById('patientNom').value = '';
+    document.getElementById('patientSymptomes').value = '';
+    document.getElementById('patientPrescription').value = '';
+    afficherDossiersPatients();
+    alert("✅ Dossier patient enregistré !");
+}
+
+function afficherDossiersPatients() {
+    const container = document.getElementById('listeDossiersContainer');
+    if(!container || !utilisateur || !utilisateur.dossiersPatients) return;
+    let html = '';
+    utilisateur.dossiersPatients.forEach((d, index) => {
+        html += `<div style="background:var(--bg-color); border:1px solid var(--border-color); padding:10px; border-radius:10px; margin-bottom:8px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <strong style="color:var(--success); font-size:13px;">🧑‍⚕️ Patient : ${d.nom}</strong>
+                <span style="font-size:10px; color:var(--text-secondary);">${d.date}</span>
+            </div>
+            <p style="margin:4px 0; font-size:12px; color:var(--text-primary);"><strong>Symptômes :</strong> ${d.symptomes}</p>
+            <p style="margin:4px 0; font-size:12px; color:var(--accent);"><strong>Prescription :</strong> ${d.prescription}</p>
+            <button onclick="supprimerDossier(${index})" class="btn-action" style="background:rgba(239,68,68,0.2); color:#ef4444; padding:3px 8px; font-size:10px; width:auto; margin-top:4px;">Supprimer</button>
+        </div>`;
+    });
+    container.innerHTML = html;
+}
+
+function supprimerDossier(index) {
+    if(confirm("Supprimer ce dossier patient ?")) {
+        utilisateur.dossiersPatients.splice(index, 1);
+        localStorage.setItem('evat_medical_profil', JSON.stringify(utilisateur));
+        afficherDossiersPatients();
+    }
 }
 
 function basculerEcouteVocaleIA() {
@@ -356,52 +297,46 @@ function basculerEcouteVocaleIA() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
     recognition.lang = 'fr-FR';
-    if(statusEl) statusEl.innerText = "🎙️ Écoute...";
+    if(statusEl) statusEl.innerText = "🎙️ Écoute clinique active...";
     
-    recognition.onresult = (event) => {
+    recognition.onresult = async (event) => {
         inputEl.value = event.results[0][0].transcript;
         if(statusEl) statusEl.innerText = "";
-        // Réponse instantanée dès la fin de la parole
-        poserQuestionElaws();
+        await poserQuestionMisterElose();
     };
     recognition.onerror = () => { if(statusEl) statusEl.innerText = ""; };
     recognition.onend = () => { if(statusEl) statusEl.innerText = ""; };
-    
     recognition.start();
 }
 
-// Réponse IA instantanée et intelligente
-function poserQuestionElaws() {
+async function poserQuestionMisterElose() {
     const input = document.getElementById('elawsInput');
     const question = input.value.trim();
     if(!question || !utilisateur) return;
     const chatBox = document.getElementById('elawsChatBox');
     
-    chatBox.innerHTML += `<div style="background:rgba(255,255,255,0.05); padding:8px; border-radius:8px; text-align:right;"><strong style="color:var(--success);">👤 ${utilisateur.nom} :</strong><p style="margin:3px 0 0 0; font-size:12px;">${question}</p></div>`;
+    chatBox.innerHTML += `<div style="background:rgba(255,255,255,0.05); padding:8px; border-radius:8px; text-align:right;"><strong style="color:var(--success);">👤 :</strong><p style="margin:3px 0 0 0; font-size:12px;">${question}</p></div>`;
     input.value = '';
     chatBox.scrollTop = chatBox.scrollHeight;
 
+    const reponse = await misterEloseInstance.processQuery(question);
+
     setTimeout(() => {
-        let reponse = "";
-        const qLower = question.toLowerCase();
-
-        if (qLower.includes('bonjour') || qLower.includes('salut')) {
-            reponse = `Bonjour ${utilisateur.nom} ! En tant qu'expert en ${utilisateur.metier}, je suis à votre service. Que souhaitez-vous analyser ?`;
-        } else if (qLower.includes('merci')) {
-            reponse = `C'est un plaisir, ${utilisateur.nom}. Je veille sur vos systèmes et communications.`;
-        } else if (qLower.includes('contact') || qLower.includes('appel')) {
-            reponse = `Pour vos appels VoIP sécurisés ou vos contacts, rendez-vous dans l'onglet Annuaire ou Appels. Votre ID : ${utilisateur.telephone}.`;
-        } else if (qLower.includes('entreprise') || qLower.includes('business') || qLower.includes('nif') || qLower.includes('statut')) {
-            reponse = `Concernant votre structure à Lomé et la gestion de vos entités avec un NIF, une distinction claire est recommandée. Souhaitez-vous un plan stratégique ?`;
-        } else if (qLower.includes('aide') || qLower.includes('que peux-tu') || qLower.includes('fonction')) {
-            reponse = `Je suis l'assistant ELAWS AI, intégré dans votre écosystème EVAT Continuum. Je gère vos notes, votre stratégie et vos communications chiffrées.`;
-        } else {
-            reponse = `Analyse instantanée de "${question}" validée pour ${utilisateur.nom} (${utilisateur.metier}). Le système applique vos consignes avec succès.`;
-        }
-
-        chatBox.innerHTML += `<div style="background:rgba(59,130,246,0.1); border:1px solid var(--accent); padding:8px; border-radius:8px;"><strong style="color:var(--accent);">🤖 ELAWS AI :</strong><p style="margin:3px 0 0 0; font-size:12px;">${reponse}</p></div>`;
+        chatBox.innerHTML += `<div style="background:rgba(16,185,129,0.1); border:1px solid var(--success); padding:8px; border-radius:8px;"><strong style="color:var(--success);">🤖 [E Medical] :</strong><p style="margin:3px 0 0 0; font-size:12px; white-space: pre-line;">${reponse}</p></div>`;
         chatBox.scrollTop = chatBox.scrollHeight;
-    }, 150);
+    }, 50);
+}
+
+function teleporterDossierIA() {
+    const aiData = misterEloseInstance.exportAICoreState();
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(aiData);
+    const dl = document.createElement('a');
+    dl.setAttribute("href", dataStr);
+    dl.setAttribute("download", "mister_elose_medical_core_E.json");
+    document.body.appendChild(dl);
+    dl.click();
+    dl.remove();
+    alert("🚀 Dossier Core Médical [E] exporté !");
 }
 
 function toggleMenu(e) {
@@ -435,6 +370,7 @@ function switchTab(tabId) {
     fermerTousLesMenus();
 
     if(tabId === 'contacts') afficherContacts();
+    if(tabId === 'dossiers') afficherDossiersPatients();
     if(tabId === 'map') {
         setTimeout(() => {
             if(!mapInstance) {
@@ -478,83 +414,12 @@ socket.on('signal', (data) => {
     }
 });
 
-function envoyerMessageChatLocal() {
-    const input = document.getElementById('chatLocalInput');
-    const texte = input.value.trim();
-    if(!texte || !utilisateur) return;
-    if(!utilisateur.messagesLocaux) utilisateur.messagesLocaux = [];
-    utilisateur.messagesLocaux.push({ expediteur: utilisateur.nom || "Moi", texte, heure: new Date().toLocaleTimeString() });
-    localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
-    input.value = '';
-    afficherMessagesLocaux();
-}
-
-function afficherMessagesLocaux() {
-    const container = document.getElementById('listeMessagesLocaux');
-    if(!container || !utilisateur || !utilisateur.messagesLocaux) return;
-    let html = '';
-    utilisateur.messagesLocaux.forEach(m => {
-        html += `<div style="background:var(--bg-color); border:1px solid var(--border-color); padding:8px; border-radius:8px; margin-bottom:6px;"><div style="font-size:10px; color:var(--accent);">👤 ${m.expediteur} • ${m.heure}</div><p style="margin:3px 0 0 0; font-size:12px;">${m.texte}</p></div>`;
-    });
-    container.innerHTML = html;
-}
-
-function ajouterNoteBlocNotes() {
-    const titre = document.getElementById('noteTitre').value.trim();
-    const contenu = document.getElementById('noteContenu').value.trim();
-    if(!titre || !contenu || !utilisateur) return;
-    if(!utilisateur.notes) utilisateur.notes = [];
-    utilisateur.notes.unshift({ titre, contenu });
-    localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
-    document.getElementById('noteTitre').value = '';
-    document.getElementById('noteContenu').value = '';
-    afficherNotesBlocNotes();
-}
-
-function afficherNotesBlocNotes() {
-    const container = document.getElementById('listeNotesContainer');
-    if(!container || !utilisateur || !utilisateur.notes) return;
-    let html = '';
-    utilisateur.notes.forEach(n => {
-        html += `<div style="background:var(--bg-color); border:1px solid var(--border-color); padding:10px; border-radius:10px; margin-bottom:8px;"><strong style="color:var(--accent);">📌 ${n.titre}</strong><p style="margin:3px 0; font-size:12px;">${n.contenu}</p></div>`;
-    });
-    container.innerHTML = html;
-}
-
-function genererPlanSucces1000() {
-    const obj = document.getElementById('inputObjectif1000').value.trim();
-    const container = document.getElementById('resultatPlan1000');
-    if(!obj) return;
-    container.style.display = 'block';
-    container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:12px; border:1px solid var(--success);"><h4 style="color:var(--success);">🚀 ${obj}</h4><p style="font-size:12px;">Plan en cours d'exécution.</p></div>`;
-}
-
-function lancerAnalyseVoyageAvance() {
-    const dest = document.getElementById('voyageDestination').value.trim();
-    const container = document.getElementById('resultatAssistantVoyage');
-    if(!dest) return;
-    container.style.display = 'block';
-    container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:12px; border:1px solid var(--accent);"><h4 style="color:var(--accent);">✈️ ${dest}</h4><p style="font-size:12px;">Formalités validées.</p></div>`;
-}
-
-function exporterDonneesCloud() {
-    if(!utilisateur) return;
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(utilisateur, null, 2));
-    const dl = document.createElement('a');
-    dl.setAttribute("href", dataStr);
-    dl.setAttribute("download", "evat_backup.json");
-    document.body.appendChild(dl);
-    dl.click();
-    dl.remove();
-}
-
 // VoIP P2P & Sonneries
 let localStream = null;
 let peerConnection = null;
 let audioRingContext = null;
 let ringInterval = null;
 let customAudioRing = null;
-let appelTimeoutTimer = null;
 let incomingTimeout = null;
 let pendingOfferData = null;
 let activeCallType = 'audio';
@@ -568,43 +433,14 @@ const servers = {
 
 function jouerSonSonnerie() {
     try {
-        const type = utilisateur && utilisateur.parametres ? utilisateur.parametres.sonnerieType : 'iphone';
-
-        if (type === 'custom' && utilisateur.parametres.customRingtoneBase64) {
-            if(customAudioRing) return;
-            customAudioRing = new Audio(utilisateur.parametres.customRingtoneBase64);
-            customAudioRing.loop = true;
-            customAudioRing.play().catch(e => {});
-            return;
-        }
-
         if(audioRingContext) return;
         audioRingContext = new (window.AudioContext || window.webkitAudioContext)();
-        
         let notes = [523.25, 659.25, 783.99, 1046.50];
-        let pattern = 1800;
-        let waveType = 'sine';
-
-        if (type === 'motorola') {
-            notes = [600, 750, 900, 600];
-            pattern = 1400;
-            waveType = 'square';
-        } else if (type === 'samsung') {
-            notes = [440, 554.37, 659.25, 880, 1108.73];
-            pattern = 2200;
-            waveType = 'triangle';
-        } else if (type === 'classique') {
-            notes = [800, 1000];
-            pattern = 1000;
-            waveType = 'sine';
-        }
-
         let noteIndex = 0;
         ringInterval = setInterval(() => {
             if(!audioRingContext) return;
             const osc = audioRingContext.createOscillator();
             const gain = audioRingContext.createGain();
-            osc.type = waveType;
             osc.frequency.setValueAtTime(notes[noteIndex % notes.length], audioRingContext.currentTime);
             gain.gain.setValueAtTime(0.12, audioRingContext.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.001, audioRingContext.currentTime + 0.5);
@@ -613,7 +449,7 @@ function jouerSonSonnerie() {
             osc.start();
             osc.stop(audioRingContext.currentTime + 0.5);
             noteIndex++;
-        }, pattern / notes.length);
+        }, 450);
     } catch(e) {}
 }
 
@@ -621,22 +457,21 @@ function arreterSonSonnerie() {
     if(ringInterval) { clearInterval(ringInterval); ringInterval = null; }
     if(audioRingContext) { audioRingContext.close().catch(() => {}); audioRingContext = null; }
     if(customAudioRing) { customAudioRing.pause(); customAudioRing.currentTime = 0; customAudioRing = null; }
-    if(appelTimeoutTimer) { clearTimeout(appelTimeoutTimer); appelTimeoutTimer = null; }
     if(incomingTimeout) { clearTimeout(incomingTimeout); incomingTimeout = null; }
 }
 
 function afficherModalAppelEntrant(senderTel, typeAppel) {
     let modal = document.getElementById('incomingCallModal');
-    let typeTxt = typeAppel === 'video' ? '📹 Appel Vidéo Entrant' : '📞 Appel Audio Entrant';
+    let typeTxt = typeAppel === 'video' ? '📹 Appel Vidéo Médical Entrant' : '📞 Appel Audio Médical Entrant';
     if(!modal) {
         modal = document.createElement('div');
         modal.id = 'incomingCallModal';
         modal.style.cssText = "position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(3,7,18,0.95); z-index:99999; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px; box-sizing:border-box; text-align:center;";
         modal.innerHTML = `
-            <div style="background:rgba(255,255,255,0.05); border:1px solid var(--border-color); padding:30px; border-radius:24px; max-width:340px; width:100%; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
+            <div style="background:rgba(255,255,255,0.05); border:1px solid var(--border-color); padding:30px; border-radius:24px; max-width:340px; width:100%;">
                 <div style="font-size:50px; margin-bottom:15px;">📞</div>
                 <h2 id="incomingCallTitle" style="color:var(--text-primary); font-size:20px; margin:0 0 8px 0;">${typeTxt}</h2>
-                <p id="incomingCallerName" style="color:var(--accent); font-size:15px; font-weight:bold; margin:0 0 25px 0;">${senderTel}</p>
+                <p id="incomingCallerName" style="color:var(--success); font-size:15px; font-weight:bold; margin:0 0 25px 0;">${senderTel}</p>
                 <div style="display:flex; gap:15px; justify-content:center;">
                     <button onclick="rejeterAppelEntrant()" style="background:#ef4444; color:#fff; border:none; padding:12px 24px; border-radius:50px; font-size:14px; font-weight:bold; cursor:pointer; flex:1;">Rejeter ❌</button>
                     <button onclick="accepterAppelEntrant()" style="background:#10b981; color:#fff; border:none; padding:12px 24px; border-radius:50px; font-size:14px; font-weight:bold; cursor:pointer; flex:1;">Décrocher 🟢</button>
@@ -662,17 +497,11 @@ async function lancerAppelDirectPeer(type) {
     const container = document.getElementById('callContainer');
     activeCallType = type;
 
-    if(!cibleTel) {
-        alert("Entrez le numéro du contact à appeler.");
-        return;
-    }
-    if(cibleTel === utilisateur.telephone) {
-        alert("Impossible de s'appeler soi-même !");
-        return;
-    }
+    if(!cibleTel) { alert("Entrez le numéro du destinataire."); return; }
+    if(cibleTel === utilisateur.telephone) { alert("Impossible de s'appeler soi-même !"); return; }
 
     try {
-        if(logEl) logEl.innerText = "🔄 Activation micro/caméra...";
+        if(logEl) logEl.innerText = "🔄 Activation liaison...";
         container.style.display = 'block';
 
         localStream = await navigator.mediaDevices.getUserMedia({ 
@@ -681,10 +510,7 @@ async function lancerAppelDirectPeer(type) {
         });
 
         peerConnection = new RTCPeerConnection(servers);
-        
-        localStream.getTracks().forEach(track => {
-            peerConnection.addTrack(track, localStream);
-        });
+        localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
         peerConnection.ontrack = event => {
             if (event.streams && event.streams[0]) {
@@ -692,7 +518,7 @@ async function lancerAppelDirectPeer(type) {
                 const remoteVideo = document.getElementById('remoteVideo');
                 if(remoteAudio) remoteAudio.srcObject = event.streams[0];
                 if(remoteVideo && type === 'video') remoteVideo.srcObject = event.streams[0];
-                if(logEl) logEl.innerText = "✅ Connexion active !";
+                if(logEl) logEl.innerText = "✅ Connecté !";
                 arreterSonSonnerie();
             }
         };
@@ -705,21 +531,12 @@ async function lancerAppelDirectPeer(type) {
 
         const offer = await peerConnection.createOffer();
         await peerConnection.setLocalDescription(offer);
-        
         socket.emit('p2p_signal', { target: cibleTel, sender: utilisateur.telephone, type: 'offer', offer: offer, callType: type });
 
         jouerSonSonnerie();
-        if(logEl) logEl.innerText = "📞 Sonnerie active...";
-
-        appelTimeoutTimer = setTimeout(() => {
-            if(peerConnection && peerConnection.connectionState !== 'connected') {
-                raccrocherAppel(true);
-                if(logEl) logEl.innerText = "❌ Pas de réponse.";
-            }
-        }, 30000);
-
+        if(logEl) logEl.innerText = "📞 Appel en cours...";
     } catch (error) {
-        if(logEl) logEl.innerText = "❌ Erreur micro/caméra.";
+        if(logEl) logEl.innerText = "❌ Erreur caméra/micro.";
     }
 }
 
@@ -735,7 +552,7 @@ socket.on('p2p_signal', async (data) => {
                 const remoteVideo = document.getElementById('remoteVideo');
                 if(remoteAudio) remoteAudio.srcObject = event.streams[0];
                 if(remoteVideo && activeCallType === 'video') remoteVideo.srcObject = event.streams[0];
-                if(logEl) logEl.innerText = "✅ Connexion active !";
+                if(logEl) logEl.innerText = "✅ Connecté !";
                 arreterSonSonnerie();
             }
         };
@@ -755,12 +572,10 @@ socket.on('p2p_signal', async (data) => {
         try {
             await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
             arreterSonSonnerie();
-            if(logEl) logEl.innerText = "✅ Appel décroché !";
+            if(logEl) logEl.innerText = "✅ Établi !";
         } catch(e) {}
     } else if (data.type === 'ice_candidate' && data.candidate && peerConnection) {
-        try {
-            await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
-        } catch(e) {}
+        try { await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate)); } catch(e) {}
     } else if (data.type === 'hangup' || data.type === 'reject') {
         fermerAppelTotalLocally();
         if(logEl) logEl.innerText = "❌ Appel terminé.";
@@ -781,29 +596,20 @@ async function accepterAppelEntrant() {
     activeCallType = data.callType || 'audio';
 
     try {
-        if(logEl) logEl.innerText = "📞 Décrochage...";
         localStream = await navigator.mediaDevices.getUserMedia({ 
             audio: true, 
             video: activeCallType === 'video' ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false 
         });
-
-        localStream.getTracks().forEach(track => {
-            peerConnection.addTrack(track, localStream);
-        });
-
-        const remoteVideo = document.getElementById('remoteVideo');
-        if(remoteVideo && activeCallType === 'video') {
-            remoteVideo.srcObject = localStream;
-        }
+        localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
         await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
         
         socket.emit('p2p_signal', { target: data.sender, sender: utilisateur.telephone, type: 'answer', answer: answer, callType: activeCallType });
-        if(logEl) logEl.innerText = "✅ Établi avec " + data.sender;
+        if(logEl) logEl.innerText = "✅ Établi.";
     } catch(err) {
-        if(logEl) logEl.innerText = "❌ Erreur micro/caméra.";
+        if(logEl) logEl.innerText = "❌ Erreur.";
     }
 }
 
@@ -811,7 +617,6 @@ function rejeterAppelEntrant() {
     arreterSonSonnerie();
     cacherModalAppelEntrant();
     if(incomingTimeout) clearTimeout(incomingTimeout);
-
     if(pendingOfferData) {
         socket.emit('p2p_signal', { target: pendingOfferData.sender, sender: utilisateur.telephone, type: 'reject' });
         pendingOfferData = null;
@@ -819,11 +624,9 @@ function rejeterAppelEntrant() {
     fermerAppelTotalLocally();
 }
 
-function raccrocherAppel(isTimeout = false) {
+function raccrocherAppel() {
     let targetTel = document.getElementById('appelCibleNum').value.trim();
-    if(pendingOfferData && pendingOfferData.sender) {
-        targetTel = pendingOfferData.sender;
-    }
+    if(pendingOfferData && pendingOfferData.sender) targetTel = pendingOfferData.sender;
     if(targetTel) {
         socket.emit('p2p_signal', { target: targetTel, sender: utilisateur.telephone, type: 'hangup' });
     }
@@ -833,43 +636,23 @@ function raccrocherAppel(isTimeout = false) {
 function fermerAppelTotalLocally() {
     arreterSonSonnerie();
     cacherModalAppelEntrant();
-    
-    if(peerConnection) {
-        peerConnection.close();
-        peerConnection = null;
-    }
-    if(localStream) {
-        localStream.getTracks().forEach(track => {
-            track.stop();
-        });
-        localStream = null;
-    }
-    
-    const remoteAudio = document.getElementById('remoteAudio');
-    const remoteVideo = document.getElementById('remoteVideo');
-    if(remoteAudio) remoteAudio.srcObject = null;
-    if(remoteVideo) remoteVideo.srcObject = null;
-
+    if(peerConnection) { peerConnection.close(); peerConnection = null; }
+    if(localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
     const container = document.getElementById('callContainer');
     if(container) container.style.display = 'none';
-    
     pendingOfferData = null;
 }
 
-// LOGIQUE CRITIQUE DE GESTION DE LA PAGE D'ACCUEIL ET DE L'ENREGISTREMENT UNIQUE
 document.addEventListener('DOMContentLoaded', () => {
     const welcomeModal = document.getElementById('welcomeModal');
     if (!utilisateur || !utilisateur.nom || !utilisateur.telephone) {
-        // Premier accès : on affiche la modal d'enregistrement
         if(welcomeModal) welcomeModal.style.display = 'flex';
     } else {
-        // Déjà enregistré : on masque définitivement la modal d'enregistrement
         if(welcomeModal) welcomeModal.style.display = 'none';
+        misterEloseInstance.updateContext(utilisateur);
         appliquerInfosProfil();
-        afficherContacts();
     }
-    afficherNotesBlocNotes();
-    afficherMessagesLocaux();
+    afficherDossiersPatients();
 });
 
 async function demanderPermissionsEtActiverProfil() {
@@ -877,6 +660,5 @@ async function demanderPermissionsEtActiverProfil() {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
         stream.getTracks().forEach(track => track.stop());
     } catch (err) {}
-
     sauvegarderProfilBase();
 }

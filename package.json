@@ -1,7 +1,7 @@
 {
-  "name": "evat-server",
+  "name": "evat-medical-server",
   "version": "1.0.0",
-  "description": "Serveur de signalisation WebRTC pour EVAT Continuum",
+  "description": "Serveur WebRTC et Medical Core pour EVAT Continuum",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
