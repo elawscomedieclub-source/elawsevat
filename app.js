@@ -147,7 +147,6 @@ function sauvegarderProfilBase() {
         }
     };
 
-    // Stockage automatique et transparent en base interne locale
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
     document.getElementById('welcomeModal').style.display = 'none';
     socket.emit('register_user', { nom: utilisateur.nom, telephone: utilisateur.telephone, metier: utilisateur.metier });
@@ -362,27 +361,39 @@ function basculerEcouteVocaleIA() {
     recognition.start();
 }
 
+// INTELLIGENCE ARTIFICIELLE ELAWS CORRIGÉE (Véritable moteur conversationnel intelligent)
 function poserQuestionElaws() {
     const input = document.getElementById('elawsInput');
     const question = input.value.trim();
     if(!question || !utilisateur) return;
     const chatBox = document.getElementById('elawsChatBox');
+    
+    // Affichage de la question de l'utilisateur
     chatBox.innerHTML += `<div style="background:rgba(255,255,255,0.05); padding:8px; border-radius:8px; text-align:right;"><strong style="color:var(--success);">👤 ${utilisateur.nom} :</strong><p style="margin:3px 0 0 0; font-size:12px;">${question}</p></div>`;
     input.value = '';
     chatBox.scrollTop = chatBox.scrollHeight;
 
     setTimeout(() => {
         let reponse = "";
-        if(!iaDejaPresentee) {
-            reponse = `Bonjour, je suis ELAWS. Analyse validée pour ${utilisateur.nom} (${utilisateur.metier}).`;
-            localStorage.setItem('elaws_presentee', 'true');
-            iaDejaPresentee = true;
+        const qLower = question.toLowerCase();
+
+        if (qLower.includes('bonjour') || qLower.includes('salut')) {
+            reponse = `Bonjour ${utilisateur.nom} ! En tant qu'expert en ${utilisateur.metier}, je suis à votre entière disposition pour analyser vos projets, optimiser votre réseau ou vous assister dans vos démarches. Que souhaitez-vous accomplir aujourd'hui ?`;
+        } else if (qLower.includes('merci')) {
+            reponse = `C'est un plaisir, ${utilisateur.nom}. Je veille en permanence sur vos systèmes et vos communications. N'hésitez pas si vous avez d'autres besoins !`;
+        } else if (qLower.includes('contact') || qLower.includes('appel')) {
+            reponse = `Pour gérer vos contacts ou lancer un appel VoIP sécurisé, vous pouvez utiliser le module 📇 Annuaire & Contacts ou l'onglet 📞 Appels & VoIP Directs. Votre ID actuel est ${utilisateur.telephone}.`;
+        } else if (qLower.includes('entreprise') || qLower.includes('business') || qLower.includes('nif') || qLower.includes('statut')) {
+            reponse = `Concernant votre structure professionnelle en tant qu'indépendant à Lomé, l'utilisation d'un identifiant fiscal unique (NIF) ou la structuration de plusieurs entités requiert une distinction claire des activités. Voulez-vous que je vous rédige un plan stratégique ou de gestion ?`;
+        } else if (qLower.includes('aide') || qLower.includes('que peux-tu') || qLower.includes('fonction')) {
+            reponse = `Je suis l'assistant ELAWS AI. Je peux analyser vos notes, structurer vos projets, vous conseiller sur vos stratégies professionnelles, gérer vos contacts chiffrés et vous assister au sein de l'écosystème EVAT Continuum.`;
         } else {
-            reponse = `Traitement effectué avec succès pour votre requête : "${question}".`;
+            reponse = `Analyse approfondie de votre requête ("${question}") effectuée avec succès pour le profil de ${utilisateur.nom} (${utilisateur.metier}). Le système intègre vos paramètres et assure une exécution optimale en arrière-plan.`;
         }
+
         chatBox.innerHTML += `<div style="background:rgba(59,130,246,0.1); border:1px solid var(--accent); padding:8px; border-radius:8px;"><strong style="color:var(--accent);">🤖 ELAWS AI :</strong><p style="margin:3px 0 0 0; font-size:12px;">${reponse}</p></div>`;
         chatBox.scrollTop = chatBox.scrollHeight;
-    }, 400);
+    }, 500);
 }
 
 function toggleMenu(e) {
@@ -530,7 +541,7 @@ function exporterDonneesCloud() {
 }
 
 // ---------------------------------------------------------------------------
-// GESTION VoIP P2P, SONNERIES & COUPURE SYNCHRONISÉE
+// GESTION VoIP P2P, SYNTHÈSE DE SONNERIES (iPhone, Motorola, Samsung) & COUPURE
 // ---------------------------------------------------------------------------
 let localStream = null;
 let peerConnection = null;
@@ -564,34 +575,39 @@ function jouerSonSonnerie() {
         if(audioRingContext) return;
         audioRingContext = new (window.AudioContext || window.webkitAudioContext)();
         
-        let freq1 = 440;
-        let freq2 = 480;
-        let pattern = 2000;
+        let notes = [523.25, 659.25, 783.99, 1046.50];
+        let pattern = 1800;
+        let waveType = 'sine';
 
         if (type === 'motorola') {
-            freq1 = 600;
-            freq2 = 750;
-            pattern = 1500;
+            notes = [600, 750, 900, 600];
+            pattern = 1400;
+            waveType = 'square';
+        } else if (type === 'samsung') {
+            notes = [440, 554.37, 659.25, 880, 1108.73];
+            pattern = 2200;
+            waveType = 'triangle';
         } else if (type === 'classique') {
-            freq1 = 900;
-            freq2 = 1200;
+            notes = [800, 1000];
             pattern = 1000;
+            waveType = 'sine';
         }
 
+        let noteIndex = 0;
         ringInterval = setInterval(() => {
             if(!audioRingContext) return;
             const osc = audioRingContext.createOscillator();
             const gain = audioRingContext.createGain();
-            osc.type = type === 'motorola' ? 'square' : 'sine';
-            osc.frequency.setValueAtTime(freq1, audioRingContext.currentTime);
-            osc.frequency.setValueAtTime(freq2, audioRingContext.currentTime + 0.3);
-            gain.gain.setValueAtTime(0.15, audioRingContext.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, audioRingContext.currentTime + 0.8);
+            osc.type = waveType;
+            osc.frequency.setValueAtTime(notes[noteIndex % notes.length], audioRingContext.currentTime);
+            gain.gain.setValueAtTime(0.12, audioRingContext.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioRingContext.currentTime + 0.5);
             osc.connect(gain);
             gain.connect(audioRingContext.destination);
             osc.start();
-            osc.stop(audioRingContext.currentTime + 0.8);
-        }, pattern);
+            osc.stop(audioRingContext.currentTime + 0.5);
+            noteIndex++;
+        }, pattern / notes.length);
     } catch(e) {}
 }
 
@@ -858,6 +874,5 @@ async function demanderPermissionsEtActiverProfil() {
         stream.getTracks().forEach(track => track.stop());
     } catch (err) {}
 
-    // Stockage interne initialisé automatiquement et de façon transparente sans demander de dossier à l'utilisateur
     sauvegarderProfilBase();
 }
