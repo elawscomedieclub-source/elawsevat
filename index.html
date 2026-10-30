@@ -3,183 +3,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>EVAT | ELAWS Quantum v3.60 Turbo</title>
+    <title>EVAT | ELAWS Quantum v3.60 Continuum</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" href="logo_evat.svg" type="image/svg+xml">
     <meta name="theme-color" content="#030712">
-<style>
-.sidebar {
-    position: fixed;
-    top: 0;
-    left: -280px;
-    width: 260px;
-    height: 100vh;
-    background: var(--card-bg);
-    border-right: 1px solid var(--border-color);
-    transition: left 0.3s ease;
-    z-index: 9999;
-    padding: 20px;
-    box-sizing: border-box;
-    overflow-y: auto;
-}
-.sidebar.open { left: 0; }
-.app-overlay {
-    position: fixed;
-    top: 0; left: 0;
-    width: 100vw; height: 100vh;
-    background: rgba(0,0,0,0.6);
-    display: none;
-    z-index: 9988;
-}
-.app-overlay.active { display: block; }
-.header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 16px;
-    background: var(--card-bg);
-    border-bottom: 1px solid var(--border-color);
-    position: sticky;
-    top: 0;
-    z-index: 8000;
-}
-.header-left { display: flex; align-items: center; gap: 10px; }
-.elaws-widget { position: relative; display: flex; align-items: center; }
-.elaws-action-bar { display: flex; align-items: center; gap: 8px; }
-.elaws-magic-bubble {
-    background: linear-gradient(135deg, #0ea5e9, #1d4ed8);
-    border: none;
-    border-radius: 20px;
-    padding: 6px 12px;
-    color: #fff;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    cursor: pointer;
-    box-shadow: 0 0 15px rgba(14, 165, 233, 0.5);
-    transition: all 0.2s ease;
-}
-.elaws-magic-bubble:hover { transform: scale(1.05); }
-.magic-sphere-core { width: 8px; height: 8px; background: #10b981; border-radius: 50%; box-shadow: 0 0 8px #10b981; }
-.magic-label { font-size: 11.5px; font-weight: 700; }
-
-/* STYLE DU GLOBE TERRESTRE QUANTIQUE ROTATIF AVEC ANNEAUX D'UNIVERS */
-.quantum-globe-container {
-    perspective: 900px;
-    width: 140px;
-    height: 140px;
-    margin: 15px auto;
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.earth-globe {
-    width: 90px;
-    height: 90px;
-    background: radial-gradient(circle at 30% 30%, #38bdf8, #1d4ed8 60%, #030712 90%);
-    border-radius: 50%;
-    position: relative;
-    box-shadow: inset -12px -12px 25px rgba(0,0,0,0.7), 0 0 25px rgba(56,189,248,0.6);
-    animation: rotateGlobe 12s linear infinite;
-    overflow: hidden;
-}
-
-/* Continents simulés sur la sphère */
-.earth-globe::before {
-    content: "";
-    position: absolute;
-    top: 0; left: -100%;
-    width: 200%; height: 100%;
-    background: repeating-linear-gradient(90deg, rgba(16,185,129,0.3) 0px, transparent 20px, rgba(14,165,233,0.2) 40px);
-    animation: moveContinents 12s linear infinite;
-}
-
-@keyframes rotateGlobe {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-@keyframes moveContinents {
-    0% { left: 0; }
-    100% { left: -100%; }
-}
-
-/* Anneaux orbitaux représentant l'univers */
-.orbit-ring {
-    position: absolute;
-    border: 1.5px dashed rgba(56, 189, 248, 0.6);
-    border-radius: 50%;
-    animation: rotateRing 8s linear infinite;
-}
-
-.ring-1 {
-    width: 130px;
-    height: 50px;
-    animation-duration: 6s;
-    border-color: rgba(16, 185, 129, 0.7);
-}
-
-.ring-2 {
-    width: 50px;
-    height: 130px;
-    animation-duration: 10s;
-    border-color: rgba(14, 165, 233, 0.7);
-}
-
-.ring-3 {
-    width: 140px;
-    height: 140px;
-    border: 1px solid rgba(244, 114, 182, 0.5);
-    animation-duration: 15s;
-    animation-direction: reverse;
-}
-
-@keyframes rotateRing {
-    0% { transform: rotateX(70deg) rotateZ(0deg); }
-    100% { transform: rotateX(70deg) rotateZ(360deg); }
-}
-</style>
 </head>
 <body>
-    <div id="welcomeModal" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(3,7,18,0.92); z-index:9000; display:none; align-items:center; justify-content:center; padding:16px; backdrop-filter:blur(8px);">
-        <div class="card" style="max-width:400px; width:100%; border:2px solid var(--accent); box-shadow:0 0 40px rgba(14,165,233,0.5); text-align:center; padding:20px;">
-            <div style="display:flex; justify-content:center; margin-bottom:12px;">
-                <div class="quantum-globe-container" style="margin:0 auto 10px auto;">
-                    <div class="earth-globe"></div>
-                    <div class="orbit-ring ring-1"></div>
-                    <div class="orbit-ring ring-2"></div>
-                </div>
+    <!-- Modal de premier lancement stylé Continuum -->
+    <div id="welcomeModal" class="modal-overlay" style="display:none;">
+        <div class="card continuum-card" style="max-width:420px; width:100%; text-align:center;">
+            <div class="quantum-globe-container" style="margin: 0 auto 15px auto;">
+                <div class="earth-globe"></div>
+                <div class="orbit-ring ring-1"></div>
+                <div class="orbit-ring ring-2"></div>
             </div>
-            <h2 style="color:var(--accent); font-size:17px; margin-bottom:6px;">EVAT Quantum v3.60 Turbo</h2>
-            <p style="font-size:12.5px; color:var(--text-secondary); margin-bottom:14px;">Messagerie locale, Globe Quantique & Fichiers téléphone.</p>
+            <h2 style="color:var(--accent); font-size:18px; margin-bottom:6px;">NEXUS ALPHA - EVAT v3.60</h2>
+            <p style="font-size:12px; color:var(--text-secondary); margin-bottom:14px;">Initialisation du protocole de chiffrement post-quantique et du noyau Continuum.</p>
             
             <div style="text-align:left; margin-bottom:14px;">
-                <label style="font-size:11.5px; color:var(--text-color);">Votre Nom :</label>
-                <input type="text" id="inputNom" class="input" placeholder="Ex: Kodjo Marceline" style="margin-bottom:6px; font-size:12.5px; padding:8px;">
+                <label style="font-size:11.5px; color:var(--text-color);">Nom de l'Opérateur :</label>
+                <input type="text" id="inputNom" class="input" value="Kodjo Marceline" style="margin-bottom:8px;">
                 
-                <label style="font-size:11.5px; color:var(--text-color);">Votre Numéro (ID VoIP) :</label>
-                <input type="text" id="inputTelProfil" class="input" value="+22898231402" style="margin-bottom:6px; font-size:12.5px; padding:8px;">
+                <label style="font-size:11.5px; color:var(--text-color);">Identifiant VoIP / Téléphone :</label>
+                <input type="text" id="inputTelProfil" class="input" value="+22898231402" style="margin-bottom:12px;">
             </div>
-            <button onclick="sauvegarderProfilBase()" class="btn-action" style="font-size:13.5px; padding:10px; width:100%;">🚀 Démarrer ELAWS 3.59 (+50 Qubits)</button>
+            <button onclick="sauvegarderProfilBase()" class="btn-action" style="width:100%;">🚀 Activer le Système Continuum (+50 Qubits)</button>
         </div>
     </div>
 
     <div id="app">
+        <!-- En-tête style HUD Continuum avec la bulle IA ELAWS 3.59 fixe en haut à droite -->
         <header class="header">
             <div class="header-left">
                 <button onclick="toggleMenu(event)" class="menu-btn" aria-label="Menu principal">☰</button>
-                <div class="header-brand" style="display:flex; align-items:center; gap:10px;">
-                    <div><h1>EVAT <span style="font-weight:300; font-size:12px; color:var(--text-secondary);">| v3.60 Turbo</span></h1></div>
+                <div class="header-brand" style="display:flex; align-items:center; gap:8px;">
+                    <div class="header-logo-mini"></div>
+                    <div>
+                        <h1 style="font-size:14px; margin:0; color:var(--accent);">EVAT <span style="font-weight:300; font-size:11px; color:var(--text-secondary);">| ELAWS Quantum v3.60</span></h1>
+                    </div>
                 </div>
             </div>
 
             <div id="elawsWidget" class="elaws-widget">
                 <div class="elaws-action-bar">
                     <button onclick="ouvrirModeClavierDirect(event)" class="elaws-keyboard-btn" title="Clavier"><span>⌨️</span></button>
-                    <button onclick="basculerEcouteVocaleLiveDirect(event)" class="elaws-magic-bubble" title="Voix">
+                    <button onclick="basculerEcouteVocaleLiveDirect(event)" class="elaws-magic-bubble" title="Voix ELAWS">
                         <div class="magic-sphere-core"></div>
                         <span class="magic-label">🎙️ ELAWS 3.59</span>
                     </button>
@@ -187,33 +56,66 @@
             </div>
         </header>
 
+        <!-- Menu Latéral Coulissant -->
         <nav id="sidebar" class="sidebar" onclick="event.stopPropagation()">
-            <div class="sidebar-header" style="display:flex; align-items:center; gap:10px;">
+            <div class="sidebar-header" style="display:flex; align-items:center; gap:10px; margin-bottom:15px; border-bottom:1px solid var(--border-color); padding-bottom:10px;">
+                <div class="sidebar-avatar-mini"></div>
                 <div>
-                    <h3>Navigation EVAT</h3>
-                    <span id="sidebarUserRole" class="sidebar-badge">Kodjo • Niveau 1</span>
+                    <h3 style="font-size:14px; margin:0; color:var(--accent);">Nexus Alpha</h3>
+                    <span id="sidebarUserRole" class="sidebar-badge" style="font-size:11px; color:var(--success);">Kodjo • Niveau 2</span>
                 </div>
             </div>
-            <div class="sidebar-links" style="margin-top:15px; display:flex; flex-direction:column; gap:6px;">
-                <a href="#" onclick="switchTab('dashboard')" class="nav-link active" id="link-dashboard">📊 Dashboard Quantum</a>
+            <div class="sidebar-links" style="display:flex; flex-direction:column; gap:6px;">
+                <a href="#" onclick="switchTab('dashboard')" class="nav-link active" id="link-dashboard">📊 Dashboard HUD Continuum</a>
                 <a href="#" onclick="switchTab('communications')" class="nav-link" id="link-communications">📞 Communications & VoIP</a>
                 <a href="#" onclick="switchTab('quetes')" class="nav-link" id="link-quetes">⚡ Quêtes & Qubits</a>
                 <a href="#" onclick="switchTab('succes1000')" class="nav-link" id="link-succes1000">💎 Garantie Succès 1000%</a>
-                <a href="#" onclick="switchTab('sync')" class="nav-link" id="link-sync">☁️ Cloud & Synchro</a>
-                <a href="#" onclick="switchTab('voyage')" class="nav-link" id="link-voyage">✈️ Guide Voyage, Visa</a>
-                <a href="#" onclick="switchTab('profil')" class="nav-link" id="link-profil">👤 Profil & Contacts</a>
-                <a href="#" onclick="switchTab('outils')" class="nav-link" id="link-outils">🛠️ Boîte à Outils</a>
+                <a href="#" onclick="switchTab('sync')" class="nav-link" id="link-sync">☁️ Cloud & Sauvegarde</a>
+                <a href="#" onclick="switchTab('voyage')" class="nav-link" id="link-voyage">✈️ Guide Voyage, Visa & Billets</a>
+                <a href="#" onclick="switchTab('profil')" class="nav-link" id="link-profil">👤 Profil & Sécurité</a>
+                <a href="#" onclick="switchTab('outils')" class="nav-link" id="link-outils">🛠️ Boîte à Outils & Notes</a>
             </div>
         </nav>
 
         <div id="appOverlay" class="app-overlay" onclick="fermerTousLesMenus()"></div>
 
-        <main class="content" style="padding:16px;">
-            <!-- DASHBOARD AVEC LE GLOBE TERRESTRE QUANTIQUE ET ANNEAUX D'UNIVERS -->
+        <!-- Contenu Principal -->
+        <main class="content" style="padding:14px;">
+
+            <!-- DASHBOARD HUD CONTINUUM (Inspiré des 3 photos : globe, avatar nexus, diagrammes de charge et métriques) -->
             <section id="tab-dashboard" class="tab-content active">
-                <div class="card" style="text-align:center; border-left:4px solid var(--accent);">
-                    <h2 style="color:var(--accent); margin-bottom:4px;">🌍 Globe Quantique & Univers</h2>
-                    <p style="font-size:12px; color:var(--text-secondary);">Visualisation en temps réel de la Terre en rotation et des anneaux orbitaux de l'univers.</p>
+                <!-- Ligne supérieure : Avatar Nexus Alpha & Diagrammes de Charge (Processing Power / Core Load) -->
+                <div class="dashboard-top-grid">
+                    <div class="card continuum-card" style="text-align:center; padding:12px;">
+                        <div class="nexus-avatar-frame">
+                            <div class="nexus-avatar-glow"></div>
+                        </div>
+                        <h3 style="color:var(--accent); font-size:13px; margin:6px 0 2px 0;">NEXUS ALPHA</h3>
+                        <span style="font-size:10.5px; color:var(--text-secondary);">USER - Version v3.60</span>
+                    </div>
+
+                    <div class="card continuum-card" style="padding:12px;">
+                        <h4 style="font-size:11.5px; color:var(--accent); margin-bottom:8px;">PROCESSING CORE LOAD</h4>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                            <span style="font-size:11px; color:var(--text-secondary);">Arties Load</span>
+                            <strong style="font-size:13px; color:var(--success);">78% Active</strong>
+                        </div>
+                        <div class="hud-progress-bar"><div class="hud-progress-fill" style="width: 78%;"></div></div>
+                        <div class="hud-bars-container" style="margin-top:8px;">
+                            <div class="hud-bar" style="height: 40%;"></div>
+                            <div class="hud-bar" style="height: 70%;"></div>
+                            <div class="hud-bar" style="height: 90%;"></div>
+                            <div class="hud-bar" style="height: 55%;"></div>
+                            <div class="hud-bar" style="height: 80%;"></div>
+                            <div class="hud-bar" style="height: 65%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Centre : Le Globe Terrestre Quantique avec Anneaux Orbitaux et Statut Réseau Global -->
+                <div class="card continuum-card" style="text-align:center; position:relative; overflow:hidden;">
+                    <h3 style="color:var(--accent); font-size:13.5px; margin-bottom:2px;">GLOBAL QUANTUM NETWORK STATUS</h3>
+                    <p style="font-size:11px; color:var(--text-secondary); margin-bottom:10px;">Network Integrity | <strong style="color:var(--success);">100% Active (Nexus Safe)</strong></p>
                     
                     <div class="quantum-globe-container">
                         <div class="earth-globe"></div>
@@ -221,34 +123,62 @@
                         <div class="orbit-ring ring-2"></div>
                         <div class="orbit-ring ring-3"></div>
                     </div>
-                    <div style="font-size:11.5px; color:var(--success); font-weight:700; margin-top:8px;">🟢 Réseau Quantum Mondial Actif (Lomé / Univers)</div>
+
+                    <div style="display:flex; justify-content:space-around; margin-top:10px; background:rgba(3,7,18,0.6); padding:8px; border-radius:8px; border:1px solid var(--border-color);">
+                        <div>
+                            <span style="font-size:10px; color:var(--text-secondary);">Precision Points</span>
+                            <div style="font-size:12.5px; color:var(--accent); font-weight:700;">1,475 pts</div>
+                        </div>
+                        <div>
+                            <span style="font-size:10px; color:var(--text-secondary);">Qubit Capacity</span>
+                            <div style="font-size:12.5px; color:var(--success); font-weight:700;">108 Gbits</div>
+                        </div>
+                        <div>
+                            <span style="font-size:10px; color:var(--text-secondary);">Compute Power</span>
+                            <div style="font-size:12.5px; color:var(--accent); font-weight:700;">100 TFLOPS</div>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="card" style="border-left: 4px solid var(--success);">
-                    <span style="font-size:11.5px; color:var(--success); font-weight:700; text-transform:uppercase;">⚡ Énergie Qubit Active</span>
-                    <h2 style="font-size:24px; color:var(--text-color); margin:4px 0;"><span id="dashQubitsScore">365</span> <span style="font-size:13px; color:var(--accent);">Qubits</span></h2>
-                    <p style="font-size:11.5px; color:var(--text-secondary);">Niveau Actuel : <strong style="color:var(--text-color);">Niveau 2</strong></p>
+                <!-- Section Inférieure : Sécurité Cipher & Alert Logs -->
+                <div class="dashboard-bottom-grid">
+                    <div class="card continuum-card" style="padding:12px;">
+                        <h4 style="font-size:11.5px; color:var(--accent); margin-bottom:6px;">🛡️ Nexus v3.60 Cipher & Security</h4>
+                        <p style="font-size:11px; color:var(--text-secondary); margin-bottom:6px;">Quantum Safe Encryption Active - Post Quantum Algorithm.</p>
+                        <div style="background:var(--bg-color); padding:8px; border-radius:6px; font-size:10.5px; color:var(--success);">
+                            Cryptographic Security: Verified & Stable
+                        </div>
+                    </div>
+
+                    <div class="card continuum-card" style="padding:12px;">
+                        <h4 style="font-size:11.5px; color:var(--success); margin-bottom:6px;">📋 Alert Logs (Continuum)</h4>
+                        <div style="font-size:10.5px; color:var(--text-secondary); display:flex; flex-direction:column; gap:4px;">
+                            <div>• Super-Quantum Safe app at 710 HB</div>
+                            <div>• Nexus v3.60 Node synchronized</div>
+                        </div>
+                    </div>
                 </div>
             </section>
 
             <!-- COMMUNICATIONS -->
             <section id="tab-communications" class="tab-content" style="display:none;">
-                <div class="card" style="border-left: 4px solid var(--success);">
-                    <h2>📞 Communications & Appels VoIP</h2>
-                    <p style="font-size:12.5px; color:var(--text-secondary);">Appels WebRTC sécurisés par numéro sans GSM.</p>
-                    <div id="voipStatusDisplay" style="margin:10px 0; color:var(--accent); font-weight:700;">ID VoIP : +228 98 23 14 02</div>
-                    <button onclick="lancerAppelInternet('audio')" class="btn-action" style="background:var(--success); color:#fff; width:100%;">🎙️ Lancer Appel Audio</button>
+                <div class="card continuum-card">
+                    <h2>📞 Communications WebRTC & VoIP</h2>
+                    <p style="font-size:12px; color:var(--text-secondary);">Appels chiffrés par numéro de téléphone sans passer par le réseau GSM classique.</p>
+                    <div id="voipStatusDisplay" style="margin:12px 0; color:var(--accent); font-weight:700; text-align:center;">ID VoIP : +228 98 23 14 02</div>
+                    <button onclick="lancerAppelInternet('audio')" class="btn-action" style="background:var(--success); color:#fff; margin-bottom:8px;">🎙️ Lancer Appel Audio WebRTC</button>
+                    <button onclick="lancerAppelInternet('video')" class="btn-action" style="background:var(--accent); color:#030712;">📹 Lancer Appel Vidéo Continuum</button>
                 </div>
             </section>
 
             <!-- QUETES -->
             <section id="tab-quetes" class="tab-content" style="display:none;">
-                <div class="card" style="border-left: 4px solid var(--success);">
+                <div class="card continuum-card">
                     <h2>⚡ Quêtes & Qubits</h2>
-                    <p style="font-size:12.5px; color:var(--text-secondary);">Accomplissez les quêtes pour gagner des Qubits.</p>
-                    <div id="quetesContainer" style="margin-top:10px;">
-                        <div style="background:var(--bg-color); padding:10px; border-radius:8px; margin-bottom:6px; border:1px solid var(--success);">
-                            <strong>✅ Configurer le profil & le métier</strong>
+                    <p style="font-size:12px; color:var(--text-secondary);">Gagnez des Qubits en explorant les modules de l'application.</p>
+                    <div id="quetesContainer" style="margin-top:10px; display:flex; flex-direction:column; gap:8px;">
+                        <div style="background:var(--bg-color); padding:10px; border-radius:8px; border:1px solid var(--success);">
+                            <strong>✅ Configurer le profil & le métrique Nexus</strong>
                             <p style="font-size:11px; color:var(--accent); margin:2px 0;">+50 Qubits (Accompli)</p>
                         </div>
                     </div>
@@ -257,9 +187,9 @@
 
             <!-- SUCCES 1000% -->
             <section id="tab-succes1000" class="tab-content" style="display:none;">
-                <div class="card" style="border-left: 4px solid var(--success);">
+                <div class="card continuum-card">
                     <h2>💎 Garantie Succès 1000%</h2>
-                    <input type="text" id="inputObjectif1000" class="input" placeholder="Ex: Automatiser mes ventes">
+                    <input type="text" id="inputObjectif1000" class="input" placeholder="Ex: Automatiser le réseau Continuum">
                     <button class="btn-action" onclick="genererPlanSucces1000()">Générer le Plan Stratégique</button>
                     <div id="resultatPlan1000" style="margin-top:10px; display:none;"></div>
                 </div>
@@ -267,35 +197,36 @@
 
             <!-- CLOUD -->
             <section id="tab-sync" class="tab-content" style="display:none;">
-                <div class="card" style="border-left: 4px solid var(--accent);">
+                <div class="card continuum-card">
                     <h2>☁️ Cloud & Sauvegarde</h2>
+                    <p style="font-size:12px; color:var(--text-secondary);">Exportez et synchronisez vos données de chiffrement.</p>
                     <button onclick="exporterDonneesCloud()" class="btn-action">📥 Télécharger Sauvegarde JSON</button>
                 </div>
             </section>
 
             <!-- VOYAGE -->
             <section id="tab-voyage" class="tab-content" style="display:none;">
-                <div class="card" style="border-left: 4px solid var(--accent);">
+                <div class="card continuum-card">
                     <h2>✈️ Guide Voyage, Visa & Billets</h2>
-                    <label style="font-size:12px;">Destination :</label><input type="text" id="voyageDestination" class="input" placeholder="Ex: Paris">
-                    <button class="btn-action" onclick="lancerAnalyseVoyageAvance()">Lancer l'Analyse</button>
+                    <label style="font-size:12px;">Destination :</label><input type="text" id="voyageDestination" class="input" placeholder="Ex: Paris, Abidjan">
+                    <button class="btn-action" onclick="lancerAnalyseVoyageAvance()">Lancer l'Analyse du Voyage</button>
                     <div id="resultatAssistantVoyage" style="margin-top:10px; display:none;"></div>
                 </div>
             </section>
 
             <!-- PROFIL -->
             <section id="tab-profil" class="tab-content" style="display:none;">
-                <div class="card" style="border-left: 4px solid var(--accent);">
-                    <h2>👤 Gestion du Profil & VoIP</h2>
-                    <label style="font-size:12px;">Nom :</label><input type="text" id="inputNomProfil" class="input">
-                    <label style="font-size:12px;">Numéro VoIP :</label><input type="text" id="inputTelProfil" class="input" value="+22898231402">
-                    <button onclick="sauvegarderProfilBase()" class="btn-action">Enregistrer Profil</button>
+                <div class="card continuum-card">
+                    <h2>👤 Gestion du Profil & Sécurité</h2>
+                    <label style="font-size:12px;">Nom de l'Opérateur :</label><input type="text" id="inputNomProfil" class="input">
+                    <label style="font-size:12px;">Numéro VoIP :</label><input type="text" id="inputTelProfil2" class="input">
+                    <button onclick="sauvegarderProfilBase()" class="btn-action">Enregistrer le Profil</button>
                 </div>
             </section>
 
             <!-- OUTILS -->
             <section id="tab-outils" class="tab-content" style="display:none;">
-                <div class="card" style="border-left: 4px solid var(--accent);">
+                <div class="card continuum-card">
                     <h2>🛠️ Boîte à Outils & Bloc-Notes</h2>
                     <input type="text" id="noteTitre" class="input" placeholder="Titre de la note...">
                     <textarea id="noteContenu" class="input" placeholder="Contenu de la note..." style="height:60px;"></textarea>

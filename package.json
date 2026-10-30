@@ -1,5 +1,5 @@
 {
-  "name": "evat-quantum-ultime",
+  "name": "evat-continuum-quantum",
   "version": "3.60.0",
   "main": "server.js",
   "scripts": { "start": "node server.js" },
