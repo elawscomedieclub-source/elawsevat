@@ -75,8 +75,10 @@ const socket = io(SERVER_URL, {
 socket.on('connect', () => {
     const statusEl = document.getElementById('serverConnectionStatus');
     if(statusEl) {
-        statusEl.innerHTML = "🟢 Connecté";
-        statusEl.style.color = "var(--success)";
+        statusEl.innerHTML = '<span class="status-dot"></span> Connecté';
+        statusEl.style.color = '';
+        statusEl.style.background = 'rgba(52, 211, 153, 0.12)';
+        statusEl.style.borderColor = 'rgba(52, 211, 153, 0.3)';
     }
     if(utilisateur) {
         socket.emit('register_user', { nom: utilisateur.nom, telephone: utilisateur.telephone, metier: utilisateur.metier });
@@ -86,8 +88,10 @@ socket.on('connect', () => {
 socket.on('disconnect', () => {
     const statusEl = document.getElementById('serverConnectionStatus');
     if(statusEl) {
-        statusEl.innerHTML = "🔴 Déconnecté";
-        statusEl.style.color = "var(--danger)";
+        statusEl.innerHTML = '<span class="status-dot" style="background:#f87171;box-shadow:0 0 8px #f87171;"></span> Déconnecté';
+        statusEl.style.background = 'rgba(248, 113, 113, 0.12)';
+        statusEl.style.borderColor = 'rgba(248, 113, 113, 0.3)';
+        statusEl.style.color = '#f87171';
     }
 });
 
@@ -370,38 +374,178 @@ function basculerEcouteVocaleIA() {
     recognition.start();
 }
 
-// Réponse IA instantanée et intelligente
-function poserQuestionElaws() {
+// ========== ELAWS AI — autonome, réactif, humain ==========
+let elawsBusy = false;
+let elawsHistory = [];
+
+function echapperHtml(str) {
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+}
+
+function reponseLocaleElaws(question, profil) {
+    const prenom = profil?.nom ? profil.nom.split(' ')[0] : '';
+    const q = (question || '').toLowerCase().trim();
+
+    if (/^(bonjour|salut|hello|hi|hey|bonsoir)\b/.test(q))
+        return prenom ? `Salut ${prenom}. Qu'est-ce qui t'amène ?` : `Salut. Qu'est-ce qui t'amène ?`;
+    if (/merci|thanks|thank you/.test(q))
+        return `De rien. Tu as autre chose en tête ?`;
+    if (/qui es[- ]?tu|who are you|c'est quoi elaws/.test(q))
+        return `Je suis ELAWS. On discute, je t'aide à y voir plus clair — questions pratiques, idées, explications. Vas-y.`;
+    if (/aide|help|que peux[- ]?tu|capable/.test(q))
+        return `Pose-moi ce que tu veux : une explication, un conseil, un plan, une idée. Je réponds directement.`;
+    if (/contact|appel|call|téléph/.test(q))
+        return `Les onglets Contacts et Appels VoIP sont là pour ça. Ton identifiant s'affiche dans Appels.`;
+    // Ne jamais répéter la question
+    return `Je n'ai pas le réseau pour le moment. Reformule ou réessaie dans une seconde — je te répondrai clairement.`;
+}
+
+async function appelerIAMondiale(question, profil) {
+    const prenom = profil?.nom ? profil.nom.split(' ')[0] : 'toi';
+
+    // Prompt strict : réponse humaine, directe, sans répétition
+    const systemPrompt = `Tu es ELAWS, un interlocuteur intelligent intégré dans l'app EVAT Continuum.
+
+RÈGLES STRICTES :
+- Réponds UNIQUEMENT avec ta réponse. Ne répète JAMAIS la question de l'utilisateur.
+- Ne dis jamais « tu as demandé », « concernant ta question », « j'ai bien reçu », « analyse de… ».
+- Parle comme un humain brillant et naturel : clair, direct, utile, un peu chaleureux sans en faire trop.
+- Pas de formules robotiques. Pas de listes inutiles sauf si vraiment pertinent.
+- Réponds dans la langue de l'utilisateur.
+- Sois réactif : va à l'essentiel, développe seulement si la question le demande.
+- Si tu ne sais pas, dis-le simplement et propose une piste.
+- L'utilisateur s'appelle ${prenom}. Ne le salue pas à chaque message sauf s'il te salue.
+
+Tu as une intelligence large (science, business, vie pratique, tech, culture, conseils). Réponds comme quelqu'un de compétent qui écoute vraiment.`;
+
+    const messages = [{ role: 'system', content: systemPrompt }];
+    elawsHistory.slice(-8).forEach(m => messages.push(m));
+    messages.push({ role: 'user', content: question });
+
+    // 1) Pollinations POST
+    try {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 28000);
+        const res = await fetch('https://text.pollinations.ai/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                messages,
+                model: 'openai',
+                seed: Math.floor(Math.random() * 99999)
+            }),
+            signal: ctrl.signal
+        });
+        clearTimeout(t);
+        if (res.ok) {
+            let text = (await res.text()).trim();
+            text = nettoyerReponseIA(text, question);
+            if (text.length > 3) return text;
+        }
+    } catch (e) { console.warn('AI POST', e); }
+
+    // 2) Pollinations GET
+    try {
+        const prompt = encodeURIComponent(
+            systemPrompt + '\n\nUtilisateur: ' + question + '\nELAWS:'
+        );
+        const ctrl2 = new AbortController();
+        const t2 = setTimeout(() => ctrl2.abort(), 22000);
+        const res2 = await fetch('https://text.pollinations.ai/' + prompt + '?model=openai', { signal: ctrl2.signal });
+        clearTimeout(t2);
+        if (res2.ok) {
+            let text2 = (await res2.text()).trim();
+            text2 = nettoyerReponseIA(text2, question);
+            if (text2.length > 3) return text2;
+        }
+    } catch (e) { console.warn('AI GET', e); }
+
+    // 3) Serveur EVAT
+    try {
+        const res3 = await new Promise((resolve, reject) => {
+            const t = setTimeout(() => reject(new Error('timeout')), 12000);
+            if (typeof socket === 'undefined' || !socket.connected) { clearTimeout(t); reject(new Error('offline')); return; }
+            socket.emit('ai_query', { question, nom: prenom }, (reply) => {
+                clearTimeout(t);
+                resolve(reply);
+            });
+        });
+        if (res3 && res3.reponse) {
+            return nettoyerReponseIA(String(res3.reponse).trim(), question);
+        }
+    } catch (e) { console.warn('AI server', e); }
+
+    return reponseLocaleElaws(question, profil);
+}
+
+/** Enlève les formulations qui répètent la question ou sonnent robotiques */
+function nettoyerReponseIA(texte, question) {
+    if (!texte) return texte;
+    let t = texte.trim();
+
+    // Enlever préfixes du type "ELAWS :" / "Réponse :"
+    t = t.replace(/^(ELAWS\s*(AI)?\s*[:\-–—]\s*)/i, '');
+    t = t.replace(/^(Réponse\s*[:\-–—]\s*)/i, '');
+
+    // Si la réponse commence par une reformulation de la question, tenter de couper
+    const qShort = (question || '').trim().slice(0, 40).toLowerCase();
+    if (qShort.length > 8 && t.toLowerCase().startsWith(qShort)) {
+        const cut = t.indexOf('.', qShort.length);
+        if (cut > 0 && cut < t.length - 10) t = t.slice(cut + 1).trim();
+    }
+
+    // Phrases robotiques fréquentes en début
+    const banStart = [
+        /^j'ai bien (reçu|compris|noté)[^.!]*[.!]?\s*/i,
+        /^concernant (ta|votre|la) question[^.!]*[.!]?\s*/i,
+        /^tu (as|m'as) (demandé|posé)[^.!]*[.!]?\s*/i,
+        /^vous (avez|m'avez) (demandé|posé)[^.!]*[.!]?\s*/i,
+        /^analyse (instantanée|de)[^.!]*[.!]?\s*/i,
+        /^voici (ma|une) réponse[^.!]*[.!]?\s*/i,
+        /^en réponse à[^.!]*[.!]?\s*/i
+    ];
+    for (const re of banStart) t = t.replace(re, '');
+
+    return t.trim() || texte.trim();
+}
+
+async function poserQuestionElaws() {
     const input = document.getElementById('elawsInput');
-    const question = input.value.trim();
-    if(!question || !utilisateur) return;
+    const question = (input?.value || '').trim();
+    if (!question || !utilisateur || elawsBusy) return;
     const chatBox = document.getElementById('elawsChatBox');
-    
-    chatBox.innerHTML += `<div style="background:rgba(255,255,255,0.05); padding:8px; border-radius:8px; text-align:right;"><strong style="color:var(--success);">👤 ${utilisateur.nom} :</strong><p style="margin:3px 0 0 0; font-size:12px;">${question}</p></div>`;
+    if (!chatBox) return;
+
+    elawsBusy = true;
+
+    // Message utilisateur (affiché une seule fois, sans être repris par l'IA)
+    chatBox.innerHTML += `<div style="background:rgba(255,255,255,0.05); padding:10px; border-radius:10px; text-align:right;"><strong style="color:var(--success); font-size:12px;">👤 ${echapperHtml(utilisateur.nom)}</strong><p style="margin:4px 0 0 0; font-size:12.5px; line-height:1.4;">${echapperHtml(question)}</p></div>`;
     input.value = '';
     chatBox.scrollTop = chatBox.scrollHeight;
 
-    setTimeout(() => {
-        let reponse = "";
-        const qLower = question.toLowerCase();
+    const loadingId = 'elaws-load-' + Date.now();
+    chatBox.innerHTML += `<div id="${loadingId}" style="background:rgba(56,189,248,0.1); border:1px solid var(--border-color); padding:10px; border-radius:10px;"><strong style="color:var(--accent); font-size:12px;">🤖 ELAWS</strong><div class="typing-indicator" style="margin-top:6px;"><span></span><span></span><span></span></div></div>`;
+    chatBox.scrollTop = chatBox.scrollHeight;
 
-        if (qLower.includes('bonjour') || qLower.includes('salut')) {
-            reponse = `Bonjour ${utilisateur.nom} ! En tant qu'expert en ${utilisateur.metier}, je suis à votre service. Que souhaitez-vous analyser ?`;
-        } else if (qLower.includes('merci')) {
-            reponse = `C'est un plaisir, ${utilisateur.nom}. Je veille sur vos systèmes et communications.`;
-        } else if (qLower.includes('contact') || qLower.includes('appel')) {
-            reponse = `Pour vos appels VoIP sécurisés ou vos contacts, rendez-vous dans l'onglet Annuaire ou Appels. Votre ID : ${utilisateur.telephone}.`;
-        } else if (qLower.includes('entreprise') || qLower.includes('business') || qLower.includes('nif') || qLower.includes('statut')) {
-            reponse = `Concernant votre structure à Lomé et la gestion de vos entités avec un NIF, une distinction claire est recommandée. Souhaitez-vous un plan stratégique ?`;
-        } else if (qLower.includes('aide') || qLower.includes('que peux-tu') || qLower.includes('fonction')) {
-            reponse = `Je suis l'assistant ELAWS AI, intégré dans votre écosystème EVAT Continuum. Je gère vos notes, votre stratégie et vos communications chiffrées.`;
-        } else {
-            reponse = `Analyse instantanée de "${question}" validée pour ${utilisateur.nom} (${utilisateur.metier}). Le système applique vos consignes avec succès.`;
-        }
+    let reponse = '';
+    try {
+        reponse = await appelerIAMondiale(question, utilisateur);
+    } catch (err) {
+        reponse = reponseLocaleElaws(question, utilisateur);
+    }
 
-        chatBox.innerHTML += `<div style="background:rgba(59,130,246,0.1); border:1px solid var(--accent); padding:8px; border-radius:8px;"><strong style="color:var(--accent);">🤖 ELAWS AI :</strong><p style="margin:3px 0 0 0; font-size:12px;">${reponse}</p></div>`;
-        chatBox.scrollTop = chatBox.scrollHeight;
-    }, 150);
+    elawsHistory.push({ role: 'user', content: question });
+    elawsHistory.push({ role: 'assistant', content: reponse });
+    if (elawsHistory.length > 20) elawsHistory = elawsHistory.slice(-16);
+
+    const html = `<div style="background:rgba(56,189,248,0.1); border:1px solid var(--border-color); padding:10px; border-radius:10px;"><strong style="color:var(--accent); font-size:12px;">🤖 ELAWS</strong><p style="margin:4px 0 0 0; font-size:12.5px; line-height:1.5; white-space:pre-wrap;">${echapperHtml(reponse)}</p></div>`;
+    const loadingEl = document.getElementById(loadingId);
+    if (loadingEl) loadingEl.outerHTML = html;
+    else chatBox.innerHTML += html;
+    chatBox.scrollTop = chatBox.scrollHeight;
+    elawsBusy = false;
 }
 
 function toggleMenu(e) {
