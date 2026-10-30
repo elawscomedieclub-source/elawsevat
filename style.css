@@ -200,3 +200,6 @@ body {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
+.elaws-mode-btn { background: rgba(59,130,246,0.12) !important; color: var(--accent) !important; border: 1px solid var(--border-color) !important; box-shadow: none !important; }
+.elaws-mode-btn.active { background: linear-gradient(135deg, #0ea5e9, #0284c7) !important; color: #fff !important; border-color: transparent !important; box-shadow: 0 4px 14px rgba(14,165,233,0.35) !important; }
