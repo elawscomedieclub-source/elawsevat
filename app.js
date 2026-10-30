@@ -953,3 +953,28 @@ document.addEventListener('DOMContentLoaded', () => {
     afficherNotesBlocNotes();
     afficherMessagesLocaux();
 });
+
+async function demanderPermissionsEtActiverProfil() {
+    // 1. Demande d'accès Micro et Caméra
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+        // Arrêter immédiatement les pistes pour libérer la caméra en attendant un appel réel
+        stream.getTracks().forEach(track => track.stop());
+        console.log("Permissions Micro et Caméra accordées avec succès.");
+    } catch (err) {
+        console.warn("Permissions micro/caméra refusées ou non supportées au démarrage :", err);
+    }
+
+    // 2. Demande d'accès au gestionnaire de fichiers / dossier local si supporté
+    if ('showDirectoryPicker' in window) {
+        try {
+            await window.showDirectoryPicker();
+            console.log("Accès au gestionnaire de fichiers accordé.");
+        } catch (err) {
+            console.warn("Sélection de dossier annulée par l'utilisateur.");
+        }
+    }
+
+    // 3. Sauvegarde et lancement du profil
+    sauvegarderProfilBase();
+}
