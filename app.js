@@ -573,7 +573,7 @@ function lancerAnalyseVoyageAvance() {
     container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:12px; border:1px solid var(--accent);"><h4 style="color:var(--accent); font-size:13px;">✈️ ${dest}</h4><p style="font-size:12px;">Analyse des documents et formalités validée.</p></div>`;
 }
 
-function exporterDonneesCloud() {
+void function exporterDonneesCloud() {
     if(!utilisateur) return;
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(utilisateur, null, 2));
     const dl = document.createElement('a');
@@ -585,14 +585,15 @@ function exporterDonneesCloud() {
 }
 
 // ---------------------------------------------------------------------------
-// GESTION DES APPELS P2P, TIMEOUT DE SONNERIE ET APPEL MANQUÉ AUTOMATIQUE
+// GESTION DES APPELS P2P PLEIN ÉCRAN AVEC OVERLAY D'APPEL ENTRANT
 // ---------------------------------------------------------------------------
 let localStream = null;
 let peerConnection = null;
 let audioRingContext = null;
 let ringInterval = null;
 let appelTimeoutTimer = null;
-let currentCalledNumber = null;
+let incomingTimeout = null;
+let pendingOfferData = null;
 
 const servers = { 
     iceServers: [
@@ -603,6 +604,7 @@ const servers = {
 
 function jouerSonSonnerie() {
     try {
+        if(audioRingContext) return;
         audioRingContext = new (window.AudioContext || window.webkitAudioContext)();
         ringInterval = setInterval(() => {
             if(!audioRingContext) return;
@@ -610,7 +612,7 @@ function jouerSonSonnerie() {
             const gain = audioRingContext.createGain();
             osc.type = 'sine';
             osc.frequency.setValueAtTime(440, audioRingContext.currentTime);
-            gain.gain.setValueAtTime(0.1, audioRingContext.currentTime);
+            gain.gain.setValueAtTime(0.15, audioRingContext.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.001, audioRingContext.currentTime + 1.0);
             osc.connect(gain);
             gain.connect(audioRingContext.destination);
@@ -633,6 +635,42 @@ function arreterSonSonnerie() {
         clearTimeout(appelTimeoutTimer);
         appelTimeoutTimer = null;
     }
+    if(incomingTimeout) {
+        clearTimeout(incomingTimeout);
+        incomingTimeout = null;
+    }
+}
+
+// Afficher l'overlay plein écran d'appel entrant
+function afficherModalAppelEntrant(senderTel) {
+    let modal = document.getElementById('incomingCallModal');
+    if(!modal) {
+        modal = document.createElement('div');
+        modal.id = 'incomingCallModal';
+        modal.style.cssText = "position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(3,7,18,0.92); z-index:99999; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px; box-sizing:border-box; text-align:center; animation: fadeIn 0.3s ease;";
+        modal.innerHTML = `
+            <div style="background:rgba(255,255,255,0.05); border:1px solid var(--border-color); padding:30px; border-radius:24px; max-width:340px; width:100%; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
+                <div style="font-size:50px; margin-bottom:15px; animation: bounce 1.5s infinite;">📞</div>
+                <h2 style="color:var(--text-primary); font-size:20px; margin:0 0 8px 0;">Appel Entrant...</h2>
+                <p id="incomingCallerName" style="color:var(--accent); font-size:15px; font-weight:bold; margin:0 0 25px 0;">${senderTel}</p>
+                <div style="display:flex; gap:15px; justify-content:center;">
+                    <button onclick="rejeterAppelEntrant()" style="background:#ef4444; color:#fff; border:none; padding:12px 24px; border-radius:50px; font-size:14px; font-weight:bold; cursor:pointer; flex:1; box-shadow:0 4px 12px rgba(239,68,68,0.4);">Rejeter ❌</button>
+                    <button onclick="accepterAppelEntrant()" style="background:#10b981; color:#fff; border:none; padding:12px 24px; border-radius:50px; font-size:14px; font-weight:bold; cursor:pointer; flex:1; box-shadow:0 4px 12px rgba(16,185,129,0.4);">Décrocher 🟢</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    } else {
+        document.getElementById('incomingCallerName').innerText = senderTel;
+        modal.style.display = 'flex';
+    }
+}
+
+function cacherModalAppelEntrant() {
+    const modal = document.getElementById('incomingCallModal');
+    if(modal) {
+        modal.style.display = 'none';
+    }
 }
 
 async function lancerAppelDirectPeer(type) {
@@ -649,8 +687,6 @@ async function lancerAppelDirectPeer(type) {
         alert("Vous ne pouvez pas vous appeler vous-même !");
         return;
     }
-
-    currentCalledNumber = cibleTel;
 
     try {
         if(logEl) logEl.innerText = "🔄 Initialisation appel vers " + cibleTel + "...";
@@ -697,7 +733,6 @@ async function lancerAppelDirectPeer(type) {
         jouerSonSonnerie();
         if(logEl) logEl.innerText = "📞 Sonnerie active... En attente de réponse (30s max)...";
 
-        // Timeout de 30 secondes sans réponse -> Appel manqué automatique
         appelTimeoutTimer = setTimeout(() => {
             if(peerConnection && peerConnection.connectionState !== 'connected') {
                 enregistrerAppelManqueSortant(cibleTel);
@@ -709,7 +744,7 @@ async function lancerAppelDirectPeer(type) {
 
     } catch (error) {
         if(logEl) logEl.innerText = "❌ Erreur d'accès au micro/caméra.";
-        alert("Impossible d'initialiser l'appel direct.");
+        alert("Impossible d'initialiser l'appel direct. Vérifiez les permissions du micro.");
     }
 }
 
@@ -753,47 +788,15 @@ socket.on('p2p_signal', async (data) => {
     }
 
     if (data.type === 'offer') {
+        pendingOfferData = data;
         jouerSonSonnerie();
+        afficherModalAppelEntrant(data.sender);
         
-        // Timeout si le destinataire ne décroche pas en 30 secondes
-        let incomingTimeout = setTimeout(() => {
-            arreterSonSonnerie();
-            socket.emit('p2p_signal', { target: data.sender, sender: utilisateur.telephone, type: 'missed_call' });
-            enregistrerAppelManqueEntrant(data.sender);
+        // Timeout de 30 secondes si l'appel entrant n'est pas décroché
+        incomingTimeout = setTimeout(() => {
+            rejeterAppelEntrant();
         }, 30000);
 
-        if(confirm(`📞 Appel entrant de ${data.sender}. Voulez-vous décrocher ?`)) {
-            clearTimeout(incomingTimeout);
-            arreterSonSonnerie();
-            container.style.display = 'block';
-            if(logEl) logEl.innerText = "📞 Connexion en cours avec " + data.sender + "...";
-            
-            try {
-                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-                localStream.getTracks().forEach(track => {
-                    peerConnection.addTrack(track, localStream);
-                });
-
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-                const answer = await peerConnection.createAnswer();
-                await peerConnection.setLocalDescription(answer);
-                
-                socket.emit('p2p_signal', { 
-                    target: data.sender, 
-                    sender: utilisateur.telephone, 
-                    type: 'answer', 
-                    answer: answer 
-                });
-                if(logEl) logEl.innerText = "✅ Appel établi avec " + data.sender;
-            } catch(err) {
-                if(logEl) logEl.innerText = "❌ Erreur lors de l'acceptation de l'appel.";
-            }
-        } else {
-            clearTimeout(incomingTimeout);
-            arreterSonSonnerie();
-            socket.emit('p2p_signal', { target: data.sender, sender: utilisateur.telephone, type: 'reject' });
-            enregistrerAppelManqueEntrant(data.sender);
-        }
     } else if (data.type === 'answer') {
         try {
             await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
@@ -806,10 +809,60 @@ socket.on('p2p_signal', async (data) => {
         } catch(e) {}
     } else if (data.type === 'reject' || data.type === 'missed_call') {
         arreterSonSonnerie();
+        cacherModalAppelEntrant();
         if(logEl) logEl.innerText = "❌ Appel manqué / rejeté par le correspondant.";
         raccrocherAppel();
     }
 });
+
+async function accepterAppelEntrant() {
+    arreterSonSonnerie();
+    cacherModalAppelEntrant();
+    if(incomingTimeout) clearTimeout(incomingTimeout);
+
+    const logEl = document.getElementById('callStatusLog');
+    const container = document.getElementById('callContainer');
+    container.style.display = 'block';
+
+    if(!pendingOfferData) return;
+    const data = pendingOfferData;
+
+    try {
+        if(logEl) logEl.innerText = "📞 Connexion en cours avec " + data.sender + "...";
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+        localStream.getTracks().forEach(track => {
+            peerConnection.addTrack(track, localStream);
+        });
+
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+        
+        socket.emit('p2p_signal', { 
+            target: data.sender, 
+            sender: utilisateur.telephone, 
+            type: 'answer', 
+            answer: answer 
+        });
+        if(logEl) logEl.innerText = "✅ Appel établi avec " + data.sender;
+    } catch(err) {
+        if(logEl) logEl.innerText = "❌ Erreur lors de l'acceptation de l'appel (Vérifiez les permissions micro).";
+        alert("Impossible d'accéder au microphone pour décrocher.");
+    }
+}
+
+function rejeterAppelEntrant() {
+    arreterSonSonnerie();
+    cacherModalAppelEntrant();
+    if(incomingTimeout) clearTimeout(incomingTimeout);
+
+    if(pendingOfferData) {
+        socket.emit('p2p_signal', { target: pendingOfferData.sender, sender: utilisateur.telephone, type: 'reject' });
+        enregistrerAppelManqueEntrant(pendingOfferData.sender);
+        pendingOfferData = null;
+    }
+    raccrocherAppel();
+}
 
 function enregistrerAppelManqueEntrant(tel) {
     if(!utilisateur) return;
@@ -826,6 +879,7 @@ function enregistrerAppelManqueEntrant(tel) {
 
 function raccrocherAppel() {
     arreterSonSonnerie();
+    cacherModalAppelEntrant();
     if(peerConnection) {
         peerConnection.close();
         peerConnection = null;
