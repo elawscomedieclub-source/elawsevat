@@ -8,9 +8,12 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" href="logo_evat.svg" type="image/svg+xml">
     <meta name="theme-color" content="#030712">
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script>
+        const SERVER_URL = "https://elawsserverevat.onrender.com";
+    </script>
 </head>
 <body>
-    <!-- Modal de premier lancement stylé Continuum -->
     <div id="welcomeModal" class="modal-overlay" style="display:none;">
         <div class="card continuum-card" style="max-width:420px; width:100%; text-align:center;">
             <div class="quantum-globe-container" style="margin: 0 auto 15px auto;">
@@ -19,7 +22,7 @@
                 <div class="orbit-ring ring-2"></div>
             </div>
             <h2 style="color:var(--accent); font-size:18px; margin-bottom:6px;">NEXUS ALPHA - EVAT v3.60</h2>
-            <p style="font-size:12px; color:var(--text-secondary); margin-bottom:14px;">Initialisation du protocole de chiffrement post-quantique et du noyau Continuum.</p>
+            <p style="font-size:12px; color:var(--text-secondary); margin-bottom:14px;">Connexion au serveur Continuum de signalisation mondial et chiffrement post-quantique.</p>
             
             <div style="text-align:left; margin-bottom:14px;">
                 <label style="font-size:11.5px; color:var(--text-color);">Nom de l'Opérateur :</label>
@@ -33,14 +36,12 @@
     </div>
 
     <div id="app">
-        <!-- En-tête style HUD Continuum avec la bulle IA ELAWS 3.59 fixe en haut à droite -->
         <header class="header">
             <div class="header-left">
                 <button onclick="toggleMenu(event)" class="menu-btn" aria-label="Menu principal">☰</button>
                 <div class="header-brand" style="display:flex; align-items:center; gap:8px;">
-                    <div class="header-logo-mini"></div>
                     <div>
-                        <h1 style="font-size:14px; margin:0; color:var(--accent);">EVAT <span style="font-weight:300; font-size:11px; color:var(--text-secondary);">| ELAWS Quantum v3.60</span></h1>
+                        <h1 style="font-size:14px; margin:0; color:var(--accent);">EVAT <span style="font-weight:300; font-size:11px; color:var(--text-secondary);">| v3.60 Continuum</span></h1>
                     </div>
                 </div>
             </div>
@@ -56,10 +57,8 @@
             </div>
         </header>
 
-        <!-- Menu Latéral Coulissant -->
         <nav id="sidebar" class="sidebar" onclick="event.stopPropagation()">
             <div class="sidebar-header" style="display:flex; align-items:center; gap:10px; margin-bottom:15px; border-bottom:1px solid var(--border-color); padding-bottom:10px;">
-                <div class="sidebar-avatar-mini"></div>
                 <div>
                     <h3 style="font-size:14px; margin:0; color:var(--accent);">Nexus Alpha</h3>
                     <span id="sidebarUserRole" class="sidebar-badge" style="font-size:11px; color:var(--success);">Kodjo • Niveau 2</span>
@@ -79,12 +78,8 @@
 
         <div id="appOverlay" class="app-overlay" onclick="fermerTousLesMenus()"></div>
 
-        <!-- Contenu Principal -->
         <main class="content" style="padding:14px;">
-
-            <!-- DASHBOARD HUD CONTINUUM (Inspiré des 3 photos : globe, avatar nexus, diagrammes de charge et métriques) -->
             <section id="tab-dashboard" class="tab-content active">
-                <!-- Ligne supérieure : Avatar Nexus Alpha & Diagrammes de Charge (Processing Power / Core Load) -->
                 <div class="dashboard-top-grid">
                     <div class="card continuum-card" style="text-align:center; padding:12px;">
                         <div class="nexus-avatar-frame">
@@ -112,10 +107,9 @@
                     </div>
                 </div>
 
-                <!-- Centre : Le Globe Terrestre Quantique avec Anneaux Orbitaux et Statut Réseau Global -->
                 <div class="card continuum-card" style="text-align:center; position:relative; overflow:hidden;">
                     <h3 style="color:var(--accent); font-size:13.5px; margin-bottom:2px;">GLOBAL QUANTUM NETWORK STATUS</h3>
-                    <p style="font-size:11px; color:var(--text-secondary); margin-bottom:10px;">Network Integrity | <strong style="color:var(--success);">100% Active (Nexus Safe)</strong></p>
+                    <p style="font-size:11px; color:var(--text-secondary); margin-bottom:10px;">Serveur : <strong style="color:var(--success);">https://elawsserverevat.onrender.com</strong></p>
                     
                     <div class="quantum-globe-container">
                         <div class="earth-globe"></div>
@@ -140,13 +134,12 @@
                     </div>
                 </div>
 
-                <!-- Section Inférieure : Sécurité Cipher & Alert Logs -->
                 <div class="dashboard-bottom-grid">
                     <div class="card continuum-card" style="padding:12px;">
                         <h4 style="font-size:11.5px; color:var(--accent); margin-bottom:6px;">🛡️ Nexus v3.60 Cipher & Security</h4>
                         <p style="font-size:11px; color:var(--text-secondary); margin-bottom:6px;">Quantum Safe Encryption Active - Post Quantum Algorithm.</p>
-                        <div style="background:var(--bg-color); padding:8px; border-radius:6px; font-size:10.5px; color:var(--success);">
-                            Cryptographic Security: Verified & Stable
+                        <div style="background:var(--bg-color); padding:8px; border-radius:6px; font-size:10.5px; color:var(--success);" id="serverConnectionStatus">
+                            Statut Serveur : Connexion en cours...
                         </div>
                     </div>
 
@@ -154,38 +147,36 @@
                         <h4 style="font-size:11.5px; color:var(--success); margin-bottom:6px;">📋 Alert Logs (Continuum)</h4>
                         <div style="font-size:10.5px; color:var(--text-secondary); display:flex; flex-direction:column; gap:4px;">
                             <div>• Super-Quantum Safe app at 710 HB</div>
-                            <div>• Nexus v3.60 Node synchronized</div>
+                            <div>• WebSocket Proxy synchronized</div>
                         </div>
                     </div>
                 </div>
             </section>
 
-            <!-- COMMUNICATIONS -->
             <section id="tab-communications" class="tab-content" style="display:none;">
                 <div class="card continuum-card">
                     <h2>📞 Communications WebRTC & VoIP</h2>
-                    <p style="font-size:12px; color:var(--text-secondary);">Appels chiffrés par numéro de téléphone sans passer par le réseau GSM classique.</p>
+                    <p style="font-size:12px; color:var(--text-secondary);">Appels mondiaux chiffrés via votre serveur Render.</p>
                     <div id="voipStatusDisplay" style="margin:12px 0; color:var(--accent); font-weight:700; text-align:center;">ID VoIP : +228 98 23 14 02</div>
                     <button onclick="lancerAppelInternet('audio')" class="btn-action" style="background:var(--success); color:#fff; margin-bottom:8px;">🎙️ Lancer Appel Audio WebRTC</button>
                     <button onclick="lancerAppelInternet('video')" class="btn-action" style="background:var(--accent); color:#030712;">📹 Lancer Appel Vidéo Continuum</button>
+                    <div id="callStatusLog" style="margin-top:10px; font-size:11px; color:var(--text-secondary); text-align:center;"></div>
                 </div>
             </section>
 
-            <!-- QUETES -->
             <section id="tab-quetes" class="tab-content" style="display:none;">
                 <div class="card continuum-card">
                     <h2>⚡ Quêtes & Qubits</h2>
                     <p style="font-size:12px; color:var(--text-secondary);">Gagnez des Qubits en explorant les modules de l'application.</p>
                     <div id="quetesContainer" style="margin-top:10px; display:flex; flex-direction:column; gap:8px;">
                         <div style="background:var(--bg-color); padding:10px; border-radius:8px; border:1px solid var(--success);">
-                            <strong>✅ Configurer le profil & le métrique Nexus</strong>
+                            <strong>✅ Configurer le serveur Continuum</strong>
                             <p style="font-size:11px; color:var(--accent); margin:2px 0;">+50 Qubits (Accompli)</p>
                         </div>
                     </div>
                 </div>
             </section>
 
-            <!-- SUCCES 1000% -->
             <section id="tab-succes1000" class="tab-content" style="display:none;">
                 <div class="card continuum-card">
                     <h2>💎 Garantie Succès 1000%</h2>
@@ -195,7 +186,6 @@
                 </div>
             </section>
 
-            <!-- CLOUD -->
             <section id="tab-sync" class="tab-content" style="display:none;">
                 <div class="card continuum-card">
                     <h2>☁️ Cloud & Sauvegarde</h2>
@@ -204,7 +194,6 @@
                 </div>
             </section>
 
-            <!-- VOYAGE -->
             <section id="tab-voyage" class="tab-content" style="display:none;">
                 <div class="card continuum-card">
                     <h2>✈️ Guide Voyage, Visa & Billets</h2>
@@ -214,7 +203,6 @@
                 </div>
             </section>
 
-            <!-- PROFIL -->
             <section id="tab-profil" class="tab-content" style="display:none;">
                 <div class="card continuum-card">
                     <h2>👤 Gestion du Profil & Sécurité</h2>
@@ -224,7 +212,6 @@
                 </div>
             </section>
 
-            <!-- OUTILS -->
             <section id="tab-outils" class="tab-content" style="display:none;">
                 <div class="card continuum-card">
                     <h2>🛠️ Boîte à Outils & Bloc-Notes</h2>

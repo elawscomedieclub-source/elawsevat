@@ -7,6 +7,25 @@ let utilisateur = JSON.parse(localStorage.getItem('evat_profil')) || {
     voyages: []
 };
 
+const socket = io(SERVER_URL);
+
+socket.on('connect', () => {
+    console.log("Connecté au serveur Continuum mondial ID:", socket.id);
+    const statusEl = document.getElementById('serverConnectionStatus');
+    if(statusEl) {
+        statusEl.innerHTML = "🟢 Connecté au Serveur Continuum Render";
+        statusEl.style.color = "var(--success)";
+    }
+});
+
+socket.on('disconnect', () => {
+    const statusEl = document.getElementById('serverConnectionStatus');
+    if(statusEl) {
+        statusEl.innerHTML = "🔴 Déconnecté du serveur";
+        statusEl.style.color = "var(--danger)";
+    }
+});
+
 function sauvegarderProfilBase() {
     const nom = document.getElementById('inputNomProfil').value || document.getElementById('inputNom').value;
     const tel = document.getElementById('inputTelProfil').value || document.getElementById('inputTelProfil2').value;
@@ -14,7 +33,7 @@ function sauvegarderProfilBase() {
     if(tel) utilisateur.telephone = tel;
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
     document.getElementById('welcomeModal').style.display = 'none';
-    alert("✅ Profil et paramètres Nexus enregistrés !");
+    alert("✅ Profil et paramètres enregistrés dans le noyau Continuum !");
 }
 
 function toggleMenu(e) {
@@ -61,7 +80,7 @@ function ajouterNoteBlocNotes() {
     document.getElementById('noteTitre').value = '';
     document.getElementById('noteContenu').value = '';
     afficherNotesBlocNotes();
-    alert("Note enregistrée dans le noyau !");
+    alert("Note enregistrée dans le noyau Continuum !");
 }
 
 function afficherNotesBlocNotes() {
@@ -73,9 +92,9 @@ function afficherNotesBlocNotes() {
     }
     let html = '';
     utilisateur.notes.forEach(n => {
-        html += `<div style="background:var(--bg-color); border:1px solid var(--border-color); padding:8px; border-radius:8px; margin-bottom:6px;">
-            <strong style="color:var(--accent); font-size:12px;">📌 ${n.titre}</strong>
-            <p style="font-size:11.5px; margin:2px 0;">${n.contenu}</p>
+        html += `<div style="background:var(--bg-color); border:1px solid var(--border-color); padding:10px; border-radius:10px; margin-bottom:8px;">
+            <strong style="color:var(--accent); font-size:12.5px;">📌 ${n.titre}</strong>
+            <p style="font-size:12px; margin:3px 0;">${n.contenu}</p>
         </div>`;
     });
     container.innerHTML = html;
@@ -86,7 +105,7 @@ function genererPlanSucces1000() {
     const container = document.getElementById('resultatPlan1000');
     if(!obj) { alert("Entrez un objectif."); return; }
     container.style.display = 'block';
-    container.innerHTML = `<div style="background:var(--bg-color); padding:10px; border-radius:8px; border:1px solid var(--success);"><h4 style="color:var(--success); font-size:12.5px;">🚀 Plan 1000% : ${obj}</h4><p style="font-size:11.5px;">Phase 1: Nexus Scan • Phase 2: Quantum Encryption • Phase 3: Global Deployment.</p></div>`;
+    container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:12px; border:1px solid var(--success);"><h4 style="color:var(--success); font-size:13px;">🚀 Plan 1000% : ${obj}</h4><p style="font-size:12px;">Phase 1: Nexus Scan • Phase 2: Chiffrement Post-Quantique • Phase 3: Déploiement Mondial Continuum.</p></div>`;
 }
 
 function lancerAnalyseVoyageAvance() {
@@ -94,7 +113,7 @@ function lancerAnalyseVoyageAvance() {
     const container = document.getElementById('resultatAssistantVoyage');
     if(!dest) { alert("Entrez une destination."); return; }
     container.style.display = 'block';
-    container.innerHTML = `<div style="background:var(--bg-color); padding:10px; border-radius:8px; border:1px solid var(--accent);"><h4 style="color:var(--accent); font-size:12.5px;">✈️ Voyage vers ${dest}</h4><p style="font-size:11.5px;">Checklist visa et empreinte carbone calculées via le réseau Continuum.</p></div>`;
+    container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:12px; border:1px solid var(--accent);"><h4 style="color:var(--accent); font-size:13px;">✈️ Voyage vers ${dest}</h4><p style="font-size:12px;">Checklist visa, passeport et liaisons orbitales calculées via le réseau Continuum.</p></div>`;
 }
 
 function exporterDonneesCloud() {
@@ -107,9 +126,62 @@ function exporterDonneesCloud() {
     dl.remove();
 }
 
-function lancerAppelInternet(type) {
-    alert("Connexion WebRTC Continuum établie pour l'appel " + type + " avec le numéro " + utilisateur.telephone);
+let localStream;
+let peerConnection;
+const servers = {
+    iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+    ]
+};
+
+async function lancerAppelInternet(type) {
+    const logEl = document.getElementById('callStatusLog');
+    try {
+        if(logEl) logEl.innerText = "Activation du micro/caméra pour l'appel " + type + "...";
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: type === 'video' });
+        
+        peerConnection = new RTCPeerConnection(servers);
+        localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+        peerConnection.onicecandidate = event => {
+            if (event.candidate) {
+                socket.emit('signal', { type: 'ice_candidate', candidate: event.candidate });
+            }
+        };
+
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        socket.emit('signal', { type: 'offer', offer: offer });
+
+        if(logEl) logEl.innerText = "🎙️ Appel " + type + " en cours de transmission mondiale via Render !";
+        alert("✅ Appel WebRTC " + type + " initialisé avec succès via le serveur Continuum !");
+    } catch (error) {
+        console.error("Erreur WebRTC :", error);
+        if(logEl) logEl.innerText = "Erreur d'accès aux médias ou réseau bloqué.";
+        alert("Impossible d'accéder au micro/caméra.");
+    }
 }
+
+socket.on('signal', async (data) => {
+    if (!peerConnection) {
+        peerConnection = new RTCPeerConnection(servers);
+        peerConnection.onicecandidate = event => {
+            if (event.candidate) socket.emit('signal', { type: 'ice_candidate', candidate: event.candidate });
+        };
+    }
+
+    if (data.type === 'offer') {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+        socket.emit('signal', { type: 'answer', answer: answer });
+    } else if (data.type === 'answer') {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+    } else if (data.type === 'ice_candidate' && data.candidate) {
+        await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+    }
+});
 
 document.addEventListener('DOMContentLoaded', () => {
     if(!utilisateur.nom || utilisateur.nom === "") {
