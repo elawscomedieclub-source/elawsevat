@@ -4,16 +4,15 @@ let utilisateur = JSON.parse(localStorage.getItem('evat_profil')) || {
     telephone: "+22898231402",
     qubits: 365,
     notes: [],
-    voyages: []
+    messagesLocaux: []
 };
 
 const socket = io(SERVER_URL);
 
 socket.on('connect', () => {
-    console.log("Connecté au serveur Continuum mondial ID:", socket.id);
     const statusEl = document.getElementById('serverConnectionStatus');
     if(statusEl) {
-        statusEl.innerHTML = "🟢 Connecté au Serveur Continuum Render";
+        statusEl.innerHTML = "🟢 Connecté";
         statusEl.style.color = "var(--success)";
     }
 });
@@ -21,7 +20,7 @@ socket.on('connect', () => {
 socket.on('disconnect', () => {
     const statusEl = document.getElementById('serverConnectionStatus');
     if(statusEl) {
-        statusEl.innerHTML = "🔴 Déconnecté du serveur";
+        statusEl.innerHTML = "🔴 Déconnecté";
         statusEl.style.color = "var(--danger)";
     }
 });
@@ -33,7 +32,6 @@ function sauvegarderProfilBase() {
     if(tel) utilisateur.telephone = tel;
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
     document.getElementById('welcomeModal').style.display = 'none';
-    alert("✅ Profil et paramètres enregistrés dans le noyau Continuum !");
 }
 
 function toggleMenu(e) {
@@ -50,6 +48,9 @@ function fermerTousLesMenus() {
     document.getElementById('appOverlay').classList.remove('active');
 }
 
+let mapInstance = null;
+let userMarker = null;
+
 function switchTab(tabId) {
     document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
     document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
@@ -58,36 +59,139 @@ function switchTab(tabId) {
     const link = document.getElementById('link-' + tabId);
     if(link) link.classList.add('active');
     fermerTousLesMenus();
+
+    if(tabId === 'map') {
+        setTimeout(() => {
+            if(!mapInstance) {
+                mapInstance = L.map('mapContainer').setView([6.1375, 1.2123], 13);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '© OpenStreetMap'
+                }).addTo(mapInstance);
+            } else {
+                mapInstance.invalidateSize();
+            }
+        }, 200);
+    }
 }
+
+function centrerSurMoi() {
+    const logEl = document.getElementById('gpsStatusLog');
+    if (navigator.geolocation) {
+        if(logEl) logEl.innerText = "Recherche GPS...";
+        navigator.geolocation.getCurrentPosition(position => {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            if(mapInstance) {
+                mapInstance.setView([lat, lng], 15);
+                if(userMarker) mapInstance.removeLayer(userMarker);
+                userMarker = L.marker([lat, lng]).addTo(mapInstance)
+                    .bindPopup("<b>📍 Vous êtes ici</b>").openPopup();
+            }
+            if(logEl) logEl.innerText = "✅ Position localisée";
+        }, error => {
+            if(logEl) logEl.innerText = "Erreur GPS";
+        }, { enableHighAccuracy: true });
+    }
+}
+
+function partagerMaPositionGPS() {
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(position => {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            const msg = `📍 Position GPS : https://maps.google.com/?q=${lat},${lng}`;
+            
+            socket.emit('signal', { type: 'location', sender: utilisateur.nom, lat, lng });
+            
+            if(!utilisateur.messagesLocaux) utilisateur.messagesLocaux = [];
+            utilisateur.messagesLocaux.push({ expediteur: utilisateur.nom || "Moi", texte: msg, heure: new Date().toLocaleTimeString() });
+            localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
+            
+            alert("Position partagée !");
+        }, error => {
+            alert("Erreur GPS.");
+        }, { enableHighAccuracy: true });
+    }
+}
+
+socket.on('signal', (data) => {
+    if (data.type === 'location' && mapInstance) {
+        const { sender, lat, lng } = data;
+        L.marker([lat, lng]).addTo(mapInstance).bindPopup(`<b>📍 ${sender}</b>`);
+        if(!utilisateur.messagesLocaux) utilisateur.messagesLocaux = [];
+        utilisateur.messagesLocaux.push({ expediteur: sender, texte: `📍 Position reçue`, heure: new Date().toLocaleTimeString() });
+        localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
+    }
+});
 
 function ouvrirModeClavierDirect(e) {
     if(e) e.stopPropagation();
-    alert("💬 Assistant ELAWS 3.59 activé. Posez votre question technique ou business.");
+    alert("💬 Assistant ELAWS actif.");
 }
 
 function basculerEcouteVocaleLiveDirect(e) {
     if(e) e.stopPropagation();
-    alert("🎙️ Reconnaissance vocale ELAWS active.");
+    alert("🎙️ Écoute vocale active.");
+}
+
+function selectionnerDossierStockageTelephone() {
+    if ('showDirectoryPicker' in window) {
+        window.showDirectoryPicker().then(dirHandle => {
+            document.getElementById('fileAccessStatus').innerHTML = `<span style="color:var(--success);">✅ Lié</span>`;
+        }).catch(err => {});
+    }
+}
+
+function envoyerMessageChatLocal() {
+    const input = document.getElementById('chatLocalInput');
+    const texte = input.value.trim();
+    if(!texte) return;
+    if(!utilisateur.messagesLocaux) utilisateur.messagesLocaux = [];
+    utilisateur.messagesLocaux.push({ expediteur: utilisateur.nom || "Moi", texte, heure: new Date().toLocaleTimeString() });
+    localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
+    input.value = '';
+    afficherMessagesLocaux();
+}
+
+function afficherMessagesLocaux() {
+    const container = document.getElementById('listeMessagesLocaux');
+    if(!container) return;
+    if(!utilisateur.messagesLocaux || utilisateur.messagesLocaux.length === 0) {
+        container.innerHTML = `<p style="color:var(--text-secondary); font-size:11.5px;">Aucun message.</p>`;
+        return;
+    }
+    let html = '';
+    utilisateur.messagesLocaux.forEach(m => {
+        html += `<div style="background:var(--bg-color); border:1px solid var(--border-color); padding:8px; border-radius:8px; margin-bottom:6px;">
+            <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--accent);">
+                <span>👤 ${m.expediteur}</span>
+                <span>${m.heure}</span>
+            </div>
+            <p style="font-size:12px; margin:3px 0 0 0;">${m.texte}</p>
+        </div>`;
+    });
+    container.innerHTML = html;
+    container.scrollTop = container.scrollHeight;
 }
 
 function ajouterNoteBlocNotes() {
     const titre = document.getElementById('noteTitre').value.trim();
     const contenu = document.getElementById('noteContenu').value.trim();
-    if(!titre || !contenu) { alert("Titre et contenu requis."); return; }
+    if(!titre || !contenu) return;
     if(!utilisateur.notes) utilisateur.notes = [];
     utilisateur.notes.unshift({ titre, contenu });
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
     document.getElementById('noteTitre').value = '';
     document.getElementById('noteContenu').value = '';
     afficherNotesBlocNotes();
-    alert("Note enregistrée dans le noyau Continuum !");
 }
 
 function afficherNotesBlocNotes() {
     const container = document.getElementById('listeNotesContainer');
     if(!container) return;
     if(!utilisateur.notes || utilisateur.notes.length === 0) {
-        container.innerHTML = `<p style="color:var(--text-secondary); font-size:11.5px;">Aucune note enregistrée.</p>`;
+        container.innerHTML = `<p style="color:var(--text-secondary); font-size:11.5px;">Aucune note.</p>`;
         return;
     }
     let html = '';
@@ -103,24 +207,24 @@ function afficherNotesBlocNotes() {
 function genererPlanSucces1000() {
     const obj = document.getElementById('inputObjectif1000').value.trim();
     const container = document.getElementById('resultatPlan1000');
-    if(!obj) { alert("Entrez un objectif."); return; }
+    if(!obj) return;
     container.style.display = 'block';
-    container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:12px; border:1px solid var(--success);"><h4 style="color:var(--success); font-size:13px;">🚀 Plan 1000% : ${obj}</h4><p style="font-size:12px;">Phase 1: Nexus Scan • Phase 2: Chiffrement Post-Quantique • Phase 3: Déploiement Mondial Continuum.</p></div>`;
+    container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:12px; border:1px solid var(--success);"><h4 style="color:var(--success); font-size:13px;">🚀 Objectif : ${obj}</h4><p style="font-size:12px;">Plan stratégique en cours d'exécution.</p></div>`;
 }
 
 function lancerAnalyseVoyageAvance() {
     const dest = document.getElementById('voyageDestination').value.trim();
     const container = document.getElementById('resultatAssistantVoyage');
-    if(!dest) { alert("Entrez une destination."); return; }
+    if(!dest) return;
     container.style.display = 'block';
-    container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:12px; border:1px solid var(--accent);"><h4 style="color:var(--accent); font-size:13px;">✈️ Voyage vers ${dest}</h4><p style="font-size:12px;">Checklist visa, passeport et liaisons orbitales calculées via le réseau Continuum.</p></div>`;
+    container.innerHTML = `<div style="background:var(--bg-color); padding:12px; border-radius:12px; border:1px solid var(--accent);"><h4 style="color:var(--accent); font-size:13px;">✈️ ${dest}</h4><p style="font-size:12px;">Analyse des documents et formalités validée.</p></div>`;
 }
 
 function exporterDonneesCloud() {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(utilisateur, null, 2));
     const dl = document.createElement('a');
     dl.setAttribute("href", dataStr);
-    dl.setAttribute("download", "evat_continuum_backup.json");
+    dl.setAttribute("download", "evat_backup.json");
     document.body.appendChild(dl);
     dl.click();
     dl.remove();
@@ -138,7 +242,7 @@ const servers = {
 async function lancerAppelInternet(type) {
     const logEl = document.getElementById('callStatusLog');
     try {
-        if(logEl) logEl.innerText = "Activation du micro/caméra pour l'appel " + type + "...";
+        if(logEl) logEl.innerText = "Connexion appel...";
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: type === 'video' });
         
         peerConnection = new RTCPeerConnection(servers);
@@ -154,11 +258,10 @@ async function lancerAppelInternet(type) {
         await peerConnection.setLocalDescription(offer);
         socket.emit('signal', { type: 'offer', offer: offer });
 
-        if(logEl) logEl.innerText = "🎙️ Appel " + type + " en cours de transmission mondiale via Render !";
-        alert("✅ Appel WebRTC " + type + " initialisé avec succès via le serveur Continuum !");
+        if(logEl) logEl.innerText = "🎙️ Appel actif";
+        alert("Appel initialisé avec succès !");
     } catch (error) {
-        console.error("Erreur WebRTC :", error);
-        if(logEl) logEl.innerText = "Erreur d'accès aux médias ou réseau bloqué.";
+        if(logEl) logEl.innerText = "Erreur réseau ou micro";
         alert("Impossible d'accéder au micro/caméra.");
     }
 }
@@ -187,10 +290,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if(!utilisateur.nom || utilisateur.nom === "") {
         document.getElementById('welcomeModal').style.display = 'flex';
     }
-    if(document.getElementById('inputNom')) document.getElementById('inputNom').value = utilisateur.nom;
-    if(document.getElementById('inputNomProfil')) document.getElementById('inputNomProfil').value = utilisateur.nom;
-    if(document.getElementById('inputTelProfil')) document.getElementById('inputTelProfil').value = utilisateur.telephone;
-    if(document.getElementById('inputTelProfil2')) document.getElementById('inputTelProfil2').value = utilisateur.telephone;
-    document.getElementById('dashQubitsScore').innerText = utilisateur.qubits || 365;
+    if(document.getElementById('inputNom')) document.getElementById('inputNom'].value = utilisateur.nom;
+    if(document.getElementById('inputNomProfil')) document.getElementById('inputNomProfil'].value = utilisateur.nom;
+    if(document.getElementById('inputTelProfil')) document.getElementById('inputTelProfil'].value = utilisateur.telephone;
+    if(document.getElementById('inputTelProfil2')) document.getElementById('inputTelProfil2'].value = utilisateur.telephone;
     afficherNotesBlocNotes();
+    afficherMessagesLocaux();
 });
