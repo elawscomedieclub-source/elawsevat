@@ -77,7 +77,7 @@
                 <a href="#" onclick="switchTab('contacts')" class="nav-link" id="link-contacts">📇 Contacts & Annuaire</a>
                 <a href="#" onclick="switchTab('map')" class="nav-link" id="link-map">🗺️ Carte & Position GPS</a>
                 <a href="#" onclick="switchTab('messagerie')" class="nav-link" id="link-messagerie">💬 Messagerie & Fichiers</a>
-                <a href="#" onclick="switchTab('communications')" class="nav-link" id="link-communications">📞 Appels & VoIP</a>
+                <a href="#" onclick="switchTab('communications')" class="nav-link" id="link-communications">📞 Appels & VoIP Directs</a>
                 <a href="#" onclick="switchTab('quetes')" class="nav-link" id="link-quetes">⚡ Quêtes & Qubits</a>
                 <a href="#" onclick="switchTab('succes1000')" class="nav-link" id="link-succes1000">💎 Stratégie Succès</a>
                 <a href="#" onclick="switchTab('sync')" class="nav-link" id="link-sync">☁️ Sauvegarde Cloud</a>
@@ -172,19 +172,18 @@
                 </div>
             </section>
 
-            <!-- MODULE CONTACTS & ANNUAIRE (Avec modification et suppression) -->
+            <!-- MODULE CONTACTS & ANNUAIRE (Avec synchronisation automatique du métier) -->
             <section id="tab-contacts" class="tab-content" style="display:none;">
                 <div class="card continuum-card">
                     <h2>📇 Annuaire & Contacts</h2>
-                    <p style="font-size:12px; color:var(--text-secondary);">Gérez vos contacts : appel direct, modification et suppression instantanée.</p>
+                    <p style="font-size:12px; color:var(--text-secondary);">Le système synchronise automatiquement le métier de vos contacts connectés.</p>
                     
                     <div style="background:var(--bg-color); padding:10px; border-radius:10px; border:1px solid var(--border-color); margin-bottom:12px;">
-                        <strong style="font-size:12px; color:var(--accent);">➕ Ajouter un nouveau contact</strong>
+                        <strong style="font-size:12px; color:var(--accent);">➕ Enregistrer un contact</strong>
                         <div style="display:flex; flex-direction:column; gap:6px; margin-top:8px;">
                             <input type="text" id="nouveauNomContact" class="input" placeholder="Nom du contact..." style="margin-bottom:0;">
                             <input type="text" id="nouveauTelContact" class="input" placeholder="Numéro (ex: +228...)" style="margin-bottom:0;">
-                            <input type="text" id="nouveauMetierContact" class="input" placeholder="Métier / Rôle..." style="margin-bottom:0;">
-                            <button onclick="ajouterNouveauContact()" class="btn-action" style="background:var(--success); color:#fff; font-size:12px;">Enregistrer le contact</button>
+                            <button onclick="ajouterNouveauContact()" class="btn-action" style="background:var(--success); color:#fff; font-size:12px;">Enregistrer & Synchroniser</button>
                         </div>
                     </div>
 
@@ -231,15 +230,28 @@
                 </div>
             </section>
 
-            <!-- COMMUNICATIONS -->
+            <!-- COMMUNICATIONS (Appels directs pair-à-pair WebRTC) -->
             <section id="tab-communications" class="tab-content" style="display:none;">
                 <div class="card continuum-card">
-                    <h2>📞 Appels & VoIP</h2>
-                    <p style="font-size:12px; color:var(--text-secondary);">Appels mondiaux chiffrés.</p>
+                    <h2>📞 Appels Directs & VoIP</h2>
+                    <p style="font-size:12px; color:var(--text-secondary);">Appels chiffrés directement d'un système à l'autre via le réseau.</p>
                     <div id="voipStatusDisplay" style="margin:12px 0; color:var(--accent); font-weight:700; text-align:center;">ID : +228 98 23 14 02</div>
-                    <button onclick="lancerAppelInternet('audio')" class="btn-action" style="background:var(--success); color:#fff; margin-bottom:8px;">🎙️ Appel Audio</button>
-                    <button onclick="lancerAppelInternet('video')" class="btn-action" style="background:var(--accent); color:#030712;">📹 Appel Vidéo</button>
-                    <div id="callStatusLog" style="margin-top:10px; font-size:11px; color:var(--text-secondary); text-align:center;"></div>
+                    
+                    <div style="margin-bottom:12px;">
+                        <input type="text" id="appelCibleNum" class="input" placeholder="Numéro du contact à appeler (ex: +228...)" style="margin-bottom:6px;">
+                    </div>
+
+                    <button onclick="lancerAppelDirectPeer('audio')" class="btn-action" style="background:var(--success); color:#fff; margin-bottom:8px;">🎙️ Appel Audio Direct</button>
+                    <button onclick="lancerAppelDirectPeer('video')" class="btn-action" style="background:var(--accent); color:#030712; margin-bottom:8px;">📹 Appel Vidéo Direct</button>
+                    
+                    <!-- Conteneur vidéo/audio distant -->
+                    <div id="callContainer" style="margin-top:10px; display:none; background:#000; border-radius:10px; padding:10px; text-align:center;">
+                        <video id="remoteVideo" autoplay playsinline style="width:100%; max-height:200px; border-radius:8px; background:#111;"></video>
+                        <audio id="remoteAudio" autoplay></audio>
+                        <button onclick="raccrocherAppel()" class="btn-action" style="background:#ef4444; color:#fff; margin-top:8px;">❌ Raccrocher</button>
+                    </div>
+
+                    <div id="callStatusLog" style="margin-top:10px; font-size:11px; color:var(--text-secondary); text-align:center;">Système d'appel direct prêt.</div>
                 </div>
             </section>
 
