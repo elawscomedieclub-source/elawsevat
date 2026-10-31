@@ -141,7 +141,7 @@ function sauvegarderProfilBase() {
         ],
         historiqueElaws: [],
         parametres: {
-            sonnerieType: 'evat',
+            sonnerieType: 'iphone',
             customRingtoneBase64: null,
             vibration: true
         }
@@ -229,7 +229,7 @@ function appliquerInfosProfil() {
         ];
     }
     if(!utilisateur.parametres) {
-        utilisateur.parametres = { sonnerieType: 'evat', customRingtoneBase64: null };
+        utilisateur.parametres = { sonnerieType: 'iphone', customRingtoneBase64: null };
     }
 
     if(document.getElementById('inputNom')) document.getElementById('inputNom').value = utilisateur.nom;
@@ -252,6 +252,7 @@ function appliquerInfosProfil() {
     
     verifierEtSynchroniserContacts();
     afficherContacts();
+    afficherMonProfilResume();
 }
 
 function verifierEtSynchroniserContacts() {
@@ -268,77 +269,210 @@ function verifierEtSynchroniserContacts() {
     });
 }
 
-function afficherContacts() {
-    const container = document.getElementById('listeContactsContainer');
-    if(!container || !utilisateur || !utilisateur.contacts) return;
-    if(utilisateur.contacts.length === 0) {
-        container.innerHTML = `<p style="color:var(--text-secondary); font-size:11.5px;">Aucun contact.</p>`;
-        return;
+let contactOuvertIndex = null;
+
+function escContact(s) {
+    const d = document.createElement('div');
+    d.textContent = s == null ? '' : String(s);
+    return d.innerHTML;
+}
+
+function initialesContact(nom) {
+    const p = String(nom || '?').trim().split(/\s+/).filter(Boolean);
+    if (!p.length) return '?';
+    if (p.length === 1) return p[0].slice(0, 2).toUpperCase();
+    return (p[0][0] + p[p.length - 1][0]).toUpperCase();
+}
+
+function couleurAvatarContact(nom) {
+    const palette = ['#0ea5e9', '#06b6d4', '#10b981', '#8b5cf6', '#f59e0b', '#3b82f6', '#14b8a6', '#6366f1'];
+    let h = 0;
+    const s = String(nom || '');
+    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    return palette[h % palette.length];
+}
+
+function basculerDetailContact(index, event) {
+    if (event) {
+        event.stopPropagation();
+        // ignore clicks on buttons inside
+        if (event.target.closest && event.target.closest('button')) return;
     }
-    let html = '';
-    utilisateur.contacts.forEach((c, index) => {
-        html += `<div style="background:var(--bg-color); border:1px solid var(--border-color); padding:10px; border-radius:10px; display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-            <div>
-                <strong style="color:var(--accent); font-size:12.5px;">👤 ${c.nom}</strong>
-                <div style="font-size:11px; color:var(--text-secondary);">📞 ${c.telephone} • <i style="color:var(--success);">${c.metier || 'Sync...'}</i></div>
-            </div>
-            <div style="display:flex; gap:4px; flex-wrap:wrap; justify-content:flex-end;">
-                <button onclick="preparerAppel('${c.telephone}')" class="btn-action" style="background:var(--success); color:#fff; padding:5px 8px; font-size:10.5px;" title="Appeler">📞</button>
-                <button onclick="ecrireAuContact('${c.nom}', '${c.telephone}')" class="btn-action" style="background:var(--accent); color:#030712; padding:5px 8px; font-size:10.5px;" title="Écrire">💬</button>
-                <button onclick="modifierContact(${index})" class="btn-action" style="background:rgba(59,130,246,0.2); color:var(--accent); border:1px solid var(--accent); padding:5px 8px; font-size:10.5px;" title="Modifier">✏️</button>
-                <button onclick="supprimerContact(${index})" class="btn-action" style="background:rgba(239,68,68,0.2); color:#ef4444; border:1px solid #ef4444; padding:5px 8px; font-size:10.5px;" title="Supprimer">🗑️</button>
-            </div>
+    contactOuvertIndex = (contactOuvertIndex === index) ? null : index;
+    afficherContacts();
+}
+
+/** Affiche la liste contacts dans #listeContactsContainer et/ou #profilContactsContainer */
+function afficherContacts() {
+    if (!utilisateur) return;
+    if (!utilisateur.contacts) utilisateur.contacts = [];
+
+    const containers = [];
+    const a = document.getElementById('listeContactsContainer');
+    const b = document.getElementById('profilContactsContainer');
+    if (a) containers.push(a);
+    if (b) containers.push(b);
+    if (!containers.length) return;
+
+    const q = (document.getElementById('rechercheContact')?.value || document.getElementById('rechercheContactProfil')?.value || '').trim().toLowerCase();
+    let list = utilisateur.contacts.map((c, index) => ({ ...c, _i: index }));
+    if (q) {
+        list = list.filter(c =>
+            (c.nom || '').toLowerCase().includes(q) ||
+            (c.telephone || '').toLowerCase().includes(q) ||
+            (c.metier || '').toLowerCase().includes(q)
+        );
+    }
+    list.sort((a, b) => String(a.nom || '').localeCompare(String(b.nom || ''), 'fr', { sensitivity: 'base' }));
+
+    const total = utilisateur.contacts.length;
+    const enLigne = utilisateur.contacts.filter(c => c.enLigne).length;
+
+    let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;flex-wrap:wrap;">
+        <div style="font-size:12px;color:var(--text-secondary);">
+            <strong style="color:var(--accent);">${total}</strong> contact${total > 1 ? 's' : ''}
+            ${enLigne ? ` · <span style="color:var(--success);">${enLigne} en ligne</span>` : ''}
+            ${q ? ` · ${list.length} trouvé(s)` : ''}
+        </div>
+    </div>`;
+
+    if (total === 0) {
+        html += `<div style="text-align:center;padding:20px 12px;border:1px dashed var(--border-color);border-radius:12px;">
+            <div style="font-size:26px;margin-bottom:6px;">📇</div>
+            <p style="font-size:13px;margin:0 0 4px 0;font-weight:600;">Aucun contact</p>
+            <p style="font-size:12px;color:var(--text-secondary);margin:0;">Ajoute un contact ci-dessous pour appeler ou écrire.</p>
         </div>`;
-    });
-    container.innerHTML = html;
+    } else if (list.length === 0) {
+        html += `<p style="color:var(--text-secondary);font-size:12px;text-align:center;padding:12px;">Aucun résultat.</p>`;
+    } else {
+        list.forEach((c) => {
+            const index = c._i;
+            const open = contactOuvertIndex === index;
+            const online = !!c.enLigne;
+            const color = couleurAvatarContact(c.nom);
+            const ini = initialesContact(c.nom);
+            const telSafe = String(c.telephone || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            const nomSafe = String(c.nom || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            const metier = c.metier && c.metier !== 'Recherche...' ? c.metier : 'Contact';
+
+            html += `<div style="border:1px solid ${open ? 'var(--accent)' : 'var(--border-color)'};border-radius:14px;margin-bottom:8px;overflow:hidden;background:var(--card-bg, var(--bg-color));">
+              <div onclick="basculerDetailContact(${index}, event)" style="display:flex;align-items:center;gap:12px;padding:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;">
+                <div style="position:relative;flex-shrink:0;">
+                  <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(145deg,${color},${color}99);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#fff;">${escContact(ini)}</div>
+                  <span style="position:absolute;right:-2px;bottom:-2px;width:11px;height:11px;border-radius:50%;border:2px solid var(--bg-color,#030712);background:${online ? 'var(--success)' : '#64748b'};"></span>
+                </div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-weight:700;font-size:14px;color:var(--text-primary);">${escContact(c.nom)}</div>
+                  <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">${online ? 'En ligne' : 'Hors ligne'} · ${escContact(metier)}</div>
+                </div>
+                <div style="color:var(--accent);font-size:12px;flex-shrink:0;">${open ? '▲' : '▼'}</div>
+              </div>`;
+
+            if (open) {
+                html += `<div style="padding:0 12px 12px 12px;border-top:1px solid var(--border-color);">
+                  <div style="padding:10px 0 8px 0;">
+                    <div style="font-size:11px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.4px;">Numéro</div>
+                    <div style="font-size:15px;font-weight:600;color:var(--accent);margin-top:2px;">${escContact(c.telephone)}</div>
+                    ${c.metier ? `<div style="font-size:12px;color:var(--text-secondary);margin-top:6px;">${escContact(metier)}</div>` : ''}
+                  </div>
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+                    <button onclick="event.stopPropagation();preparerAppel('${telSafe}')" class="btn-action" style="padding:10px;font-size:12px;background:linear-gradient(135deg,#10b981,#059669);">📞 Appel</button>
+                    <button onclick="event.stopPropagation();ecrireAuContact('${nomSafe}','${telSafe}')" class="btn-action" style="padding:10px;font-size:12px;">💬 Message</button>
+                    <button onclick="event.stopPropagation();modifierContact(${index})" class="btn-action" style="padding:10px;font-size:12px;background:rgba(59,130,246,0.15);color:var(--accent);border:1px solid var(--border-color);box-shadow:none;">✏️ Modifier</button>
+                    <button onclick="event.stopPropagation();supprimerContact(${index})" class="btn-action" style="padding:10px;font-size:12px;background:rgba(248,113,113,0.12);color:#f87171;border:1px solid rgba(248,113,113,0.35);box-shadow:none;">🗑️ Supprimer</button>
+                  </div>
+                </div>`;
+            }
+            html += `</div>`;
+        });
+    }
+
+    containers.forEach(el => { el.innerHTML = html; });
+    afficherMonProfilResume();
+}
+
+function filtrerContactsListe() {
+    afficherContacts();
+}
+
+function afficherMonProfilResume() {
+    const el = document.getElementById('monProfilResume');
+    if (!el || !utilisateur) return;
+    const color = couleurAvatarContact(utilisateur.nom);
+    const ini = initialesContact(utilisateur.nom);
+    el.innerHTML = `
+      <div style="display:flex;align-items:center;gap:14px;">
+        <div style="width:56px;height:56px;border-radius:16px;background:linear-gradient(145deg,${color},#34d399);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;color:#fff;box-shadow:0 4px 16px rgba(14,165,233,0.35);">${escContact(ini)}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:11px;color:var(--success);font-weight:600;margin-bottom:2px;">Mon profil</div>
+          <div style="font-size:16px;font-weight:800;color:var(--text-primary);">${escContact(utilisateur.nom || '—')}</div>
+          <div style="font-size:12px;color:var(--accent);margin-top:2px;">${escContact(utilisateur.telephone || '')}</div>
+          <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">${escContact(utilisateur.metier || '')}</div>
+        </div>
+      </div>`;
 }
 
 function ajouterNouveauContact() {
-    const nom = document.getElementById('nouveauNomContact').value.trim();
-    const tel = document.getElementById('nouveauTelContact').value.trim();
-    if(!nom || !tel) {
-        alert("Nom et numéro obligatoires.");
+    const nom = (document.getElementById('nouveauNomContact') || document.getElementById('nouveauNomContactProfil'))?.value?.trim() || '';
+    const tel = (document.getElementById('nouveauTelContact') || document.getElementById('nouveauTelContactProfil'))?.value?.trim() || '';
+    const metier = (document.getElementById('nouveauMetierContact') || document.getElementById('nouveauMetierContactProfil'))?.value?.trim() || '';
+    if (!nom || !tel) {
+        alert('Nom et numéro obligatoires.');
         return;
     }
-    if(!utilisateur.contacts) utilisateur.contacts = [];
-    utilisateur.contacts.push({ nom, telephone: tel, metier: "Recherche..." });
+    if (!utilisateur.contacts) utilisateur.contacts = [];
+    const telClean = tel.replace(/\s+/g, '');
+    if (utilisateur.contacts.some(c => (c.telephone || '').replace(/\s+/g, '') === telClean)) {
+        alert('Ce numéro est déjà enregistré.');
+        return;
+    }
+    utilisateur.contacts.push({ nom, telephone: telClean, metier: metier || 'Contact', enLigne: false });
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
-    document.getElementById('nouveauNomContact').value = '';
-    document.getElementById('nouveauTelContact').value = '';
+    ['nouveauNomContact','nouveauTelContact','nouveauMetierContact','nouveauNomContactProfil','nouveauTelContactProfil','nouveauMetierContactProfil'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    contactOuvertIndex = utilisateur.contacts.length - 1;
     afficherContacts();
     verifierEtSynchroniserContacts();
-    alert("✅ Contact enregistré !");
+    alert('Contact enregistré.');
 }
 
 function modifierContact(index) {
     const c = utilisateur.contacts[index];
-    const nouveauNom = prompt("Modifier le nom :", c.nom);
-    if(nouveauNom === null) return;
-    const nouveauTel = prompt("Modifier le numéro :", c.telephone);
-    if(nouveauTel === null) return;
+    if (!c) return;
+    const nouveauNom = prompt('Nom :', c.nom);
+    if (nouveauNom === null) return;
+    const nouveauTel = prompt('Numéro :', c.telephone);
+    if (nouveauTel === null) return;
+    const nouveauMetier = prompt('Métier / note :', c.metier || '');
+    if (nouveauMetier === null) return;
     utilisateur.contacts[index].nom = nouveauNom.trim();
-    utilisateur.contacts[index].telephone = nouveauTel.trim();
+    utilisateur.contacts[index].telephone = nouveauTel.replace(/\s+/g, '').trim();
+    utilisateur.contacts[index].metier = nouveauMetier.trim() || 'Contact';
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
+    contactOuvertIndex = index;
     afficherContacts();
     verifierEtSynchroniserContacts();
 }
 
 function supprimerContact(index) {
-    if(confirm("Supprimer ce contact ?")) {
-        utilisateur.contacts.splice(index, 1);
-        localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
-        afficherContacts();
-    }
+    if (!confirm('Supprimer ce contact ?')) return;
+    utilisateur.contacts.splice(index, 1);
+    localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
+    contactOuvertIndex = null;
+    afficherContacts();
 }
 
 function ecrireAuContact(nom, tel) {
     const message = prompt(`Message à ${nom} (${tel}) :`);
-    if(!message) return;
-    if(!utilisateur.messagesLocaux) utilisateur.messagesLocaux = [];
-    utilisateur.messagesLocaux.push({ expediteur: utilisateur.nom || "Moi", texte: `À ${nom} : ${message}`, heure: new Date().toLocaleTimeString() });
+    if (!message) return;
+    if (!utilisateur.messagesLocaux) utilisateur.messagesLocaux = [];
+    utilisateur.messagesLocaux.push({ expediteur: utilisateur.nom || 'Moi', texte: `À ${nom} : ${message}`, heure: new Date().toLocaleTimeString() });
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
     switchTab('messagerie');
-    alert("✅ Message enregistré !");
+    if (typeof afficherMessagesLocaux === 'function') afficherMessagesLocaux();
+    alert('Message enregistré.');
 }
 
 function preparerAppel(tel) {
@@ -435,6 +569,7 @@ function switchTab(tabId) {
     fermerTousLesMenus();
 
     if(tabId === 'contacts') afficherContacts();
+    if(tabId === 'profil') { appliquerInfosProfil(); afficherContacts(); }
     if(tabId === 'map') {
         setTimeout(() => {
             if(!mapInstance) {
@@ -566,85 +701,64 @@ const servers = {
     ] 
 };
 
-// Catalogue de sonneries intégrées (Web Audio — sans fichier externe)
-const SONNERIES_EVAT = {
-    iphone:    { label: 'iPhone (Marimba)', notes: [523.25, 659.25, 783.99, 1046.50], gap: 320, dur: 0.42, wave: 'sine', vol: 0.14 },
-    motorola:  { label: 'Motorola', notes: [620, 780, 940, 620], gap: 280, dur: 0.28, wave: 'square', vol: 0.07 },
-    samsung:   { label: 'Samsung', notes: [440, 554.37, 659.25, 880, 1108.73, 880], gap: 260, dur: 0.35, wave: 'triangle', vol: 0.12 },
-    classique: { label: 'Classique', notes: [880, 1100, 880, 1100], gap: 450, dur: 0.38, wave: 'sine', vol: 0.13 },
-    evat:      { label: 'EVAT Quantum', notes: [392, 523.25, 659.25, 783.99, 1046.5], gap: 240, dur: 0.4, wave: 'sine', vol: 0.13 },
-    doux:      { label: 'Doux', notes: [349.23, 440, 523.25, 659.25], gap: 400, dur: 0.55, wave: 'sine', vol: 0.1 },
-    alerte:    { label: 'Alerte', notes: [880, 880, 0, 880, 880, 0], gap: 180, dur: 0.15, wave: 'square', vol: 0.06 },
-    pulse:     { label: 'Pulse', notes: [523.25, 0, 523.25, 0, 783.99, 0], gap: 220, dur: 0.18, wave: 'triangle', vol: 0.11 },
-    crystal:   { label: 'Crystal', notes: [1046.5, 1318.5, 1568, 2093], gap: 200, dur: 0.25, wave: 'sine', vol: 0.09 }
-};
-
-function jouerNoteSonnerie(ctx, freq, wave, vol, dur, when) {
-    if (!freq || freq <= 0) return;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = wave || 'sine';
-    osc.frequency.setValueAtTime(freq, when);
-    gain.gain.setValueAtTime(0.0001, when);
-    gain.gain.exponentialRampToValueAtTime(vol, when + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, when + dur);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start(when);
-    osc.stop(when + dur + 0.02);
-}
-
-function jouerSonSonnerie(forceType) {
+function jouerSonSonnerie() {
     try {
-        const type = forceType || (utilisateur && utilisateur.parametres ? utilisateur.parametres.sonnerieType : 'evat');
+        const type = utilisateur && utilisateur.parametres ? utilisateur.parametres.sonnerieType : 'iphone';
 
-        if (type === 'custom' && utilisateur && utilisateur.parametres && utilisateur.parametres.customRingtoneBase64) {
-            if (customAudioRing) return;
+        if (type === 'custom' && utilisateur.parametres.customRingtoneBase64) {
+            if(customAudioRing) return;
             customAudioRing = new Audio(utilisateur.parametres.customRingtoneBase64);
             customAudioRing.loop = true;
-            customAudioRing.play().catch(() => {});
+            customAudioRing.play().catch(e => {});
             return;
         }
 
-        if (audioRingContext) return;
+        if(audioRingContext) return;
         audioRingContext = new (window.AudioContext || window.webkitAudioContext)();
-        if (audioRingContext.state === 'suspended') audioRingContext.resume().catch(() => {});
+        
+        let notes = [523.25, 659.25, 783.99, 1046.50];
+        let pattern = 1800;
+        let waveType = 'sine';
 
-        const conf = SONNERIES_EVAT[type] || SONNERIES_EVAT.evat;
+        if (type === 'motorola') {
+            notes = [600, 750, 900, 600];
+            pattern = 1400;
+            waveType = 'square';
+        } else if (type === 'samsung') {
+            notes = [440, 554.37, 659.25, 880, 1108.73];
+            pattern = 2200;
+            waveType = 'triangle';
+        } else if (type === 'classique') {
+            notes = [800, 1000];
+            pattern = 1000;
+            waveType = 'sine';
+        }
+
         let noteIndex = 0;
-
-        const tick = () => {
-            if (!audioRingContext) return;
-            const freq = conf.notes[noteIndex % conf.notes.length];
-            const t = audioRingContext.currentTime;
-            jouerNoteSonnerie(audioRingContext, freq, conf.wave, conf.vol, conf.dur, t);
-            // petite harmonique pour EVAT / crystal
-            if ((type === 'evat' || type === 'crystal' || type === 'iphone') && freq > 0) {
-                jouerNoteSonnerie(audioRingContext, freq * 1.5, 'sine', conf.vol * 0.25, conf.dur * 0.8, t + 0.01);
-            }
+        ringInterval = setInterval(() => {
+            if(!audioRingContext) return;
+            const osc = audioRingContext.createOscillator();
+            const gain = audioRingContext.createGain();
+            osc.type = waveType;
+            osc.frequency.setValueAtTime(notes[noteIndex % notes.length], audioRingContext.currentTime);
+            gain.gain.setValueAtTime(0.12, audioRingContext.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioRingContext.currentTime + 0.5);
+            osc.connect(gain);
+            gain.connect(audioRingContext.destination);
+            osc.start();
+            osc.stop(audioRingContext.currentTime + 0.5);
             noteIndex++;
-        };
-
-        tick();
-        ringInterval = setInterval(tick, conf.gap);
-    } catch (e) { console.warn('Sonnerie', e); }
+        }, pattern / notes.length);
+    } catch(e) {}
 }
 
 function arreterSonSonnerie() {
-    if (ringInterval) { clearInterval(ringInterval); ringInterval = null; }
-    if (audioRingContext) { audioRingContext.close().catch(() => {}); audioRingContext = null; }
-    if (customAudioRing) { customAudioRing.pause(); customAudioRing.currentTime = 0; customAudioRing = null; }
-    if (typeof appelTimeoutTimer !== 'undefined' && appelTimeoutTimer) { clearTimeout(appelTimeoutTimer); appelTimeoutTimer = null; }
-    if (typeof incomingTimeout !== 'undefined' && incomingTimeout) { clearTimeout(incomingTimeout); incomingTimeout = null; }
+    if(ringInterval) { clearInterval(ringInterval); ringInterval = null; }
+    if(audioRingContext) { audioRingContext.close().catch(() => {}); audioRingContext = null; }
+    if(customAudioRing) { customAudioRing.pause(); customAudioRing.currentTime = 0; customAudioRing = null; }
+    if(appelTimeoutTimer) { clearTimeout(appelTimeoutTimer); appelTimeoutTimer = null; }
+    if(incomingTimeout) { clearTimeout(incomingTimeout); incomingTimeout = null; }
 }
-
-/** Aperçu court (2.5 s) d'une sonnerie */
-function previsualiserSonnerie(type) {
-    arreterSonSonnerie();
-    jouerSonSonnerie(type || document.getElementById('selectSonnerieType')?.value || 'evat');
-    setTimeout(() => arreterSonSonnerie(), 2800);
-}
-
 
 function afficherModalAppelEntrant(senderTel, typeAppel) {
     let modal = document.getElementById('incomingCallModal');
