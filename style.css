@@ -158,7 +158,16 @@ body {
     margin: 10px auto;
 }
 
-
+.earth-globe {
+    width: 70px;
+    height: 70px;
+    background: radial-gradient(circle at 30% 30%, #3b82f6, #030712);
+    border-radius: 50%;
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    box-shadow: inset -5px -5px 15px rgba(0,0,0,0.8), 0 0 15px rgba(59,130,246,0.4);
+}
 
 .orbit-ring {
     position: absolute;
@@ -190,59 +199,4 @@ body {
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
-}
-
-
-.earth-globe {
-    width: 100px; height: 100px;
-    background:
-        radial-gradient(circle at 32% 28%, #7dd3fc 0%, #0ea5e9 28%, #0369a1 62%, #0c4a6e 85%, #020617 100%);
-    border-radius: 50%;
-    position: absolute; top: 25px; left: 25px;
-    box-shadow:
-        inset -12px -10px 24px rgba(0,0,0,0.65),
-        inset 6px 4px 12px rgba(125, 211, 252, 0.25),
-        0 0 40px rgba(14, 165, 233, 0.45);
-    border: 1px solid rgba(125, 211, 252, 0.35);
-    overflow: hidden;
-}
-.continent {
-    position: absolute;
-    background: rgba(21, 128, 61, 0.72);
-    border-radius: 40% 50% 45% 55%;
-    box-shadow: 0 0 4px rgba(0,0,0,0.2);
-}
-.continent-africa {
-    width: 22%; height: 34%;
-    top: 32%; left: 44%;
-    border-radius: 45% 40% 50% 48%;
-    transform: rotate(-8deg);
-}
-.continent-europe {
-    width: 14%; height: 12%;
-    top: 22%; left: 46%;
-    border-radius: 50% 40% 45% 55%;
-}
-.continent-americas {
-    width: 16%; height: 36%;
-    top: 28%; left: 18%;
-    border-radius: 40% 55% 45% 50%;
-    transform: rotate(12deg);
-}
-.continent-asia {
-    width: 28%; height: 22%;
-    top: 26%; left: 58%;
-    border-radius: 50% 45% 40% 55%;
-    transform: rotate(-5deg);
-}
-.orbit-ring.delay {
-    animation-duration: 11s;
-    animation-direction: reverse;
-    top: 16px; left: 16px; right: 16px; bottom: 16px;
-    border-top-color: rgba(52, 211, 153, 0.55);
-}
-.quantum-globe-container {
-    width: 150px; height: 150px;
-    position: relative;
-    margin: 10px auto;
 }

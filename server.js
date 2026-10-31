@@ -43,6 +43,24 @@ io.on('connection', (socket) => {
         }
     });
 
+    
+    // Relais messages privés — pas de stockage serveur (stockage sur les téléphones)
+    socket.on('private_message', (data) => {
+        if (!data || !data.to) return;
+        const to = nettoyerTel(data.to);
+        const target = registeredUsers.get(to);
+        if (target && target.socketId) {
+            io.to(target.socketId).emit('private_message', {
+                id: data.id,
+                from: data.from,
+                fromNom: data.fromNom,
+                texte: data.texte,
+                photo: data.photo || null,
+                heure: data.heure
+            });
+        }
+    });
+
     socket.on('query_contacts', (telephones, callback) => {
         const resultats = [];
         if(Array.isArray(telephones)) {

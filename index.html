@@ -121,14 +121,8 @@
                     <h3 style="color:var(--accent); font-size:13.5px; margin-bottom:2px;">RÉSEAU QUANTIQUE MONDIAL</h3>
                     <p style="font-size:11px; color:var(--success); margin-bottom:10px;" id="serverConnectionStatus">🟢 Connexion active</p>
                     <div class="quantum-globe-container">
-                        <div class="earth-globe">
-                            <div class="continent continent-africa"></div>
-                            <div class="continent continent-europe"></div>
-                            <div class="continent continent-americas"></div>
-                            <div class="continent continent-asia"></div>
-                        </div>
+                        <div class="earth-globe"></div>
                         <div class="orbit-ring"></div>
-                        <div class="orbit-ring delay"></div>
                     </div>
                 </div>
             </section>
@@ -153,25 +147,16 @@
 
             <section id="tab-contacts" class="tab-content" style="display:none;">
                 <div class="card">
-                    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
-                        <h2 style="margin:0;">📇 Annuaire</h2>
-                        <button type="button" onclick="toggleFormAjoutContactAnnuaire()" class="btn-action" style="width:auto;padding:8px 12px;font-size:11px;background:rgba(16,185,129,0.15);color:var(--success);border:1px solid rgba(16,185,129,0.4);box-shadow:none;">➕ Ajouter</button>
-                    </div>
-                    <p style="font-size:12px;color:var(--text-secondary);margin:0 0 10px 0;">Touche un nom pour afficher le numéro et les actions.</p>
-                    <input type="search" id="rechercheContact" class="input" placeholder="🔍 Rechercher…" style="margin-bottom:12px;" oninput="filtrerContactsListe()">
-                    <div id="formAjoutContactAnnuaire" style="display:none;margin-bottom:14px;padding:12px;border-radius:12px;border:1px solid var(--border-color);background:var(--bg-color);">
-                        <strong style="font-size:12px;color:var(--accent);">Nouveau contact</strong>
-                        <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;">
-                            <input type="text" id="nouveauNomContact" class="input" placeholder="Nom" style="margin-bottom:0;">
-                            <input type="tel" id="nouveauTelContact" class="input" placeholder="Numéro (+228…)" style="margin-bottom:0;">
-                            <input type="text" id="nouveauMetierContact" class="input" placeholder="Métier ou note (optionnel)" style="margin-bottom:0;">
-                            <div style="display:flex;gap:8px;">
-                                <button onclick="ajouterNouveauContact()" class="btn-action" style="flex:1;background:linear-gradient(135deg,#10b981,#059669);">Enregistrer</button>
-                                <button type="button" onclick="toggleFormAjoutContactAnnuaire(false)" class="btn-action" style="flex:1;background:rgba(148,163,184,0.15);color:var(--text-secondary);border:1px solid var(--border-color);box-shadow:none;">Annuler</button>
-                            </div>
+                    <h2>📇 Annuaire & Contacts</h2>
+                    <div style="background:var(--bg-color); padding:10px; border-radius:10px; border:1px solid var(--border-color); margin-bottom:12px;">
+                        <strong style="font-size:12px; color:var(--accent);">➕ Enregistrer un contact</strong>
+                        <div style="display:flex; flex-direction:column; gap:6px; margin-top:8px;">
+                            <input type="text" id="nouveauNomContact" class="input" placeholder="Nom..." style="margin-bottom:0;">
+                            <input type="text" id="nouveauTelContact" class="input" placeholder="Numéro avec indicatif (ex: +228...)" style="margin-bottom:0;">
+                            <button onclick="ajouterNouveauContact()" class="btn-action" style="background:var(--success);">Enregistrer</button>
                         </div>
                     </div>
-                    <div id="listeContactsContainer"></div>
+                    <div id="listeContactsContainer" style="display:flex; flex-direction:column; gap:8px;"></div>
                 </div>
             </section>
 
@@ -188,17 +173,22 @@
 
             <section id="tab-messagerie" class="tab-content" style="display:none;">
                 <div class="card">
-                    <h2>💬 Messagerie & Stockage Interne</h2>
-                    <div style="background:var(--bg-color); padding:10px; border-radius:10px; border:1px solid var(--success); margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+                    <h2>💬 Messages</h2>
+                    <div style="background:rgba(16,185,129,0.1); padding:8px 10px; border-radius:10px; border:1px solid rgba(16,185,129,0.35); margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
                         <div>
-                            <strong style="font-size:12px; color:var(--success);">📁 Stockage Appareil</strong>
-                            <div style="font-size:11px; color:var(--text-secondary);">Géré automatiquement en arrière-plan</div>
+                            <strong style="font-size:12px; color:var(--success);">📁 Stockage sur ton téléphone</strong>
+                            <div style="font-size:10.5px; color:var(--text-secondary);">Les messages et photos restent en local — le serveur ne fait que relayer si les deux sont en ligne</div>
                         </div>
                         <span style="font-size:18px;">🔒</span>
                     </div>
-                    <div id="listeMessagesLocaux" style="background:var(--bg-color); border:1px solid var(--border-color); border-radius:10px; padding:10px; height:200px; overflow-y:auto; margin-bottom:10px;"></div>
-                    <div style="display:flex; gap:6px;">
-                        <input type="text" id="chatLocalInput" class="input" placeholder="Message..." style="margin-bottom:0;" onkeypress="if(event.key==='Enter') envoyerMessageChatLocal()">
+                    <div id="chatConversationHeader" style="display:none;align-items:center;gap:8px;margin-bottom:10px;padding:8px;border:1px solid var(--border-color);border-radius:12px;"></div>
+                    <div id="chatEmptyHint" style="display:none;"></div>
+                    <div id="listeMessagesLocaux" style="background:var(--bg-color); border:1px solid var(--border-color); border-radius:12px; padding:10px; height:280px; overflow-y:auto; margin-bottom:10px;"></div>
+                    <div id="chatPhotoPreview" style="display:none;margin-bottom:8px;"></div>
+                    <div style="display:flex; gap:6px; align-items:center;">
+                        <input type="file" id="chatPhotoInput" accept="image/*" style="display:none" onchange="onChatPhotoSelected(event)">
+                        <button type="button" onclick="choisirPhotoChat()" class="btn-action" style="width:auto;padding:0 12px;background:rgba(59,130,246,0.15);color:var(--accent);border:1px solid var(--border-color);box-shadow:none;" title="Photo">🖼️</button>
+                        <input type="text" id="chatLocalInput" class="input" placeholder="Écrire un message…" style="margin-bottom:0;flex:1;" onkeypress="if(event.key==='Enter') envoyerMessageChatLocal()">
                         <button onclick="envoyerMessageChatLocal()" class="btn-action" style="width:auto; padding:0 16px; background:var(--success);">Envoyer</button>
                     </div>
                 </div>
@@ -279,44 +269,11 @@
 
             <section id="tab-profil" class="tab-content" style="display:none;">
                 <div class="card">
-                    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
-                        <h2 style="margin:0;">👤 Mon profil</h2>
-                        <button type="button" id="btnToggleEditProfil" onclick="toggleFormProfil()" class="btn-action" style="width:auto;padding:8px 12px;font-size:11px;background:rgba(59,130,246,0.15);color:var(--accent);border:1px solid var(--border-color);box-shadow:none;">✏️ Modifier</button>
-                    </div>
-                    <div id="monProfilResume"></div>
-                    <div id="formEditProfil" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--border-color);">
-                        <label style="font-size:11px;">Nom</label>
-                        <input type="text" id="inputNomProfil" class="input" placeholder="Votre nom">
-                        <label style="font-size:11px;">Téléphone / ID VoIP</label>
-                        <input type="text" id="inputTelProfil2" class="input" placeholder="+228…">
-                        <label style="font-size:11px;">Métier</label>
-                        <input type="text" id="inputMetierProfil" class="input" placeholder="Votre activité" style="margin-bottom:12px;">
-                        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                            <button onclick="sauvegarderProfilBaseDesdeProfil()" class="btn-action" style="flex:1;min-width:120px;background:linear-gradient(135deg,#10b981,#059669);">💾 Enregistrer</button>
-                            <button type="button" onclick="toggleFormProfil(false)" class="btn-action" style="flex:1;min-width:100px;background:rgba(148,163,184,0.15);color:var(--text-secondary);border:1px solid var(--border-color);box-shadow:none;">Annuler</button>
-                        </div>
-                    </div>
-                </div>
-                <div class="card">
-                    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
-                        <h2 style="margin:0;">📇 Contacts</h2>
-                        <button type="button" id="btnToggleAddContact" onclick="toggleFormAjoutContact()" class="btn-action" style="width:auto;padding:8px 12px;font-size:11px;background:rgba(16,185,129,0.15);color:var(--success);border:1px solid rgba(16,185,129,0.4);box-shadow:none;">➕ Ajouter</button>
-                    </div>
-                    <p style="font-size:12px;color:var(--text-secondary);margin:0 0 10px 0;">Touche un nom pour voir le numéro, appeler, écrire ou modifier.</p>
-                    <input type="search" id="rechercheContactProfil" class="input" placeholder="🔍 Rechercher…" style="margin-bottom:12px;" oninput="filtrerContactsListe()">
-                    <div id="formAjoutContactProfil" style="display:none;margin-bottom:14px;padding:12px;border-radius:12px;border:1px solid var(--border-color);background:var(--bg-color);">
-                        <strong style="font-size:12px;color:var(--accent);">Nouveau contact</strong>
-                        <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;">
-                            <input type="text" id="nouveauNomContactProfil" class="input" placeholder="Nom" style="margin-bottom:0;">
-                            <input type="tel" id="nouveauTelContactProfil" class="input" placeholder="Numéro (+228…)" style="margin-bottom:0;">
-                            <input type="text" id="nouveauMetierContactProfil" class="input" placeholder="Métier ou note (optionnel)" style="margin-bottom:0;">
-                            <div style="display:flex;gap:8px;">
-                                <button onclick="ajouterNouveauContact()" class="btn-action" style="flex:1;background:linear-gradient(135deg,#10b981,#059669);">Enregistrer</button>
-                                <button type="button" onclick="toggleFormAjoutContact(false)" class="btn-action" style="flex:1;background:rgba(148,163,184,0.15);color:var(--text-secondary);border:1px solid var(--border-color);box-shadow:none;">Annuler</button>
-                            </div>
-                        </div>
-                    </div>
-                    <div id="profilContactsContainer"></div>
+                    <h2>👤 Profil & Sécurité</h2>
+                    <input type="text" id="inputNomProfil" class="input">
+                    <input type="text" id="inputTelProfil2" class="input">
+                    <input type="text" id="inputMetierProfil" class="input" style="margin-bottom:12px;">
+                    <button onclick="sauvegarderProfilBaseDesdeProfil()" class="btn-action" style="margin-bottom:10px;">Enregistrer les Modifications</button>
                 </div>
             </section>
 

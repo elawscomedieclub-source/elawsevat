@@ -91,6 +91,8 @@ socket.on('disconnect', () => {
     }
 });
 
+socket.on('private_message', (data) => { if (typeof recevoirMessagePrive === 'function') recevoirMessagePrive(data); });
+
 socket.on('contact_registered', (data) => {
     if(utilisateur && utilisateur.contacts) {
         const match = utilisateur.contacts.find(c => c.telephone === data.telephone);
@@ -268,66 +270,6 @@ function verifierEtSynchroniserContacts() {
     });
 }
 
-
-function toggleFormProfil(force) {
-    const form = document.getElementById('formEditProfil');
-    const btn = document.getElementById('btnToggleEditProfil');
-    if (!form) return;
-    const open = typeof force === 'boolean' ? force : form.style.display === 'none' || !form.style.display;
-    // if currently none, open=true when force undefined: check display
-    let show;
-    if (typeof force === 'boolean') show = force;
-    else show = form.style.display === 'none' || getComputedStyle(form).display === 'none';
-    form.style.display = show ? 'block' : 'none';
-    if (btn) btn.textContent = show ? '✕ Fermer' : '✏️ Modifier';
-    if (show && utilisateur) {
-        const n = document.getElementById('inputNomProfil');
-        const t = document.getElementById('inputTelProfil2');
-        const m = document.getElementById('inputMetierProfil');
-        if (n) n.value = utilisateur.nom || '';
-        if (t) t.value = utilisateur.telephone || '';
-        if (m) m.value = utilisateur.metier || '';
-    }
-}
-
-function toggleFormAjoutContact(force) {
-    const form = document.getElementById('formAjoutContactProfil');
-    const btn = document.getElementById('btnToggleAddContact');
-    if (!form) return;
-    let show;
-    if (typeof force === 'boolean') show = force;
-    else show = form.style.display === 'none' || getComputedStyle(form).display === 'none';
-    form.style.display = show ? 'block' : 'none';
-    if (btn) btn.textContent = show ? '✕ Fermer' : '➕ Ajouter';
-}
-
-
-function afficherMonProfilResume() {
-    const el = document.getElementById('monProfilResume');
-    if (!el || !utilisateur) return;
-    const color = (typeof couleurAvatarContact === 'function') ? couleurAvatarContact(utilisateur.nom) : '#0ea5e9';
-    const ini = (typeof initialesContact === 'function') ? initialesContact(utilisateur.nom) : 'EV';
-    const esc = (typeof escContact === 'function') ? escContact : (s => String(s||''));
-    el.innerHTML = `<div style="display:flex;align-items:center;gap:14px;">
-        <div style="width:56px;height:56px;border-radius:16px;background:linear-gradient(145deg,${color},#34d399);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;color:#fff;box-shadow:0 4px 16px rgba(14,165,233,0.35);">${esc(ini)}</div>
-        <div style="flex:1;min-width:0;">
-          <div style="font-size:11px;color:var(--success);font-weight:600;">Mon profil</div>
-          <div style="font-size:16px;font-weight:800;">${esc(utilisateur.nom || '—')}</div>
-          <div style="font-size:12px;color:var(--accent);margin-top:2px;">${esc(utilisateur.telephone || '')}</div>
-          <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">${esc(utilisateur.metier || '')}</div>
-        </div>
-      </div>`;
-}
-
-function toggleFormAjoutContactAnnuaire(force) {
-    const form = document.getElementById('formAjoutContactAnnuaire');
-    if (!form) return;
-    let show;
-    if (typeof force === 'boolean') show = force;
-    else show = form.style.display === 'none' || getComputedStyle(form).display === 'none';
-    form.style.display = show ? 'block' : 'none';
-}
-
 function afficherContacts() {
     const container = document.getElementById('listeContactsContainer');
     if(!container || !utilisateur || !utilisateur.contacts) return;
@@ -391,173 +333,252 @@ function supprimerContact(index) {
     }
 }
 
-function ecrireAuContact(nom, tel) {
-    const message = prompt(`Message à ${nom} (${tel}) :`);
-    if(!message) return;
-    if(!utilisateur.messagesLocaux) utilisateur.messagesLocaux = [];
-    utilisateur.messagesLocaux.push({ expediteur: utilisateur.nom || "Moi", texte: `À ${nom} : ${message}`, heure: new Date().toLocaleTimeString() });
+let conversationActiveTel = null;
+
+function assurerConversations() {
+    if (!utilisateur) return;
+    if (!utilisateur.conversations || Array.isArray(utilisateur.conversations)) {
+        // migrate old flat messages if any
+        const old = utilisateur.conversations;
+        utilisateur.conversations = {};
+        if (utilisateur.messagesLocaux && utilisateur.messagesLocaux.length) {
+            // keep legacy list separate; conversations is object map
+        }
+    }
+}
+
+function telKey(tel) {
+    return String(tel || '').replace(/\s+/g, '').trim();
+}
+
+function ouvrirConversation(nom, tel) {
+    assurerConversations();
+    const key = telKey(tel);
+    if (!key) return;
+    if (!utilisateur.conversations[key]) {
+        utilisateur.conversations[key] = { nom: nom || key, messages: [] };
+    } else if (nom) {
+        utilisateur.conversations[key].nom = nom;
+    }
+    conversationActiveTel = key;
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
     switchTab('messagerie');
-    alert("✅ Message enregistré !");
-}
-
-function preparerAppel(tel) {
-    switchTab('communications');
-    document.getElementById('appelCibleNum').value = tel;
-}
-
-function basculerEcouteVocaleIA() {
-    const statusEl = document.getElementById('micStatusElaws');
-    const inputEl = document.getElementById('elawsInput');
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-        alert("Reconnaissance vocale non supportée.");
-        return;
-    }
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'fr-FR';
-    if(statusEl) statusEl.innerText = "🎙️ Écoute...";
-    
-    recognition.onresult = (event) => {
-        inputEl.value = event.results[0][0].transcript;
-        if(statusEl) statusEl.innerText = "";
-        // Réponse instantanée dès la fin de la parole
-        poserQuestionElaws();
-    };
-    recognition.onerror = () => { if(statusEl) statusEl.innerText = ""; };
-    recognition.onend = () => { if(statusEl) statusEl.innerText = ""; };
-    
-    recognition.start();
-}
-
-// Réponse IA instantanée et intelligente
-function poserQuestionElaws() {
-    const input = document.getElementById('elawsInput');
-    const question = input.value.trim();
-    if(!question || !utilisateur) return;
-    const chatBox = document.getElementById('elawsChatBox');
-    
-    chatBox.innerHTML += `<div style="background:rgba(255,255,255,0.05); padding:8px; border-radius:8px; text-align:right;"><strong style="color:var(--success);">👤 ${utilisateur.nom} :</strong><p style="margin:3px 0 0 0; font-size:12px;">${question}</p></div>`;
-    input.value = '';
-    chatBox.scrollTop = chatBox.scrollHeight;
-
-    setTimeout(() => {
-        let reponse = "";
-        const qLower = question.toLowerCase();
-
-        if (qLower.includes('bonjour') || qLower.includes('salut')) {
-            reponse = `Bonjour ${utilisateur.nom} ! En tant qu'expert en ${utilisateur.metier}, je suis à votre service. Que souhaitez-vous analyser ?`;
-        } else if (qLower.includes('merci')) {
-            reponse = `C'est un plaisir, ${utilisateur.nom}. Je veille sur vos systèmes et communications.`;
-        } else if (qLower.includes('contact') || qLower.includes('appel')) {
-            reponse = `Pour vos appels VoIP sécurisés ou vos contacts, rendez-vous dans l'onglet Annuaire ou Appels. Votre ID : ${utilisateur.telephone}.`;
-        } else if (qLower.includes('entreprise') || qLower.includes('business') || qLower.includes('nif') || qLower.includes('statut')) {
-            reponse = `Concernant votre structure à Lomé et la gestion de vos entités avec un NIF, une distinction claire est recommandée. Souhaitez-vous un plan stratégique ?`;
-        } else if (qLower.includes('aide') || qLower.includes('que peux-tu') || qLower.includes('fonction')) {
-            reponse = `Je suis l'assistant ELAWS AI, intégré dans votre écosystème EVAT Continuum. Je gère vos notes, votre stratégie et vos communications chiffrées.`;
-        } else {
-            reponse = `Analyse instantanée de "${question}" validée pour ${utilisateur.nom} (${utilisateur.metier}). Le système applique vos consignes avec succès.`;
-        }
-
-        chatBox.innerHTML += `<div style="background:rgba(59,130,246,0.1); border:1px solid var(--accent); padding:8px; border-radius:8px;"><strong style="color:var(--accent);">🤖 ELAWS AI :</strong><p style="margin:3px 0 0 0; font-size:12px;">${reponse}</p></div>`;
-        chatBox.scrollTop = chatBox.scrollHeight;
-    }, 150);
-}
-
-function toggleMenu(e) {
-    if(e) { e.stopPropagation(); e.preventDefault(); }
-    const sidebar = document.getElementById('sidebar');
-    const overlay = document.getElementById('appOverlay');
-    if(sidebar && overlay) {
-        const isOpen = sidebar.classList.toggle('open');
-        if(isOpen) overlay.classList.add('active');
-        else overlay.classList.remove('active');
-    }
-}
-
-function fermerTousLesMenus() {
-    const sidebar = document.getElementById('sidebar');
-    const overlay = document.getElementById('appOverlay');
-    if(sidebar) sidebar.classList.remove('open');
-    if(overlay) overlay.classList.remove('active');
-}
-
-let mapInstance = null;
-let userMarker = null;
-
-function switchTab(tabId) {
-    document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
-    document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
-    const target = document.getElementById('tab-' + tabId);
-    if(target) target.style.display = 'block';
-    const link = document.getElementById('link-' + tabId);
-    if(link) link.classList.add('active');
-    fermerTousLesMenus();
-
-    if(tabId === 'contacts') { afficherContacts(); if(typeof toggleFormAjoutContactAnnuaire==='function') toggleFormAjoutContactAnnuaire(false); }
-    if(tabId === 'profil') { appliquerInfosProfil(); if(typeof afficherMonProfilResume==='function') afficherMonProfilResume(); afficherContacts(); if(typeof toggleFormProfil==='function') toggleFormProfil(false); }
-    if(tabId === 'map') {
-        setTimeout(() => {
-            if(!mapInstance) {
-                mapInstance = L.map('mapContainer').setView([6.1375, 1.2123], 13);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(mapInstance);
-            } else {
-                mapInstance.invalidateSize();
-            }
-        }, 200);
-    }
-}
-
-function centrerSurMoi() {
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(position => {
-            const lat = position.coords.latitude;
-            const lng = position.coords.longitude;
-            if(mapInstance) {
-                mapInstance.setView([lat, lng], 15);
-                if(userMarker) mapInstance.removeLayer(userMarker);
-                userMarker = L.marker([lat, lng]).addTo(mapInstance).bindPopup("<b>📍 Vous êtes ici</b>").openPopup();
-            }
-        });
-    }
-}
-
-function partagerMaPositionGPS() {
-    if (navigator.geolocation && utilisateur) {
-        navigator.geolocation.getCurrentPosition(position => {
-            const lat = position.coords.latitude;
-            const lng = position.coords.longitude;
-            socket.emit('signal', { type: 'location', sender: utilisateur.nom, lat, lng });
-            alert("Position partagée !");
-        });
-    }
-}
-
-socket.on('signal', (data) => {
-    if (data.type === 'location' && mapInstance) {
-        L.marker([data.lat, data.lng]).addTo(mapInstance).bindPopup(`<b>📍 ${data.sender}</b>`);
-    }
-});
-
-function envoyerMessageChatLocal() {
-    const input = document.getElementById('chatLocalInput');
-    const texte = input.value.trim();
-    if(!texte || !utilisateur) return;
-    if(!utilisateur.messagesLocaux) utilisateur.messagesLocaux = [];
-    utilisateur.messagesLocaux.push({ expediteur: utilisateur.nom || "Moi", texte, heure: new Date().toLocaleTimeString() });
-    localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
-    input.value = '';
     afficherMessagesLocaux();
+    setTimeout(() => {
+        const input = document.getElementById('chatLocalInput');
+        if (input) input.focus();
+    }, 200);
+}
+
+function ecrireAuContact(nom, tel) {
+    ouvrirConversation(nom, tel);
+}
+
+function fermerConversationActive() {
+    conversationActiveTel = null;
+    afficherMessagesLocaux();
+}
+
+function listeConversationsRecentes() {
+    assurerConversations();
+    const entries = Object.keys(utilisateur.conversations || {}).map(k => {
+        const conv = utilisateur.conversations[k];
+        const msgs = conv.messages || [];
+        const last = msgs[msgs.length - 1];
+        return {
+            tel: k,
+            nom: conv.nom || k,
+            lastTexte: last ? (last.texte || (last.photo ? '📷 Photo' : '')) : 'Aucun message',
+            lastHeure: last ? last.heure : '',
+            count: msgs.length
+        };
+    });
+    entries.sort((a, b) => (b.lastHeure || '').localeCompare(a.lastHeure || ''));
+    return entries;
+}
+
+function escChat(s) {
+    const d = document.createElement('div');
+    d.textContent = s == null ? '' : String(s);
+    return d.innerHTML;
 }
 
 function afficherMessagesLocaux() {
     const container = document.getElementById('listeMessagesLocaux');
-    if(!container || !utilisateur || !utilisateur.messagesLocaux) return;
+    const header = document.getElementById('chatConversationHeader');
+    const emptyHint = document.getElementById('chatEmptyHint');
+    if (!container || !utilisateur) return;
+    assurerConversations();
+
+    // Header conversation
+    if (header) {
+        if (conversationActiveTel && utilisateur.conversations[conversationActiveTel]) {
+            const conv = utilisateur.conversations[conversationActiveTel];
+            header.style.display = 'flex';
+            header.innerHTML = `
+              <button type="button" onclick="fermerConversationActive()" class="btn-action" style="width:auto;padding:6px 10px;font-size:12px;background:rgba(59,130,246,0.15);color:var(--accent);border:1px solid var(--border-color);box-shadow:none;">←</button>
+              <div style="flex:1;min-width:0;">
+                <div style="font-weight:700;font-size:13.5px;color:var(--text-primary);">${escChat(conv.nom)}</div>
+                <div style="font-size:11px;color:var(--text-secondary);">${escChat(conversationActiveTel)} · stocké sur l'appareil</div>
+              </div>
+              <button type="button" onclick="preparerAppel('${escChat(conversationActiveTel)}')" class="btn-action" style="width:auto;padding:6px 10px;font-size:14px;background:var(--success);">📞</button>`;
+        } else {
+            header.style.display = 'none';
+            header.innerHTML = '';
+        }
+    }
+
+    if (!conversationActiveTel) {
+        // Liste des conversations
+        const list = listeConversationsRecentes();
+        if (emptyHint) emptyHint.style.display = 'block';
+        if (!list.length) {
+            container.innerHTML = `<div style="text-align:center;padding:24px 12px;color:var(--text-secondary);font-size:12px;">
+              <div style="font-size:28px;margin-bottom:8px;">💬</div>
+              <p style="margin:0;">Aucune conversation. Ouvre un contact et appuie sur <b>Message</b>.</p>
+            </div>`;
+            return;
+        }
+        let html = '';
+        list.forEach(c => {
+            html += `<div onclick="ouvrirConversation('${escChat(c.nom).replace(/'/g, "\\'")}','${escChat(c.tel).replace(/'/g, "\\'")}')" style="display:flex;gap:10px;align-items:center;padding:10px;border:1px solid var(--border-color);border-radius:12px;margin-bottom:8px;cursor:pointer;">
+              <div style="width:40px;height:40px;border-radius:12px;background:rgba(59,130,246,0.2);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent);">${escChat((c.nom||'?')[0].toUpperCase())}</div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-weight:600;font-size:13px;">${escChat(c.nom)}</div>
+                <div style="font-size:11px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escChat(c.lastTexte)}</div>
+              </div>
+              <div style="font-size:10px;color:var(--text-secondary);">${escChat(c.lastHeure)}</div>
+            </div>`;
+        });
+        container.innerHTML = html;
+        return;
+    }
+
+    if (emptyHint) emptyHint.style.display = 'none';
+    const conv = utilisateur.conversations[conversationActiveTel];
+    const msgs = (conv && conv.messages) || [];
+    if (!msgs.length) {
+        container.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text-secondary);font-size:12px;">Début de la conversation avec ${escChat(conv.nom)}. Écris un message ci-dessous.</div>`;
+        return;
+    }
     let html = '';
-    utilisateur.messagesLocaux.forEach(m => {
-        html += `<div style="background:var(--bg-color); border:1px solid var(--border-color); padding:8px; border-radius:8px; margin-bottom:6px;"><div style="font-size:10px; color:var(--accent);">👤 ${m.expediteur} • ${m.heure}</div><p style="margin:3px 0 0 0; font-size:12px;">${m.texte}</p></div>`;
+    msgs.forEach(m => {
+        const mine = !!m.mine;
+        html += `<div style="display:flex;justify-content:${mine ? 'flex-end' : 'flex-start'};margin-bottom:8px;">
+          <div style="max-width:85%;background:${mine ? 'rgba(16,185,129,0.2)' : 'rgba(59,130,246,0.12)'};border:1px solid ${mine ? 'rgba(16,185,129,0.35)' : 'var(--border-color)'};padding:8px 12px;border-radius:14px;border-bottom-${mine ? 'right' : 'left'}-radius:4px;">
+            <div style="font-size:10px;color:var(--text-secondary);margin-bottom:2px;">${mine ? 'Moi' : escChat(m.from || conv.nom)} · ${escChat(m.heure || '')}</div>
+            ${m.photo ? `<img src="${m.photo}" alt="photo" style="max-width:100%;border-radius:8px;margin:4px 0;display:block;">` : ''}
+            ${m.texte ? `<p style="margin:0;font-size:13px;line-height:1.4;white-space:pre-wrap;">${escChat(m.texte)}</p>` : ''}
+          </div>
+        </div>`;
     });
     container.innerHTML = html;
+    container.scrollTop = container.scrollHeight;
+}
+
+function envoyerMessageChatLocal() {
+    const input = document.getElementById('chatLocalInput');
+    const texte = (input?.value || '').trim();
+    if (!utilisateur) return;
+    if (!conversationActiveTel) {
+        alert('Choisis d\'abord un contact (Message) pour ouvrir une conversation.');
+        return;
+    }
+    if (!texte && !window._chatPhotoEnCours) return;
+    assurerConversations();
+    const conv = utilisateur.conversations[conversationActiveTel];
+    if (!conv) return;
+
+    const msg = {
+        id: 'm' + Date.now() + Math.random().toString(36).slice(2, 6),
+        from: utilisateur.nom || 'Moi',
+        fromTel: utilisateur.telephone,
+        texte: texte || '',
+        photo: window._chatPhotoEnCours || null,
+        heure: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        mine: true
+    };
+    conv.messages.push(msg);
+    // limiter taille locale (garder 200 derniers messages / conversation)
+    if (conv.messages.length > 200) conv.messages = conv.messages.slice(-200);
+    localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
+    if (input) input.value = '';
+    window._chatPhotoEnCours = null;
+    const preview = document.getElementById('chatPhotoPreview');
+    if (preview) { preview.style.display = 'none'; preview.innerHTML = ''; }
+
+    afficherMessagesLocaux();
+
+    // Envoi temps réel si serveur dispo (relais uniquement, pas de stockage serveur)
+    try {
+        if (typeof socket !== 'undefined' && socket && socket.connected) {
+            socket.emit('private_message', {
+                to: conversationActiveTel,
+                from: utilisateur.telephone,
+                fromNom: utilisateur.nom,
+                texte: msg.texte,
+                photo: msg.photo,
+                id: msg.id,
+                heure: msg.heure
+            });
+        }
+    } catch (e) {}
+}
+
+function choisirPhotoChat() {
+    const input = document.getElementById('chatPhotoInput');
+    if (input) input.click();
+}
+
+function onChatPhotoSelected(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    if (file.size > 900000) {
+        alert('Photo trop lourde (max ~900 Ko). Compresse-la un peu.');
+        event.target.value = '';
+        return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        window._chatPhotoEnCours = e.target.result;
+        const preview = document.getElementById('chatPhotoPreview');
+        if (preview) {
+            preview.style.display = 'block';
+            preview.innerHTML = `<img src="${e.target.result}" style="max-height:80px;border-radius:8px;"> <button type="button" onclick="window._chatPhotoEnCours=null;document.getElementById('chatPhotoPreview').style.display='none';" style="background:none;border:none;color:#f87171;cursor:pointer;">✕</button>`;
+        }
+    };
+    reader.readAsDataURL(file);
+    event.target.value = '';
+}
+
+function recevoirMessagePrive(data) {
+    if (!utilisateur || !data) return;
+    assurerConversations();
+    const fromTel = telKey(data.from);
+    if (!fromTel) return;
+    if (!utilisateur.conversations[fromTel]) {
+        utilisateur.conversations[fromTel] = { nom: data.fromNom || fromTel, messages: [] };
+    }
+    const conv = utilisateur.conversations[fromTel];
+    if (data.fromNom) conv.nom = data.fromNom;
+    // éviter doublons
+    if (data.id && conv.messages.some(m => m.id === data.id)) return;
+    conv.messages.push({
+        id: data.id || ('r' + Date.now()),
+        from: data.fromNom || fromTel,
+        fromTel: fromTel,
+        texte: data.texte || '',
+        photo: data.photo || null,
+        heure: data.heure || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        mine: false
+    });
+    if (conv.messages.length > 200) conv.messages = conv.messages.slice(-200);
+    localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
+    if (conversationActiveTel === fromTel || !conversationActiveTel) {
+        if (document.getElementById('tab-messagerie')?.style.display !== 'none') {
+            afficherMessagesLocaux();
+        }
+    }
 }
 
 function ajouterNoteBlocNotes() {
