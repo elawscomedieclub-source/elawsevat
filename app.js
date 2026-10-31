@@ -118,10 +118,99 @@ function fermerNotification() {
     if(banner) banner.style.display = 'none';
 }
 
+
+window._photoProfilTemp = null;
+window.contactOuvertIndex = null;
+window.conversationActiveTel = window.conversationActiveTel || null;
+
+function escUI(s) {
+    const d = document.createElement('div');
+    d.textContent = s == null ? '' : String(s);
+    return d.innerHTML;
+}
+function initiales(nom) {
+    const p = String(nom || '?').trim().split(/\s+/).filter(Boolean);
+    if (!p.length) return '?';
+    if (p.length === 1) return p[0].slice(0, 2).toUpperCase();
+    return (p[0][0] + p[p.length - 1][0]).toUpperCase();
+}
+function previewPhotoProfil(event) {
+    const f = event.target.files && event.target.files[0];
+    if (!f) return;
+    if (f.size > 600000) { alert('Photo trop lourde (max ~600 Ko).'); return; }
+    const r = new FileReader();
+    r.onload = e => {
+        window._photoProfilTemp = e.target.result;
+        const box = document.getElementById('welcomePhotoPreview');
+        if (box) box.innerHTML = '<img src="'+e.target.result+'" style="width:100%;height:100%;object-fit:cover;">';
+    };
+    r.readAsDataURL(f);
+}
+function previewPhotoProfilEdit(event) {
+    const f = event.target.files && event.target.files[0];
+    if (!f) return;
+    if (f.size > 600000) { alert('Photo trop lourde (max ~600 Ko).'); return; }
+    const r = new FileReader();
+    r.onload = e => {
+        window._photoProfilTemp = e.target.result;
+        const box = document.getElementById('editPhotoPreview');
+        if (box) box.innerHTML = '<img src="'+e.target.result+'" style="width:100%;height:100%;object-fit:cover;">';
+    };
+    r.readAsDataURL(f);
+}
+function toggleEditProfil(force) {
+    const form = document.getElementById('formEditProfil');
+    if (!form || !utilisateur) return;
+    const show = typeof force === 'boolean' ? force : (form.style.display === 'none' || getComputedStyle(form).display === 'none');
+    form.style.display = show ? 'block' : 'none';
+    if (show) {
+        const n = document.getElementById('inputNomProfil');
+        const t = document.getElementById('inputTelProfil2');
+        const m = document.getElementById('inputMetierProfil');
+        if (n) n.value = utilisateur.nom || '';
+        if (t) t.value = utilisateur.telephone || '';
+        if (m) m.value = utilisateur.metier || '';
+        const box = document.getElementById('editPhotoPreview');
+        if (box) {
+            if (utilisateur.photo) box.innerHTML = '<img src="'+utilisateur.photo+'" style="width:100%;height:100%;object-fit:cover;">';
+            else box.textContent = initiales(utilisateur.nom);
+        }
+    }
+}
+function toggleFormContactProfil() {
+    const f = document.getElementById('formContactProfil');
+    if (!f) return;
+    f.style.display = (f.style.display === 'none' || !f.style.display || getComputedStyle(f).display === 'none') ? 'block' : 'none';
+}
+function toggleFormContactAnnuaire() {
+    const f = document.getElementById('formContactAnnuaire');
+    if (!f) return;
+    f.style.display = (f.style.display === 'none' || !f.style.display || getComputedStyle(f).display === 'none') ? 'block' : 'none';
+}
+function afficherCarteProfil() {
+    const el = document.getElementById('monProfilCarte');
+    if (!el || !utilisateur) return;
+    const photo = utilisateur.photo
+        ? '<img src="'+utilisateur.photo+'" alt="" style="width:100%;height:100%;object-fit:cover;">'
+        : '<span style="font-weight:800;font-size:22px;color:#fff;">'+escUI(initiales(utilisateur.nom))+'</span>';
+    el.innerHTML = `
+      <div style="display:flex;align-items:center;gap:14px;">
+        <div style="width:64px;height:64px;border-radius:50%;overflow:hidden;background:linear-gradient(145deg,#0ea5e9,#10b981);display:flex;align-items:center;justify-content:center;flex-shrink:0;border:2px solid rgba(56,189,248,0.5);">${photo}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:11px;color:var(--success);font-weight:600;">Mon profil</div>
+          <div style="font-size:17px;font-weight:800;color:var(--text-primary);">${escUI(utilisateur.nom || '—')}</div>
+          <div style="font-size:13px;color:var(--accent);margin-top:2px;">${escUI(utilisateur.telephone || '')}</div>
+          <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">${escUI(utilisateur.metier || '')}</div>
+        </div>
+        <button type="button" onclick="toggleEditProfil()" class="btn-action" style="width:auto;padding:8px 12px;font-size:11px;background:rgba(59,130,246,0.18);color:var(--accent);border:1px solid var(--border-color);box-shadow:none;">✏️ Modifier</button>
+      </div>`;
+}
+
 function sauvegarderProfilBase() {
     const nom = document.getElementById('inputNom').value.trim();
-    const tel = document.getElementById('inputTelProfil').value.trim();
-    const metier = document.getElementById('inputMetier').value.trim();
+    const telEl = document.getElementById('inputTelProfil') || document.getElementById('inputTel');
+    const tel = (telEl && telEl.value || '').trim();
+    const metier = (document.getElementById('inputMetier')?.value || '').trim();
     
     if(!nom || !tel) {
         alert("Veuillez remplir votre nom et votre numéro.");
@@ -130,33 +219,33 @@ function sauvegarderProfilBase() {
 
     utilisateur = {
         nom: nom,
-        telephone: tel,
+        telephone: tel.replace(/\s+/g, ''),
         metier: metier || "Opérateur",
+        photo: window._photoProfilTemp || null,
         qubits: 365,
         notes: [],
         messagesLocaux: [],
-        contacts: [
-            { nom: "Directeur Cabinet", telephone: "+22898231401", metier: "Cosmétiques & Management" },
-            { nom: "Support Technique", telephone: "+22898231402", metier: "Ingénierie Continuum" }
-        ],
+        conversations: {},
+        contacts: [],
         historiqueElaws: [],
         parametres: {
-            sonnerieType: 'iphone',
+            sonnerieType: 'evat',
             customRingtoneBase64: null,
             vibration: true
         }
     };
+    window._photoProfilTemp = null;
 
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
     const welcomeModal = document.getElementById('welcomeModal');
-    if (welcomeModal) {
+    if(welcomeModal) {
         welcomeModal.style.display = 'none';
         welcomeModal.classList.remove('is-open');
     }
-    fermerTousLesMenus();
     
-    socket.emit('register_user', { nom: utilisateur.nom, telephone: utilisateur.telephone, metier: utilisateur.metier });
+    try { socket.emit('register_user', { nom: utilisateur.nom, telephone: utilisateur.telephone, metier: utilisateur.metier }); } catch(e) {}
     appliquerInfosProfil();
+    if (typeof afficherCarteProfil === 'function') afficherCarteProfil();
     verifierEtSynchroniserContacts();
 }
 
@@ -172,13 +261,19 @@ function sauvegarderProfilBaseDesdeProfil() {
 
     if(!utilisateur) utilisateur = {};
     utilisateur.nom = nom;
-    utilisateur.telephone = tel;
-    utilisateur.metier = metier;
+    utilisateur.telephone = tel.replace(/\s+/g, '');
+    utilisateur.metier = metier || 'Opérateur';
+    if (window._photoProfilTemp) {
+        utilisateur.photo = window._photoProfilTemp;
+        window._photoProfilTemp = null;
+    }
 
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
-    socket.emit('register_user', { nom: utilisateur.nom, telephone: utilisateur.telephone, metier: utilisateur.metier });
+    try { socket.emit('register_user', { nom: utilisateur.nom, telephone: utilisateur.telephone, metier: utilisateur.metier }); } catch(e) {}
     appliquerInfosProfil();
-    alert("✅ Profil mis à jour ! Vous pouvez modifier vos réglages ici à tout moment.");
+    if (typeof afficherCarteProfil === 'function') afficherCarteProfil();
+    if (typeof toggleEditProfil === 'function') toggleEditProfil(false);
+    alert("✅ Profil mis à jour !");
 }
 
 function sauvegarderParametresApp() {
@@ -256,6 +351,7 @@ function appliquerInfosProfil() {
     
     verifierEtSynchroniserContacts();
     afficherContacts();
+    if (typeof afficherCarteProfil === 'function') afficherCarteProfil();
 }
 
 function verifierEtSynchroniserContacts() {
@@ -273,66 +369,112 @@ function verifierEtSynchroniserContacts() {
 }
 
 function afficherContacts() {
-    const container = document.getElementById('listeContactsContainer');
-    if(!container || !utilisateur || !utilisateur.contacts) return;
-    if(utilisateur.contacts.length === 0) {
-        container.innerHTML = `<p style="color:var(--text-secondary); font-size:11.5px;">Aucun contact.</p>`;
-        return;
+    if (!utilisateur) return;
+    if (!utilisateur.contacts) utilisateur.contacts = [];
+    const containers = [];
+    const a = document.getElementById('listeContactsContainer');
+    const b = document.getElementById('profilContactsContainer');
+    if (a) containers.push(a);
+    if (b) containers.push(b);
+    if (!containers.length) return;
+
+    const q = (document.getElementById('rechercheContact')?.value || '').trim().toLowerCase();
+    let list = utilisateur.contacts.map((c, i) => ({ ...c, _i: i }));
+    if (q) {
+        list = list.filter(c =>
+            (c.nom || '').toLowerCase().includes(q) ||
+            (c.telephone || '').toLowerCase().includes(q) ||
+            (c.metier || '').toLowerCase().includes(q)
+        );
     }
+    list.sort((x, y) => String(x.nom || '').localeCompare(String(y.nom || ''), 'fr', { sensitivity: 'base' }));
+
     let html = '';
-    utilisateur.contacts.forEach((c, index) => {
-        html += `<div style="background:var(--bg-color); border:1px solid var(--border-color); padding:10px; border-radius:10px; display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-            <div>
-                <strong style="color:var(--accent); font-size:12.5px;">👤 ${c.nom}</strong>
-                <div style="font-size:11px; color:var(--text-secondary);">📞 ${c.telephone} • <i style="color:var(--success);">${c.metier || 'Sync...'}</i></div>
-            </div>
-            <div style="display:flex; gap:4px; flex-wrap:wrap; justify-content:flex-end;">
-                <button onclick="preparerAppel('${c.telephone}')" class="btn-action" style="background:var(--success); color:#fff; padding:5px 8px; font-size:10.5px;" title="Appeler">📞</button>
-                <button onclick="ecrireAuContact('${c.nom}', '${c.telephone}')" class="btn-action" style="background:var(--accent); color:#030712; padding:5px 8px; font-size:10.5px;" title="Écrire">💬</button>
-                <button onclick="modifierContact(${index})" class="btn-action" style="background:rgba(59,130,246,0.2); color:var(--accent); border:1px solid var(--accent); padding:5px 8px; font-size:10.5px;" title="Modifier">✏️</button>
-                <button onclick="supprimerContact(${index})" class="btn-action" style="background:rgba(239,68,68,0.2); color:#ef4444; border:1px solid #ef4444; padding:5px 8px; font-size:10.5px;" title="Supprimer">🗑️</button>
-            </div>
-        </div>`;
-    });
-    container.innerHTML = html;
+    if (!list.length) {
+        html = `<p style="font-size:12px;color:var(--text-secondary);text-align:center;padding:16px;">${utilisateur.contacts.length ? 'Aucun résultat.' : 'Aucun contact. Appuie sur ➕ Ajouter.'}</p>`;
+    } else {
+        list.forEach(c => {
+            const i = c._i;
+            const open = window.contactOuvertIndex === i;
+            const telSafe = String(c.telephone || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            const nomSafe = String(c.nom || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            html += `<div style="border:1px solid ${open ? 'var(--accent)' : 'var(--border-color)'};border-radius:14px;margin-bottom:8px;overflow:hidden;background:var(--bg-color);">
+              <div onclick="window.contactOuvertIndex = (window.contactOuvertIndex===${i}?null:${i}); afficherContacts();" style="display:flex;align-items:center;gap:12px;padding:12px;cursor:pointer;">
+                <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(145deg,#0ea5e9,#6366f1);display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:13px;">${escUI(initiales(c.nom))}</div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-weight:700;font-size:14px;">${escUI(c.nom)}</div>
+                  <div style="font-size:11px;color:var(--text-secondary);">${c.enLigne ? 'En ligne' : 'Contact'}${c.metier ? ' · ' + escUI(c.metier) : ''}</div>
+                </div>
+                <span style="color:var(--accent);font-size:12px;">${open ? '▲' : '▼'}</span>
+              </div>`;
+            if (open) {
+                html += `<div style="padding:0 12px 12px;border-top:1px solid var(--border-color);">
+                  <div style="padding:10px 0 8px;">
+                    <div style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Numéro</div>
+                    <div style="font-size:15px;font-weight:700;color:var(--accent);">${escUI(c.telephone)}</div>
+                  </div>
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+                    <button type="button" onclick="event.stopPropagation();ecrireAuContact('${nomSafe}','${telSafe}')" class="btn-action" style="padding:10px;font-size:12px;background:linear-gradient(135deg,#0ea5e9,#0284c7);">💬 Message</button>
+                    <button type="button" onclick="event.stopPropagation();preparerAppel('${telSafe}')" class="btn-action" style="padding:10px;font-size:12px;background:linear-gradient(135deg,#10b981,#059669);">📞 Appel</button>
+                    <button type="button" onclick="event.stopPropagation();modifierContact(${i})" class="btn-action" style="padding:10px;font-size:12px;background:rgba(59,130,246,0.15);color:var(--accent);border:1px solid var(--border-color);box-shadow:none;">✏️ Modifier</button>
+                    <button type="button" onclick="event.stopPropagation();supprimerContact(${i})" class="btn-action" style="padding:10px;font-size:12px;background:rgba(248,113,113,0.12);color:#f87171;border:1px solid rgba(248,113,113,0.35);box-shadow:none;">🗑️ Supprimer</button>
+                  </div>
+                </div>`;
+            }
+            html += `</div>`;
+        });
+    }
+    containers.forEach(el => { el.innerHTML = html; });
 }
 
 function ajouterNouveauContact() {
-    const nom = document.getElementById('nouveauNomContact').value.trim();
-    const tel = document.getElementById('nouveauTelContact').value.trim();
-    if(!nom || !tel) {
-        alert("Nom et numéro obligatoires.");
+    const nom = (document.getElementById('nouveauNomContact') || document.getElementById('nouveauNomContactProfil'))?.value?.trim()
+        || document.getElementById('nouveauNomContactProfil')?.value?.trim() || '';
+    const telEl = document.getElementById('nouveauTelContact') || document.getElementById('nouveauTelContactProfil');
+    const metierEl = document.getElementById('nouveauMetierContact') || document.getElementById('nouveauMetierContactProfil');
+    // Prefer visible form values
+    let nomV = document.getElementById('nouveauNomContactProfil')?.value?.trim() || document.getElementById('nouveauNomContact')?.value?.trim() || '';
+    let telV = document.getElementById('nouveauTelContactProfil')?.value?.trim() || document.getElementById('nouveauTelContact')?.value?.trim() || '';
+    let metierV = document.getElementById('nouveauMetierContactProfil')?.value?.trim() || document.getElementById('nouveauMetierContact')?.value?.trim() || '';
+    if (!nomV || !telV) {
+        alert('Nom et numéro obligatoires.');
         return;
     }
-    if(!utilisateur.contacts) utilisateur.contacts = [];
-    utilisateur.contacts.push({ nom, telephone: tel, metier: "Recherche..." });
+    if (!utilisateur.contacts) utilisateur.contacts = [];
+    const telClean = telV.replace(/\s+/g, '');
+    utilisateur.contacts.push({ nom: nomV, telephone: telClean, metier: metierV || 'Contact', enLigne: false });
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
-    document.getElementById('nouveauNomContact').value = '';
-    document.getElementById('nouveauTelContact').value = '';
+    ['nouveauNomContact','nouveauTelContact','nouveauMetierContact','nouveauNomContactProfil','nouveauTelContactProfil','nouveauMetierContactProfil'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.value = '';
+    });
+    window.contactOuvertIndex = utilisateur.contacts.length - 1;
+    const fp = document.getElementById('formContactProfil'); if (fp) fp.style.display = 'none';
+    const fa = document.getElementById('formContactAnnuaire'); if (fa) fa.style.display = 'none';
     afficherContacts();
-    verifierEtSynchroniserContacts();
-    alert("✅ Contact enregistré !");
+    if (typeof verifierEtSynchroniserContacts === 'function') verifierEtSynchroniserContacts();
+    alert('Contact enregistré.');
 }
 
 function modifierContact(index) {
     const c = utilisateur.contacts[index];
-    const nouveauNom = prompt("Modifier le nom :", c.nom);
-    if(nouveauNom === null) return;
-    const nouveauTel = prompt("Modifier le numéro :", c.telephone);
-    if(nouveauTel === null) return;
+    if (!c) return;
+    const nouveauNom = prompt('Nom :', c.nom); if (nouveauNom === null) return;
+    const nouveauTel = prompt('Numéro :', c.telephone); if (nouveauTel === null) return;
+    const nouveauMetier = prompt('Note / métier :', c.metier || ''); if (nouveauMetier === null) return;
     utilisateur.contacts[index].nom = nouveauNom.trim();
-    utilisateur.contacts[index].telephone = nouveauTel.trim();
+    utilisateur.contacts[index].telephone = nouveauTel.replace(/\s+/g, '').trim();
+    utilisateur.contacts[index].metier = nouveauMetier.trim() || 'Contact';
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
+    window.contactOuvertIndex = index;
     afficherContacts();
-    verifierEtSynchroniserContacts();
 }
 
 function supprimerContact(index) {
-    if(confirm("Supprimer ce contact ?")) {
-        utilisateur.contacts.splice(index, 1);
-        localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
-        afficherContacts();
-    }
+    if (!confirm('Supprimer ce contact ?')) return;
+    utilisateur.contacts.splice(index, 1);
+    localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
+    window.contactOuvertIndex = null;
+    afficherContacts();
 }
 
 function ecrireAuContact(nom, tel) {
@@ -340,101 +482,13 @@ function ecrireAuContact(nom, tel) {
     if (!utilisateur.conversations) utilisateur.conversations = {};
     const key = String(tel || '').replace(/\s+/g, '').trim();
     if (!key) return;
-    if (!utilisateur.conversations[key]) {
-        utilisateur.conversations[key] = { nom: nom || key, messages: [] };
-    } else if (nom) {
-        utilisateur.conversations[key].nom = nom;
-    }
+    if (!utilisateur.conversations[key]) utilisateur.conversations[key] = { nom: nom || key, messages: [] };
+    else if (nom) utilisateur.conversations[key].nom = nom;
     window.conversationActiveTel = key;
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
     switchTab('messagerie');
-    afficherMessagesLocaux();
+    if (typeof afficherMessagesLocaux === 'function') afficherMessagesLocaux();
 }
-
-function envoyerMessageChatLocal() {
-    const input = document.getElementById('chatLocalInput');
-    const texte = (input && input.value || '').trim();
-    if (!texte || !utilisateur) return;
-    if (!window.conversationActiveTel) {
-        // message général local
-        if (!utilisateur.messagesLocaux) utilisateur.messagesLocaux = [];
-        utilisateur.messagesLocaux.push({ expediteur: utilisateur.nom || 'Moi', texte, heure: new Date().toLocaleTimeString() });
-        localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
-        if (input) input.value = '';
-        afficherMessagesLocaux();
-        return;
-    }
-    if (!utilisateur.conversations) utilisateur.conversations = {};
-    const conv = utilisateur.conversations[window.conversationActiveTel];
-    if (!conv) return;
-    if (!conv.messages) conv.messages = [];
-    conv.messages.push({
-        id: 'm' + Date.now(),
-        from: utilisateur.nom || 'Moi',
-        texte,
-        heure: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        mine: true
-    });
-    localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
-    if (input) input.value = '';
-    afficherMessagesLocaux();
-    try {
-        if (typeof socket !== 'undefined' && socket && socket.connected) {
-            socket.emit('private_message', {
-                to: window.conversationActiveTel,
-                from: utilisateur.telephone,
-                fromNom: utilisateur.nom,
-                texte,
-                heure: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            });
-        }
-    } catch (e) {}
-}
-
-function afficherMessagesLocaux() {
-    const container = document.getElementById('listeMessagesLocaux');
-    if (!container || !utilisateur) return;
-    const tel = window.conversationActiveTel;
-    if (tel && utilisateur.conversations && utilisateur.conversations[tel]) {
-        const conv = utilisateur.conversations[tel];
-        let html = `<div style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
-            <strong style="color:var(--accent);font-size:13px;">💬 ${conv.nom || tel}</strong>
-            <button type="button" onclick="window.conversationActiveTel=null;afficherMessagesLocaux();" class="btn-action" style="width:auto;padding:4px 8px;font-size:11px;">← Retour</button>
-        </div>`;
-        (conv.messages || []).forEach(m => {
-            const mine = !!m.mine;
-            html += `<div style="display:flex;justify-content:${mine?'flex-end':'flex-start'};margin-bottom:6px;">
-              <div style="max-width:85%;padding:8px 10px;border-radius:12px;background:${mine?'rgba(16,185,129,0.2)':'rgba(59,130,246,0.12)'};border:1px solid var(--border-color);">
-                <div style="font-size:10px;color:var(--text-secondary);">${mine?'Moi':(m.from||'')} · ${m.heure||''}</div>
-                <p style="margin:2px 0 0;font-size:13px;">${(m.texte||'').replace(/</g,'&lt;')}</p>
-              </div></div>`;
-        });
-        if (!(conv.messages || []).length) {
-            html += `<p style="font-size:12px;color:var(--text-secondary);text-align:center;">Écris ton premier message.</p>`;
-        }
-        container.innerHTML = html;
-        container.scrollTop = container.scrollHeight;
-        return;
-    }
-    // liste simple
-    let html = '';
-    if (utilisateur.conversations) {
-        Object.keys(utilisateur.conversations).forEach(k => {
-            const c = utilisateur.conversations[k];
-            const last = (c.messages || [])[(c.messages||[]).length - 1];
-            html += `<div onclick="window.conversationActiveTel='${k.replace(/'/g,"\'")}';afficherMessagesLocaux();" style="padding:10px;border:1px solid var(--border-color);border-radius:10px;margin-bottom:6px;cursor:pointer;">
-              <strong style="font-size:13px;">${(c.nom||k).replace(/</g,'&lt;')}</strong>
-              <div style="font-size:11px;color:var(--text-secondary);">${last ? (last.texte||'').replace(/</g,'&lt;') : 'Aucun message'}</div>
-            </div>`;
-        });
-    }
-    (utilisateur.messagesLocaux || []).forEach(m => {
-        html += `<div style="padding:8px;border:1px solid var(--border-color);border-radius:8px;margin-bottom:6px;"><div style="font-size:10px;color:var(--accent);">${(m.expediteur||'').replace(/</g,'&lt;')} · ${m.heure||''}</div><p style="margin:3px 0 0;font-size:12px;">${(m.texte||'').replace(/</g,'&lt;')}</p></div>`;
-    });
-    if (!html) html = `<p style="font-size:12px;color:var(--text-secondary);text-align:center;padding:16px;">Ouvre un contact → Message pour démarrer une discussion.</p>`;
-    container.innerHTML = html;
-}
-
 
 function preparerAppel(tel) {
     switchTab('communications');
@@ -500,13 +554,12 @@ function poserQuestionElaws() {
 }
 
 function toggleMenu(e) {
-    if (e) { try { e.stopPropagation(); e.preventDefault(); } catch (err) {} }
+    if(e) { e.stopPropagation(); e.preventDefault(); }
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('appOverlay');
-    if (!sidebar) return;
-    const isOpen = sidebar.classList.toggle('open');
-    if (overlay) {
-        if (isOpen) overlay.classList.add('active');
+    if(sidebar && overlay) {
+        const isOpen = sidebar.classList.toggle('open');
+        if(isOpen) overlay.classList.add('active');
         else overlay.classList.remove('active');
     }
 }
@@ -514,33 +567,24 @@ function toggleMenu(e) {
 function fermerTousLesMenus() {
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('appOverlay');
-    if (sidebar) sidebar.classList.remove('open');
-    if (overlay) overlay.classList.remove('active');
+    if(sidebar) sidebar.classList.remove('open');
+    if(overlay) overlay.classList.remove('active');
 }
 
 let mapInstance = null;
 let userMarker = null;
 
 function switchTab(tabId) {
-    if (!tabId) return;
-    try {
-        document.querySelectorAll('.tab-content').forEach(el => { el.style.display = 'none'; });
-        document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
-        const target = document.getElementById('tab-' + tabId);
-        if (target) {
-            target.style.display = 'block';
-            target.classList.add('active');
-        }
-        const link = document.getElementById('link-' + tabId);
-        if (link) link.classList.add('active');
-        fermerTousLesMenus();
-        // fermer modal bienvenue si encore visible par erreur
-        const wm = document.getElementById('welcomeModal');
-        if (wm && utilisateur && utilisateur.nom) wm.style.display = 'none';
-    } catch (err) { console.warn('switchTab', err); }
+    document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
+    const target = document.getElementById('tab-' + tabId);
+    if(target) target.style.display = 'block';
+    const link = document.getElementById('link-' + tabId);
+    if(link) link.classList.add('active');
+    fermerTousLesMenus();
 
     if(tabId === 'contacts') afficherContacts();
-    if(tabId === 'messagerie') afficherMessagesLocaux();
+    if(tabId === 'profil') { appliquerInfosProfil(); afficherCarteProfil(); afficherContacts(); toggleEditProfil(false); }
     if(tabId === 'map') {
         setTimeout(() => {
             if(!mapInstance) {
@@ -583,6 +627,27 @@ socket.on('signal', (data) => {
         L.marker([data.lat, data.lng]).addTo(mapInstance).bindPopup(`<b>📍 ${data.sender}</b>`);
     }
 });
+
+function envoyerMessageChatLocal() {
+    const input = document.getElementById('chatLocalInput');
+    const texte = input.value.trim();
+    if(!texte || !utilisateur) return;
+    if(!utilisateur.messagesLocaux) utilisateur.messagesLocaux = [];
+    utilisateur.messagesLocaux.push({ expediteur: utilisateur.nom || "Moi", texte, heure: new Date().toLocaleTimeString() });
+    localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
+    input.value = '';
+    afficherMessagesLocaux();
+}
+
+function afficherMessagesLocaux() {
+    const container = document.getElementById('listeMessagesLocaux');
+    if(!container || !utilisateur || !utilisateur.messagesLocaux) return;
+    let html = '';
+    utilisateur.messagesLocaux.forEach(m => {
+        html += `<div style="background:var(--bg-color); border:1px solid var(--border-color); padding:8px; border-radius:8px; margin-bottom:6px;"><div style="font-size:10px; color:var(--accent);">👤 ${m.expediteur} • ${m.heure}</div><p style="margin:3px 0 0 0; font-size:12px;">${m.texte}</p></div>`;
+    });
+    container.innerHTML = html;
+}
 
 function ajouterNoteBlocNotes() {
     const titre = document.getElementById('noteTitre').value.trim();
@@ -943,43 +1008,26 @@ function fermerAppelTotalLocally() {
 
 // LOGIQUE CRITIQUE DE GESTION DE LA PAGE D'ACCUEIL ET DE L'ENREGISTREMENT UNIQUE
 document.addEventListener('DOMContentLoaded', () => {
-    try {
-        const welcomeModal = document.getElementById('welcomeModal');
-        if (!utilisateur || !utilisateur.nom || !utilisateur.telephone) {
-            if (welcomeModal) {
-                welcomeModal.style.display = 'flex';
-                welcomeModal.classList.add('is-open');
-            }
-        } else {
-            if (welcomeModal) {
-                welcomeModal.style.display = 'none';
-                welcomeModal.classList.remove('is-open');
-            }
-            appliquerInfosProfil();
-            afficherContacts();
-        }
-        afficherNotesBlocNotes();
-        afficherMessagesLocaux();
-        fermerTousLesMenus();
-    } catch (err) {
-        console.warn('init', err);
-        const welcomeModal = document.getElementById('welcomeModal');
-        if (welcomeModal && utilisateur && utilisateur.nom) welcomeModal.style.display = 'none';
+    const welcomeModal = document.getElementById('welcomeModal');
+    if (!utilisateur || !utilisateur.nom || !utilisateur.telephone) {
+        // Premier accès : on affiche la modal d'enregistrement
+        if(welcomeModal) welcomeModal.style.display = 'flex';
+    } else {
+        // Déjà enregistré : on masque définitivement la modal d'enregistrement
+        if(welcomeModal) welcomeModal.style.display = 'none';
+        appliquerInfosProfil();
+        afficherContacts();
+        if (typeof afficherCarteProfil === 'function') afficherCarteProfil();
     }
+    afficherNotesBlocNotes();
+    afficherMessagesLocaux();
 });
 
 async function demanderPermissionsEtActiverProfil() {
     try {
-        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            const stream = await Promise.race([
-                navigator.mediaDevices.getUserMedia({ audio: true, video: true }),
-                new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 8000))
-            ]);
-            if (stream && stream.getTracks) stream.getTracks().forEach(track => track.stop());
-        }
-    } catch (err) {
-        // permissions refusées ou timeout : on continue quand même
-        console.warn('permissions', err);
-    }
-    try { sauvegarderProfilBase(); } catch (e) { alert('Erreur profil. Vérifie nom et numéro.'); }
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+        stream.getTracks().forEach(track => track.stop());
+    } catch (err) {}
+
+    sauvegarderProfilBase();
 }
