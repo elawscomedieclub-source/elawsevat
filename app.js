@@ -118,99 +118,10 @@ function fermerNotification() {
     if(banner) banner.style.display = 'none';
 }
 
-
-window._photoProfilTemp = null;
-window.contactOuvertIndex = null;
-window.conversationActiveTel = window.conversationActiveTel || null;
-
-function escUI(s) {
-    const d = document.createElement('div');
-    d.textContent = s == null ? '' : String(s);
-    return d.innerHTML;
-}
-function initiales(nom) {
-    const p = String(nom || '?').trim().split(/\s+/).filter(Boolean);
-    if (!p.length) return '?';
-    if (p.length === 1) return p[0].slice(0, 2).toUpperCase();
-    return (p[0][0] + p[p.length - 1][0]).toUpperCase();
-}
-function previewPhotoProfil(event) {
-    const f = event.target.files && event.target.files[0];
-    if (!f) return;
-    if (f.size > 600000) { alert('Photo trop lourde (max ~600 Ko).'); return; }
-    const r = new FileReader();
-    r.onload = e => {
-        window._photoProfilTemp = e.target.result;
-        const box = document.getElementById('welcomePhotoPreview');
-        if (box) box.innerHTML = '<img src="'+e.target.result+'" style="width:100%;height:100%;object-fit:cover;">';
-    };
-    r.readAsDataURL(f);
-}
-function previewPhotoProfilEdit(event) {
-    const f = event.target.files && event.target.files[0];
-    if (!f) return;
-    if (f.size > 600000) { alert('Photo trop lourde (max ~600 Ko).'); return; }
-    const r = new FileReader();
-    r.onload = e => {
-        window._photoProfilTemp = e.target.result;
-        const box = document.getElementById('editPhotoPreview');
-        if (box) box.innerHTML = '<img src="'+e.target.result+'" style="width:100%;height:100%;object-fit:cover;">';
-    };
-    r.readAsDataURL(f);
-}
-function toggleEditProfil(force) {
-    const form = document.getElementById('formEditProfil');
-    if (!form || !utilisateur) return;
-    const show = typeof force === 'boolean' ? force : (form.style.display === 'none' || getComputedStyle(form).display === 'none');
-    form.style.display = show ? 'block' : 'none';
-    if (show) {
-        const n = document.getElementById('inputNomProfil');
-        const t = document.getElementById('inputTelProfil2');
-        const m = document.getElementById('inputMetierProfil');
-        if (n) n.value = utilisateur.nom || '';
-        if (t) t.value = utilisateur.telephone || '';
-        if (m) m.value = utilisateur.metier || '';
-        const box = document.getElementById('editPhotoPreview');
-        if (box) {
-            if (utilisateur.photo) box.innerHTML = '<img src="'+utilisateur.photo+'" style="width:100%;height:100%;object-fit:cover;">';
-            else box.textContent = initiales(utilisateur.nom);
-        }
-    }
-}
-function toggleFormContactProfil() {
-    const f = document.getElementById('formContactProfil');
-    if (!f) return;
-    f.style.display = (f.style.display === 'none' || !f.style.display || getComputedStyle(f).display === 'none') ? 'block' : 'none';
-}
-function toggleFormContactAnnuaire() {
-    const f = document.getElementById('formContactAnnuaire');
-    if (!f) return;
-    f.style.display = (f.style.display === 'none' || !f.style.display || getComputedStyle(f).display === 'none') ? 'block' : 'none';
-}
-function afficherCarteProfil() {
-    const el = document.getElementById('monProfilCarte');
-    if (!el || !utilisateur) return;
-    const photo = utilisateur.photo
-        ? '<img src="'+utilisateur.photo+'" alt="" style="width:100%;height:100%;object-fit:cover;">'
-        : '<span style="font-weight:800;font-size:22px;color:#fff;">'+escUI(initiales(utilisateur.nom))+'</span>';
-    el.innerHTML = `
-      <div style="display:flex;align-items:center;gap:14px;">
-        <div style="width:64px;height:64px;border-radius:50%;overflow:hidden;background:linear-gradient(145deg,#0ea5e9,#10b981);display:flex;align-items:center;justify-content:center;flex-shrink:0;border:2px solid rgba(56,189,248,0.5);">${photo}</div>
-        <div style="flex:1;min-width:0;">
-          <div style="font-size:11px;color:var(--success);font-weight:600;">Mon profil</div>
-          <div style="font-size:17px;font-weight:800;color:var(--text-primary);">${escUI(utilisateur.nom || '—')}</div>
-          <div style="font-size:13px;color:var(--accent);margin-top:2px;">${escUI(utilisateur.telephone || '')}</div>
-          <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">${escUI(utilisateur.metier || '')}</div>
-        </div>
-        <button type="button" onclick="toggleEditProfil()" class="btn-action" style="width:auto;padding:8px 12px;font-size:11px;background:rgba(59,130,246,0.18);color:var(--accent);border:1px solid var(--border-color);box-shadow:none;">✏️ Modifier</button>
-      </div>`;
-}
-
 function sauvegarderProfilBase() {
     const nom = document.getElementById('inputNom').value.trim();
-    const telEl = document.getElementById('inputTelProfil') || document.getElementById('inputTel');
-    const tel = (telEl && telEl.value || '').trim();
-    const metier = (document.getElementById('inputMetier')?.value || '').trim();
+    const tel = document.getElementById('inputTelProfil').value.trim();
+    const metier = document.getElementById('inputMetier').value.trim();
     
     if(!nom || !tel) {
         alert("Veuillez remplir votre nom et votre numéro.");
@@ -219,33 +130,29 @@ function sauvegarderProfilBase() {
 
     utilisateur = {
         nom: nom,
-        telephone: tel.replace(/\s+/g, ''),
+        telephone: tel,
         metier: metier || "Opérateur",
-        photo: window._photoProfilTemp || null,
         qubits: 365,
         notes: [],
         messagesLocaux: [],
-        conversations: {},
-        contacts: [],
+        contacts: [
+            { nom: "Directeur Cabinet", telephone: "+22898231401", metier: "Cosmétiques & Management" },
+            { nom: "Support Technique", telephone: "+22898231402", metier: "Ingénierie Continuum" }
+        ],
         historiqueElaws: [],
         parametres: {
-            sonnerieType: 'evat',
+            sonnerieType: 'iphone',
             customRingtoneBase64: null,
             vibration: true
         }
     };
-    window._photoProfilTemp = null;
 
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
     const welcomeModal = document.getElementById('welcomeModal');
-    if(welcomeModal) {
-        welcomeModal.style.display = 'none';
-        welcomeModal.classList.remove('is-open');
-    }
+    if(welcomeModal) welcomeModal.style.display = 'none';
     
-    try { socket.emit('register_user', { nom: utilisateur.nom, telephone: utilisateur.telephone, metier: utilisateur.metier }); } catch(e) {}
+    socket.emit('register_user', { nom: utilisateur.nom, telephone: utilisateur.telephone, metier: utilisateur.metier });
     appliquerInfosProfil();
-    if (typeof afficherCarteProfil === 'function') afficherCarteProfil();
     verifierEtSynchroniserContacts();
 }
 
@@ -261,19 +168,13 @@ function sauvegarderProfilBaseDesdeProfil() {
 
     if(!utilisateur) utilisateur = {};
     utilisateur.nom = nom;
-    utilisateur.telephone = tel.replace(/\s+/g, '');
-    utilisateur.metier = metier || 'Opérateur';
-    if (window._photoProfilTemp) {
-        utilisateur.photo = window._photoProfilTemp;
-        window._photoProfilTemp = null;
-    }
+    utilisateur.telephone = tel;
+    utilisateur.metier = metier;
 
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
-    try { socket.emit('register_user', { nom: utilisateur.nom, telephone: utilisateur.telephone, metier: utilisateur.metier }); } catch(e) {}
+    socket.emit('register_user', { nom: utilisateur.nom, telephone: utilisateur.telephone, metier: utilisateur.metier });
     appliquerInfosProfil();
-    if (typeof afficherCarteProfil === 'function') afficherCarteProfil();
-    if (typeof toggleEditProfil === 'function') toggleEditProfil(false);
-    alert("✅ Profil mis à jour !");
+    alert("✅ Profil mis à jour ! Vous pouvez modifier vos réglages ici à tout moment.");
 }
 
 function sauvegarderParametresApp() {
@@ -351,7 +252,6 @@ function appliquerInfosProfil() {
     
     verifierEtSynchroniserContacts();
     afficherContacts();
-    if (typeof afficherCarteProfil === 'function') afficherCarteProfil();
 }
 
 function verifierEtSynchroniserContacts() {
@@ -369,119 +269,73 @@ function verifierEtSynchroniserContacts() {
 }
 
 function afficherContacts() {
-    if (!utilisateur) return;
-    if (!utilisateur.contacts) utilisateur.contacts = [];
-    const containers = [];
-    const a = document.getElementById('listeContactsContainer');
-    const b = document.getElementById('profilContactsContainer');
-    if (a) containers.push(a);
-    if (b) containers.push(b);
-    if (!containers.length) return;
-
-    const q = (document.getElementById('rechercheContact')?.value || '').trim().toLowerCase();
-    let list = utilisateur.contacts.map((c, i) => ({ ...c, _i: i }));
-    if (q) {
-        list = list.filter(c =>
-            (c.nom || '').toLowerCase().includes(q) ||
-            (c.telephone || '').toLowerCase().includes(q) ||
-            (c.metier || '').toLowerCase().includes(q)
-        );
+    const container = document.getElementById('listeContactsContainer');
+    if(!container || !utilisateur || !utilisateur.contacts) return;
+    if(utilisateur.contacts.length === 0) {
+        container.innerHTML = `<p style="color:var(--text-secondary); font-size:11.5px;">Aucun contact.</p>`;
+        return;
     }
-    list.sort((x, y) => String(x.nom || '').localeCompare(String(y.nom || ''), 'fr', { sensitivity: 'base' }));
-
     let html = '';
-    if (!list.length) {
-        html = `<p style="font-size:12px;color:var(--text-secondary);text-align:center;padding:16px;">${utilisateur.contacts.length ? 'Aucun résultat.' : 'Aucun contact. Appuie sur ➕ Ajouter.'}</p>`;
-    } else {
-        list.forEach(c => {
-            const i = c._i;
-            const open = window.contactOuvertIndex === i;
-            const telSafe = String(c.telephone || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-            const nomSafe = String(c.nom || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-            html += `<div style="border:1px solid ${open ? 'var(--accent)' : 'var(--border-color)'};border-radius:14px;margin-bottom:8px;overflow:hidden;background:var(--bg-color);">
-              <div onclick="window.contactOuvertIndex = (window.contactOuvertIndex===${i}?null:${i}); afficherContacts();" style="display:flex;align-items:center;gap:12px;padding:12px;cursor:pointer;">
-                <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(145deg,#0ea5e9,#6366f1);display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:13px;">${escUI(initiales(c.nom))}</div>
-                <div style="flex:1;min-width:0;">
-                  <div style="font-weight:700;font-size:14px;">${escUI(c.nom)}</div>
-                  <div style="font-size:11px;color:var(--text-secondary);">${c.enLigne ? 'En ligne' : 'Contact'}${c.metier ? ' · ' + escUI(c.metier) : ''}</div>
-                </div>
-                <span style="color:var(--accent);font-size:12px;">${open ? '▲' : '▼'}</span>
-              </div>`;
-            if (open) {
-                html += `<div style="padding:0 12px 12px;border-top:1px solid var(--border-color);">
-                  <div style="padding:10px 0 8px;">
-                    <div style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Numéro</div>
-                    <div style="font-size:15px;font-weight:700;color:var(--accent);">${escUI(c.telephone)}</div>
-                  </div>
-                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-                    <button type="button" onclick="event.stopPropagation();ecrireAuContact('${nomSafe}','${telSafe}')" class="btn-action" style="padding:10px;font-size:12px;background:linear-gradient(135deg,#0ea5e9,#0284c7);">💬 Message</button>
-                    <button type="button" onclick="event.stopPropagation();preparerAppel('${telSafe}')" class="btn-action" style="padding:10px;font-size:12px;background:linear-gradient(135deg,#10b981,#059669);">📞 Appel</button>
-                    <button type="button" onclick="event.stopPropagation();modifierContact(${i})" class="btn-action" style="padding:10px;font-size:12px;background:rgba(59,130,246,0.15);color:var(--accent);border:1px solid var(--border-color);box-shadow:none;">✏️ Modifier</button>
-                    <button type="button" onclick="event.stopPropagation();supprimerContact(${i})" class="btn-action" style="padding:10px;font-size:12px;background:rgba(248,113,113,0.12);color:#f87171;border:1px solid rgba(248,113,113,0.35);box-shadow:none;">🗑️ Supprimer</button>
-                  </div>
-                </div>`;
-            }
-            html += `</div>`;
-        });
-    }
-    containers.forEach(el => { el.innerHTML = html; });
+    utilisateur.contacts.forEach((c, index) => {
+        html += `<div style="background:var(--bg-color); border:1px solid var(--border-color); padding:10px; border-radius:10px; display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <div>
+                <strong style="color:var(--accent); font-size:12.5px;">👤 ${c.nom}</strong>
+                <div style="font-size:11px; color:var(--text-secondary);">📞 ${c.telephone} • <i style="color:var(--success);">${c.metier || 'Sync...'}</i></div>
+            </div>
+            <div style="display:flex; gap:4px; flex-wrap:wrap; justify-content:flex-end;">
+                <button onclick="preparerAppel('${c.telephone}')" class="btn-action" style="background:var(--success); color:#fff; padding:5px 8px; font-size:10.5px;" title="Appeler">📞</button>
+                <button onclick="ecrireAuContact('${c.nom}', '${c.telephone}')" class="btn-action" style="background:var(--accent); color:#030712; padding:5px 8px; font-size:10.5px;" title="Écrire">💬</button>
+                <button onclick="modifierContact(${index})" class="btn-action" style="background:rgba(59,130,246,0.2); color:var(--accent); border:1px solid var(--accent); padding:5px 8px; font-size:10.5px;" title="Modifier">✏️</button>
+                <button onclick="supprimerContact(${index})" class="btn-action" style="background:rgba(239,68,68,0.2); color:#ef4444; border:1px solid #ef4444; padding:5px 8px; font-size:10.5px;" title="Supprimer">🗑️</button>
+            </div>
+        </div>`;
+    });
+    container.innerHTML = html;
 }
 
 function ajouterNouveauContact() {
-    const nom = (document.getElementById('nouveauNomContact') || document.getElementById('nouveauNomContactProfil'))?.value?.trim()
-        || document.getElementById('nouveauNomContactProfil')?.value?.trim() || '';
-    const telEl = document.getElementById('nouveauTelContact') || document.getElementById('nouveauTelContactProfil');
-    const metierEl = document.getElementById('nouveauMetierContact') || document.getElementById('nouveauMetierContactProfil');
-    // Prefer visible form values
-    let nomV = document.getElementById('nouveauNomContactProfil')?.value?.trim() || document.getElementById('nouveauNomContact')?.value?.trim() || '';
-    let telV = document.getElementById('nouveauTelContactProfil')?.value?.trim() || document.getElementById('nouveauTelContact')?.value?.trim() || '';
-    let metierV = document.getElementById('nouveauMetierContactProfil')?.value?.trim() || document.getElementById('nouveauMetierContact')?.value?.trim() || '';
-    if (!nomV || !telV) {
-        alert('Nom et numéro obligatoires.');
+    const nom = document.getElementById('nouveauNomContact').value.trim();
+    const tel = document.getElementById('nouveauTelContact').value.trim();
+    if(!nom || !tel) {
+        alert("Nom et numéro obligatoires.");
         return;
     }
-    if (!utilisateur.contacts) utilisateur.contacts = [];
-    const telClean = telV.replace(/\s+/g, '');
-    utilisateur.contacts.push({ nom: nomV, telephone: telClean, metier: metierV || 'Contact', enLigne: false });
+    if(!utilisateur.contacts) utilisateur.contacts = [];
+    utilisateur.contacts.push({ nom, telephone: tel, metier: "Recherche..." });
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
-    ['nouveauNomContact','nouveauTelContact','nouveauMetierContact','nouveauNomContactProfil','nouveauTelContactProfil','nouveauMetierContactProfil'].forEach(id => {
-        const el = document.getElementById(id); if (el) el.value = '';
-    });
-    window.contactOuvertIndex = utilisateur.contacts.length - 1;
-    const fp = document.getElementById('formContactProfil'); if (fp) fp.style.display = 'none';
-    const fa = document.getElementById('formContactAnnuaire'); if (fa) fa.style.display = 'none';
+    document.getElementById('nouveauNomContact').value = '';
+    document.getElementById('nouveauTelContact').value = '';
     afficherContacts();
-    if (typeof verifierEtSynchroniserContacts === 'function') verifierEtSynchroniserContacts();
-    alert('Contact enregistré.');
+    verifierEtSynchroniserContacts();
+    alert("✅ Contact enregistré !");
 }
 
 function modifierContact(index) {
     const c = utilisateur.contacts[index];
-    if (!c) return;
-    const nouveauNom = prompt('Nom :', c.nom); if (nouveauNom === null) return;
-    const nouveauTel = prompt('Numéro :', c.telephone); if (nouveauTel === null) return;
-    const nouveauMetier = prompt('Note / métier :', c.metier || ''); if (nouveauMetier === null) return;
+    const nouveauNom = prompt("Modifier le nom :", c.nom);
+    if(nouveauNom === null) return;
+    const nouveauTel = prompt("Modifier le numéro :", c.telephone);
+    if(nouveauTel === null) return;
     utilisateur.contacts[index].nom = nouveauNom.trim();
-    utilisateur.contacts[index].telephone = nouveauTel.replace(/\s+/g, '').trim();
-    utilisateur.contacts[index].metier = nouveauMetier.trim() || 'Contact';
+    utilisateur.contacts[index].telephone = nouveauTel.trim();
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
-    window.contactOuvertIndex = index;
     afficherContacts();
+    verifierEtSynchroniserContacts();
 }
 
 function supprimerContact(index) {
-    if (!confirm('Supprimer ce contact ?')) return;
-    utilisateur.contacts.splice(index, 1);
-    localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
-    window.contactOuvertIndex = null;
-    afficherContacts();
+    if(confirm("Supprimer ce contact ?")) {
+        utilisateur.contacts.splice(index, 1);
+        localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
+        afficherContacts();
+    }
 }
 
 function ecrireAuContact(nom, tel) {
     if (!utilisateur) return;
     if (!utilisateur.conversations) utilisateur.conversations = {};
     const key = String(tel || '').replace(/\s+/g, '').trim();
-    if (!key) return;
+    if (!key) { switchTab('messagerie'); return; }
     if (!utilisateur.conversations[key]) utilisateur.conversations[key] = { nom: nom || key, messages: [] };
     else if (nom) utilisateur.conversations[key].nom = nom;
     window.conversationActiveTel = key;
@@ -491,9 +345,30 @@ function ecrireAuContact(nom, tel) {
 }
 
 function preparerAppel(tel) {
-    switchTab('communications');
-    document.getElementById('appelCibleNum').value = tel;
+    switchTab('messagerie');
+    setTimeout(() => {
+        const input = document.getElementById('appelCibleNum');
+        if (input && tel) input.value = String(tel).replace(/\s+/g, '');
+        ouvrirPanneauAppels();
+    }, 80);
 }
+
+function ouvrirPanneauAppels() {
+    switchTab('messagerie');
+    const p = document.getElementById('panneauAppels');
+    if (p) p.style.display = 'block';
+    if (utilisateur) {
+        const st = document.getElementById('voipStatusDisplay');
+        if (st) st.textContent = 'ID : ' + (utilisateur.telephone || '—');
+    }
+    fermerTousLesMenus();
+}
+
+function fermerPanneauAppels() {
+    const p = document.getElementById('panneauAppels');
+    if (p) p.style.display = 'none';
+}
+
 
 function basculerEcouteVocaleIA() {
     const statusEl = document.getElementById('micStatusElaws');
@@ -584,7 +459,7 @@ function switchTab(tabId) {
     fermerTousLesMenus();
 
     if(tabId === 'contacts') afficherContacts();
-    if(tabId === 'profil') { appliquerInfosProfil(); afficherCarteProfil(); afficherContacts(); toggleEditProfil(false); }
+    if(tabId === 'messagerie') { afficherMessagesLocaux(); if(utilisateur){ const st=document.getElementById('voipStatusDisplay'); if(st) st.textContent='ID : '+(utilisateur.telephone||'—'); } }
     if(tabId === 'map') {
         setTimeout(() => {
             if(!mapInstance) {
@@ -630,22 +505,79 @@ socket.on('signal', (data) => {
 
 function envoyerMessageChatLocal() {
     const input = document.getElementById('chatLocalInput');
-    const texte = input.value.trim();
-    if(!texte || !utilisateur) return;
-    if(!utilisateur.messagesLocaux) utilisateur.messagesLocaux = [];
-    utilisateur.messagesLocaux.push({ expediteur: utilisateur.nom || "Moi", texte, heure: new Date().toLocaleTimeString() });
+    const texte = (input && input.value || '').trim();
+    if (!texte || !utilisateur) return;
+    if (window.conversationActiveTel) {
+        if (!utilisateur.conversations) utilisateur.conversations = {};
+        const conv = utilisateur.conversations[window.conversationActiveTel];
+        if (conv) {
+            if (!conv.messages) conv.messages = [];
+            conv.messages.push({
+                from: utilisateur.nom || 'Moi',
+                texte,
+                heure: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                mine: true
+            });
+        }
+    } else {
+        if (!utilisateur.messagesLocaux) utilisateur.messagesLocaux = [];
+        utilisateur.messagesLocaux.push({ expediteur: utilisateur.nom || 'Moi', texte, heure: new Date().toLocaleTimeString() });
+    }
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
-    input.value = '';
+    if (input) input.value = '';
     afficherMessagesLocaux();
 }
 
 function afficherMessagesLocaux() {
     const container = document.getElementById('listeMessagesLocaux');
-    if(!container || !utilisateur || !utilisateur.messagesLocaux) return;
+    if (!container || !utilisateur) return;
+    const tel = window.conversationActiveTel;
+    if (tel && utilisateur.conversations && utilisateur.conversations[tel]) {
+        const conv = utilisateur.conversations[tel];
+        const telSafe = String(tel).replace(/'/g, "\\'");
+        let html = `<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
+            <div>
+              <button type="button" onclick="window.conversationActiveTel=null;afficherMessagesLocaux();" class="btn-action" style="width:auto;padding:4px 8px;font-size:11px;margin-right:6px;">←</button>
+              <strong style="color:var(--accent);font-size:13px;">${(conv.nom||tel).replace(/</g,'&lt;')}</strong>
+            </div>
+            <div style="display:flex;gap:4px;">
+              <button type="button" onclick="preparerAppel('${telSafe}')" class="btn-action" style="width:auto;padding:6px 10px;font-size:12px;background:var(--success);" title="Appel">📞</button>
+              <button type="button" onclick="document.getElementById('appelCibleNum').value='${telSafe}';ouvrirPanneauAppels();lancerAppelDirectPeer('video');" class="btn-action" style="width:auto;padding:6px 10px;font-size:12px;" title="Vidéo">📹</button>
+            </div>
+          </div>`;
+        (conv.messages || []).forEach(m => {
+            const mine = !!m.mine;
+            html += `<div style="display:flex;justify-content:${mine?'flex-end':'flex-start'};margin-bottom:6px;">
+              <div style="max-width:85%;padding:8px 10px;border-radius:12px;background:${mine?'rgba(16,185,129,0.2)':'rgba(59,130,246,0.12)'};border:1px solid var(--border-color);">
+                <div style="font-size:10px;color:var(--text-secondary);">${mine?'Moi':(m.from||'')} · ${m.heure||''}</div>
+                <p style="margin:2px 0 0;font-size:13px;">${(m.texte||'').replace(/</g,'&lt;')}</p>
+              </div></div>`;
+        });
+        if (!(conv.messages || []).length) html += `<p style="font-size:12px;color:var(--text-secondary);text-align:center;">Écris un message ou lance un appel 📞 / 📹</p>`;
+        container.innerHTML = html;
+        container.scrollTop = container.scrollHeight;
+        return;
+    }
     let html = '';
-    utilisateur.messagesLocaux.forEach(m => {
-        html += `<div style="background:var(--bg-color); border:1px solid var(--border-color); padding:8px; border-radius:8px; margin-bottom:6px;"><div style="font-size:10px; color:var(--accent);">👤 ${m.expediteur} • ${m.heure}</div><p style="margin:3px 0 0 0; font-size:12px;">${m.texte}</p></div>`;
+    if (utilisateur.conversations) {
+        Object.keys(utilisateur.conversations).forEach(k => {
+            const c = utilisateur.conversations[k];
+            const last = (c.messages || [])[(c.messages || []).length - 1];
+            const kSafe = k.replace(/'/g, "\\'");
+            html += `<div style="padding:10px;border:1px solid var(--border-color);border-radius:12px;margin-bottom:8px;display:flex;gap:8px;align-items:center;">
+              <div style="flex:1;cursor:pointer;min-width:0;" onclick="window.conversationActiveTel='${kSafe}';afficherMessagesLocaux();">
+                <strong style="font-size:13px;">${(c.nom||k).replace(/</g,'&lt;')}</strong>
+                <div style="font-size:11px;color:var(--text-secondary);">${last ? (last.texte||'').replace(/</g,'&lt;') : 'Aucun message'}</div>
+              </div>
+              <button type="button" onclick="preparerAppel('${kSafe}')" class="btn-action" style="width:auto;padding:8px;font-size:14px;background:var(--success);">📞</button>
+              <button type="button" onclick="document.getElementById('appelCibleNum').value='${kSafe}';ouvrirPanneauAppels();" class="btn-action" style="width:auto;padding:8px;font-size:14px;">📹</button>
+            </div>`;
+        });
+    }
+    (utilisateur.messagesLocaux || []).forEach(m => {
+        html += `<div style="padding:8px;border:1px solid var(--border-color);border-radius:8px;margin-bottom:6px;"><div style="font-size:10px;color:var(--accent);">${(m.expediteur||'').replace(/</g,'&lt;')} · ${m.heure||''}</div><p style="margin:3px 0 0;font-size:12px;">${(m.texte||'').replace(/</g,'&lt;')}</p></div>`;
     });
+    if (!html) html = `<p style="font-size:12px;color:var(--text-secondary);text-align:center;padding:16px;">Depuis un contact : <b>Message</b> pour discuter, ou <b>📞 Appel</b> ici pour audio / vidéo.</p>`;
     container.innerHTML = html;
 }
 
@@ -1017,7 +949,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if(welcomeModal) welcomeModal.style.display = 'none';
         appliquerInfosProfil();
         afficherContacts();
-        if (typeof afficherCarteProfil === 'function') afficherCarteProfil();
     }
     afficherNotesBlocNotes();
     afficherMessagesLocaux();
