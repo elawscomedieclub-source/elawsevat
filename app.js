@@ -122,16 +122,16 @@ function sauvegarderProfilBase() {
     const nom = document.getElementById('inputNom').value.trim();
     const tel = document.getElementById('inputTelProfil').value.trim();
     let metier = '';
-    const metierSel = document.getElementById('inputMetier');
-    if (metierSel && metierSel.tagName === 'SELECT') {
-        const id = metierSel.value;
-        const autre = (document.getElementById('inputMetierAutre')?.value || '').trim();
-        metier = (id === 'autre' || id === '') ? (autre || 'Autre métier') : (labelMetierId(id) + (autre ? ' — ' + autre : ''));
-        if (!utilisateur) {}
-        window._metierIdTemp = (id && id !== '') ? id : detecterMetierId(metier);
+    const metierEl = document.getElementById('inputMetier');
+    if (metierEl && metierEl.tagName === 'SELECT') {
+      const gid = metierEl.value;
+      const autre = (document.getElementById('inputMetierAutre')?.value || '').trim();
+      const g = typeof METIERS_GROUPES !== 'undefined' && METIERS_GROUPES.find(x => x.id === gid);
+      metier = autre || (g ? g.label : '') || 'Polyvalent';
+      window._metierGroupeTemp = gid || (typeof detecterGroupeMetier==='function' ? detecterGroupeMetier(metier) : 'general');
     } else {
-        metier = (metierSel?.value || '').trim();
-        window._metierIdTemp = detecterMetierId(metier);
+      metier = (metierEl?.value || '').trim();
+      window._metierGroupeTemp = typeof detecterGroupeMetier==='function' ? detecterGroupeMetier(metier) : 'general';
     }
     
     if(!nom || !tel) {
@@ -143,7 +143,7 @@ function sauvegarderProfilBase() {
         nom: nom,
         telephone: tel,
         metier: metier || "Opérateur",
-        metierId: window._metierIdTemp || detecterMetierId(metier),
+        metierGroupe: window._metierGroupeTemp || "general",
         qubits: 365,
         notes: [],
         messagesLocaux: [],
@@ -182,7 +182,7 @@ function sauvegarderProfilBaseDesdeProfil() {
     utilisateur.nom = nom;
     utilisateur.telephone = tel;
     utilisateur.metier = metier || utilisateur.metier;
-    utilisateur.metierId = detecterMetierId(utilisateur.metier);
+    if (typeof detecterGroupeMetier === 'function') utilisateur.metierGroupe = detecterGroupeMetier(utilisateur.metier);
 
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
     socket.emit('register_user', { nom: utilisateur.nom, telephone: utilisateur.telephone, metier: utilisateur.metier });
@@ -439,178 +439,187 @@ let mapInstance = null;
 let userMarker = null;
 
 
-// ========== OUTILS DE TRAVAIL PAR MÉTIER ==========
-const METIERS_CATALOGUE = [
-  { id: 'commerce', label: 'Commerce / Vente', keys: ['commerce','vente','vendeur','commerçant','boutique','magasin','retail'] },
-  { id: 'agriculture', label: 'Agriculture / Élevage', keys: ['agri','fermier','élevage','eleveur','planteur','maraîch','maraich'] },
-  { id: 'artisanat', label: 'Artisanat / Métiers manuels', keys: ['artisan','coutur','menuis','soudeur','maçon','macon','plomb','électric','electric','coiff'] },
-  { id: 'transport', label: 'Transport / Logistique', keys: ['transport','chauffeur','taxi','moto','logistique','livreur','camion'] },
-  { id: 'sante', label: 'Santé / Soins', keys: ['santé','sante','infirm','médecin','medecin','pharmac','soignant','aide-soign'] },
-  { id: 'education', label: 'Éducation / Formation', keys: ['enseign','prof','éduc','educ','formateur','école','ecole','tuteur'] },
-  { id: 'informatique', label: 'Informatique / Digital', keys: ['info','dévelop','develop','program','digital','web','technicien informatique','IT'] },
-  { id: 'restauration', label: 'Restauration / Cuisine', keys: ['resto','cuisine','cuisinier','traiteur','hôtel','hotel','barman'] },
-  { id: 'admin', label: 'Administration / Bureau', keys: ['admin','secrét','secret','comptable','bureau','office','gestion'] },
-  { id: 'construction', label: 'BTP / Construction', keys: ['btp','construction','chantier','architecte','géomètre','geometre'] },
-  { id: 'finance', label: 'Finance / Microfinance', keys: ['finance','banque','microfinance','crédit','credit','comptable'] },
-  { id: 'juridique', label: 'Juridique / Formalités', keys: ['jurid','avocat','notaire','droit','formalit'] },
-  { id: 'media', label: 'Média / Communication', keys: ['média','media','journal','communication','marketing','graphiste'] },
-  { id: 'autre', label: 'Autre métier', keys: ['autre','général','general','opérateur','operateur'] }
+// ========== OUTILS : seulement le métier de l'utilisateur (+ proches) ==========
+window._outilCategorieOuverte = null;
+window._outilCourant = null;
+
+const METIERS_GROUPES = [
+  { id:'vente_commerce', label:'Commerce, vente & clientèle',
+    keys:['commerce','vente','vendeur','commerçant','boutique','magasin','retail','caissier','négocia','negocia','prospect','marché','marche'],
+    outils:[
+      {id:'prix_marge',titre:'Prix & marge',desc:'Coût → marge % → prix de vente',type:'calc_marge'},
+      {id:'devis_vente',titre:'Devis / facture texte',desc:'À envoyer au client',type:'devis'},
+      {id:'stock_simple',titre:'Stock simple',desc:'Articles et quantités',type:'stock'},
+      {id:'relance',titre:'Script de relance',desc:'Message de suivi client',type:'script_relance'},
+      {id:'caisse_vente',titre:'Caisse du jour',desc:'Entrées / sorties',type:'caisse'}
+    ]},
+  { id:'prod_artisanal', label:'Artisanat, BTP & production',
+    keys:['artisan','coutur','menuis','soudeur','maçon','macon','plomb','électric','electric','coiff','btp','construction','chantier','architecte','mécanicien','mecanicien','soudure','carreleur'],
+    outils:[
+      {id:'devis_artisan',titre:'Devis travaux / commande',desc:'Main-d’œuvre + fournitures',type:'devis'},
+      {id:'materiaux',titre:'Liste matériaux',desc:'Quantités et coûts',type:'notes_pro'},
+      {id:'planning_jobs',titre:'Planning des jobs',desc:'Commandes à livrer',type:'todo_pro'},
+      {id:'securite',titre:'Checklist sécurité',desc:'Avant de démarrer',type:'checklist_secu'},
+      {id:'sav',titre:'Fiche SAV',desc:'Client + date + problème',type:'notes_pro'}
+    ]},
+  { id:'agro', label:'Agriculture & élevage',
+    keys:['agri','fermier','élevage','eleveur','planteur','maraîch','maraich','pêche','peche','pisciculture','ferme'],
+    outils:[
+      {id:'cout_parcelle',titre:'Coût de parcelle',desc:'Semences, main-d’œuvre, engrais',type:'calc_somme'},
+      {id:'calendrier',titre:'Étapes culturales',desc:'Semis → récolte',type:'checklist_agri'},
+      {id:'elevage',titre:'Suivi élevage',desc:'Notes têtes / ventes',type:'notes_pro'},
+      {id:'prix_marche',titre:'Prix du marché',desc:'Relevés du jour',type:'notes_pro'}
+    ]},
+  { id:'transport', label:'Transport & livraison',
+    keys:['transport','chauffeur','taxi','moto','logistique','livreur','camion','bus'],
+    outils:[
+      {id:'tarif_course',titre:'Tarif de course',desc:'Forfait + km',type:'tarif_course'},
+      {id:'carnet',titre:'Carnet de trajets',desc:'Courses du jour',type:'todo_pro'},
+      {id:'carburant',titre:'Carburant',desc:'Dépenses essence',type:'caisse'},
+      {id:'vehicule',titre:'Contrôle véhicule',desc:'Avant départ',type:'checklist_vehicule'}
+    ]},
+  { id:'services_humains', label:'Santé, éducation & social',
+    keys:['santé','sante','infirm','médecin','medecin','pharmac','soignant','enseign','prof','éduc','educ','formateur','école','ecole','tuteur','social'],
+    outils:[
+      {id:'rdv',titre:'Rappels / RDV',desc:'Liste de suivis',type:'todo_pro'},
+      {id:'plan_lecon',titre:'Plan de leçon / séance',desc:'Objectifs et déroulé',type:'plan_lecon'},
+      {id:'notes_trans',titre:'Notes de transmission',desc:'Compte-rendu interne',type:'notes_pro'},
+      {id:'stock_cons',titre:'Stock consommables',desc:'Inventaire simple',type:'stock'}
+    ]},
+  { id:'bureau_digital', label:'Bureau, digital & finance',
+    keys:['admin','secrét','secret','comptable','bureau','office','gestion','info','dévelop','develop','program','digital','web','IT','finance','banque','microfinance','crédit','credit','jurid','avocat','média','media','marketing'],
+    outils:[
+      {id:'lettre',titre:'Lettre / mail type',desc:'Modèle pro',type:'lettre'},
+      {id:'dossiers',titre:'Suivi de dossiers',desc:'Statuts et échéances',type:'todo_pro'},
+      {id:'devis_presta',titre:'Devis prestation',desc:'Service facturé',type:'devis'},
+      {id:'caisse_b',titre:'Caisse / budget',desc:'Entrées et sorties',type:'caisse'},
+      {id:'interet',titre:'Intérêt simple',desc:'Capital × taux × durée',type:'interet'},
+      {id:'ticket',titre:'Ticket / brief',desc:'Problème ou brief client',type:'ticket'}
+    ]},
+  { id:'resto', label:'Restauration & hôtellerie',
+    keys:['resto','cuisine','cuisinier','traiteur','hôtel','hotel','barman','restauration'],
+    outils:[
+      {id:'recette',titre:'Coût de portion',desc:'Ingrédients → coût',type:'calc_somme'},
+      {id:'stock_cuisine',titre:'Stock cuisine',desc:'Denrées',type:'stock'},
+      {id:'menu',titre:'Menu du jour',desc:'Texte à afficher',type:'notes_pro'},
+      {id:'commandes',titre:'Commandes',desc:'Tables / à emporter',type:'todo_pro'}
+    ]},
+  { id:'general', label:'Polyvalent / autre métier',
+    keys:['autre','général','general','opérateur','operateur','freelance','indépendant','independant'],
+    outils:[
+      {id:'todo_g',titre:'Tâches du jour',desc:'Priorités',type:'todo_pro'},
+      {id:'notes_g',titre:'Notes de travail',desc:'Mémo',type:'notes_pro'},
+      {id:'devis_g',titre:'Devis rapide',desc:'Client + montant',type:'devis'},
+      {id:'caisse_g',titre:'Caisse simple',desc:'Entrées / sorties',type:'caisse'}
+    ]}
 ];
 
-const OUTILS_PAR_METIER = {
-  commerce: [
-    { id: 'prix_marge', titre: 'Calculateur prix & marge', desc: 'Coût, marge %, prix de vente TTC approximatif', type: 'calc_marge' },
-    { id: 'devis_vente', titre: 'Devis / facture rapide', desc: 'Texte prêt à envoyer au client', type: 'devis' },
-    { id: 'stock_simple', titre: 'Stock du jour', desc: 'Entrées, sorties, reste', type: 'stock' },
-    { id: 'relance_client', titre: 'Script de relance client', desc: 'Message poli pour relancer un prospect', type: 'script_relance' }
-  ],
-  agriculture: [
-    { id: 'cout_parcelle', titre: 'Coût de parcelle', desc: 'Semences, main-d\'œuvre, engrais → coût total', type: 'calc_parcelle' },
-    { id: 'calendrier_culture', titre: 'Calendrier cultural', desc: 'Notes par étape (semis, entretien, récolte)', type: 'checklist_agri' },
-    { id: 'suivi_animaux', titre: 'Suivi élevage', desc: 'Têtes, naissances, ventes', type: 'elevage' },
-    { id: 'prix_marche', titre: 'Prix marché du jour', desc: 'Noter les prix observés', type: 'prix_marche' }
-  ],
-  artisanat: [
-    { id: 'devis_artisan', titre: 'Devis chantier / commande', desc: 'Main-d\'œuvre + fournitures', type: 'devis' },
-    { id: 'mesure_materiau', titre: 'Besoin matériaux', desc: 'Quantités et coût estimé', type: 'materiaux' },
-    { id: 'planning_jobs', titre: 'Planning des jobs', desc: 'Commandes à livrer', type: 'todo_pro' },
-    { id: 'garantie', titre: 'Fiche SAV / garantie', desc: 'Note client + date', type: 'note_sav' }
-  ],
-  transport: [
-    { id: 'course_tarif', titre: 'Tarif de course', desc: 'Distance / forfait → prix suggéré', type: 'tarif_course' },
-    { id: 'carnet_courses', titre: 'Carnet de courses', desc: 'Trajets du jour', type: 'carnet_trajets' },
-    { id: 'carburant', titre: 'Suivi carburant', desc: 'Litres et dépenses', type: 'carburant' },
-    { id: 'checklist_vehicule', titre: 'Contrôle véhicule', desc: 'Avant départ', type: 'checklist_vehicule' }
-  ],
-  sante: [
-    { id: 'rappel_rdv', titre: 'Rappels patients / RDV', desc: 'Liste de suivis (hors diagnostic)', type: 'todo_pro' },
-    { id: 'stock_pharma', titre: 'Stock consommables', desc: 'Inventaire simple', type: 'stock' },
-    { id: 'notes_soins', titre: 'Notes de transmission', desc: 'Compte-rendu interne', type: 'notes_pro' },
-    { id: 'urgence_num', titre: 'Numéros d\'urgence', desc: 'Liste locale à compléter', type: 'urgences' }
-  ],
-  education: [
-    { id: 'plan_lecon', titre: 'Plan de leçon', desc: 'Objectifs, déroulé, évaluation', type: 'plan_lecon' },
-    { id: 'suivi_eleves', titre: 'Suivi élèves', desc: 'Présence / notes rapides', type: 'suivi_eleves' },
-    { id: 'quiz_rapide', titre: 'Quiz express', desc: '3 questions à poser', type: 'quiz_enseignant' },
-    { id: 'devoir', titre: 'Énoncé de devoir', desc: 'Texte à partager', type: 'notes_pro' }
-  ],
-  informatique: [
-    { id: 'ticket', titre: 'Ticket support', desc: 'Problème, cause, solution', type: 'ticket_it' },
-    { id: 'checklist_deploy', titre: 'Checklist mise en ligne', desc: 'Avant déploiement', type: 'checklist_it' },
-    { id: 'mdp_notes', titre: 'Notes techniques', desc: 'Procédures (pas de mots de passe sensibles)', type: 'notes_pro' },
-    { id: 'devis_presta', titre: 'Devis prestation', desc: 'Jours × tarif', type: 'devis' }
-  ],
-  restauration: [
-    { id: 'fiche_recette', titre: 'Fiche recette / coût portion', desc: 'Ingrédients et coût', type: 'recette_cout' },
-    { id: 'stock_cuisine', titre: 'Stock cuisine', desc: 'Denrées', type: 'stock' },
-    { id: 'menu_jour', titre: 'Menu du jour', desc: 'À afficher / envoyer', type: 'notes_pro' },
-    { id: 'commandes', titre: 'Commandes tables', desc: 'Liste simple', type: 'todo_pro' }
-  ],
-  admin: [
-    { id: 'lettre_type', titre: 'Lettre / mail type', desc: 'Modèle pro', type: 'lettre' },
-    { id: 'suivi_dossiers', titre: 'Suivi de dossiers', desc: 'Statuts', type: 'todo_pro' },
-    { id: 'ordre_mission', titre: 'Ordre de mission', desc: 'Texte formalisé', type: 'notes_pro' },
-    { id: 'checklist_reunion', titre: 'Checklist réunion', desc: 'Avant / pendant / après', type: 'checklist_admin' }
-  ],
-  construction: [
-    { id: 'devis_btp', titre: 'Devis BTP', desc: 'Postes de travaux', type: 'devis' },
-    { id: 'materiaux', titre: 'Liste matériaux', desc: 'Quantités chantier', type: 'materiaux' },
-    { id: 'planning_chantier', titre: 'Planning chantier', desc: 'Étapes', type: 'todo_pro' },
-    { id: 'securite_chantier', titre: 'Sécurité chantier', desc: 'Points de contrôle', type: 'checklist_securite' }
-  ],
-  finance: [
-    { id: 'interet_simple', titre: 'Intérêt simple', desc: 'Capital × taux × durée', type: 'interet' },
-    { id: 'echeancier', titre: 'Échéancier', desc: 'Mensualités notées', type: 'todo_pro' },
-    { id: 'caisse', titre: 'Caisse du jour', desc: 'Entrées / sorties', type: 'caisse' },
-    { id: 'budget', titre: 'Mini budget', desc: 'Prévision', type: 'caisse' }
-  ],
-  juridique: [
-    { id: 'checklist_dossier', titre: 'Pièces du dossier', desc: 'Liste de documents', type: 'checklist_admin' },
-    { id: 'suivi_affaires', titre: 'Suivi d\'affaires', desc: 'Échéances', type: 'todo_pro' },
-    { id: 'modele_mise_demeure', titre: 'Trame courrier', desc: 'Texte à adapter (pas un conseil juridique)', type: 'lettre' },
-    { id: 'notes_audience', titre: 'Notes d\'audience', desc: 'Prise de notes', type: 'notes_pro' }
-  ],
-  media: [
-    { id: 'brief_client', titre: 'Brief client', desc: 'Objectif, public, message', type: 'brief' },
-    { id: 'calendrier_contenu', titre: 'Calendrier de contenu', desc: 'Posts / émissions', type: 'todo_pro' },
-    { id: 'script_court', titre: 'Script court', desc: '30–60 secondes', type: 'notes_pro' },
-    { id: 'devis_com', titre: 'Devis communication', desc: 'Prestation', type: 'devis' }
-  ],
-  autre: [
-    { id: 'todo_pro', titre: 'Liste de tâches pro', desc: 'Priorités du jour', type: 'todo_pro' },
-    { id: 'notes_pro', titre: 'Notes de travail', desc: 'Mémo libre', type: 'notes_pro' },
-    { id: 'devis', titre: 'Devis rapide', desc: 'Pour un client', type: 'devis' },
-    { id: 'caisse', titre: 'Caisse simple', desc: 'Entrées / sorties', type: 'caisse' }
-  ]
-};
-
-function detecterMetierId(texte) {
+function detecterGroupeMetier(texte) {
   const t = (texte || '').toLowerCase();
-  if (!t) return 'autre';
-  for (const m of METIERS_CATALOGUE) {
-    if (m.id === 'autre') continue;
-    if (m.keys.some(k => t.includes(k.toLowerCase()))) return m.id;
+  if (!t) return 'general';
+  for (const g of METIERS_GROUPES) {
+    if (g.id === 'general') continue;
+    if (g.keys.some(k => t.includes(k.toLowerCase()))) return g.id;
   }
-  if (t.includes('autre')) return 'autre';
-  return 'autre';
+  return 'general';
 }
 
-function labelMetierId(id) {
-  const m = METIERS_CATALOGUE.find(x => x.id === id);
-  return m ? m.label : 'Autre métier';
+function scoreGroupe(g, texte) {
+  const t = (texte || '').toLowerCase();
+  if (!t) return 0;
+  let s = 0;
+  g.keys.forEach(k => { if (t.includes(k.toLowerCase())) s += 1; });
+  return s;
+}
+
+/** Uniquement les groupes qui matchent le métier de l'utilisateur (pas toute la liste). */
+function groupesPourUtilisateur() {
+  const texte = (utilisateur && (utilisateur.metier || '')) || '';
+  const forceId = utilisateur && utilisateur.metierGroupe;
+  const scored = METIERS_GROUPES.map(g => ({ g, s: scoreGroupe(g, texte) }))
+    .filter(x => x.s > 0)
+    .sort((a, b) => b.s - a.s)
+    .map(x => x.g);
+
+  if (forceId) {
+    const forced = METIERS_GROUPES.find(g => g.id === forceId);
+    if (forced && !scored.find(g => g.id === forced.id)) scored.unshift(forced);
+  }
+
+  if (!scored.length) {
+    const id = forceId || detecterGroupeMetier(texte);
+    const g = METIERS_GROUPES.find(x => x.id === id) || METIERS_GROUPES[METIERS_GROUPES.length - 1];
+    return [g];
+  }
+  return scored;
 }
 
 function onMetierSelectChange(sel) {
   const autre = document.getElementById('inputMetierAutre');
-  if (!autre) return;
-  autre.style.display = (sel.value === 'autre' || sel.value === '') ? 'block' : 'none';
+  if (autre) autre.style.display = (!sel.value || sel.value === 'general') ? 'block' : 'none';
 }
 
 function remplirSelectMetiers() {
   const sel = document.getElementById('inputMetier');
   if (!sel || sel.tagName !== 'SELECT') return;
-  if (sel.options.length > 1) return;
-  sel.innerHTML = '<option value="">Choisir un métier…</option>';
-  METIERS_CATALOGUE.forEach(m => {
+  if (sel.options.length > 2) return;
+  sel.innerHTML = '<option value="">Choisir ton domaine de métier…</option>';
+  METIERS_GROUPES.forEach(g => {
     const o = document.createElement('option');
-    o.value = m.id;
-    o.textContent = m.label;
+    o.value = g.id;
+    o.textContent = g.label;
     sel.appendChild(o);
   });
-  sel.onchange = function() { onMetierSelectChange(this); };
-}
-
-function metierUtilisateurTexte() {
-  if (!utilisateur) return '';
-  return utilisateur.metier || '';
-}
-
-function metierUtilisateurId() {
-  if (utilisateur && utilisateur.metierId) return utilisateur.metierId;
-  return detecterMetierId(metierUtilisateurTexte());
-}
-
-function outilsDuMetier() {
-  const id = metierUtilisateurId();
-  return OUTILS_PAR_METIER[id] || OUTILS_PAR_METIER.autre;
 }
 
 function afficherOutilsMetier() {
   const badge = document.getElementById('outilsMetierBadge');
   const liste = document.getElementById('outilsMetierListe');
   if (!liste) return;
-  const id = metierUtilisateurId();
-  const label = utilisateur ? (utilisateur.metier || labelMetierId(id)) : labelMetierId(id);
-  if (badge) badge.innerHTML = 'Métier actif : <strong>' + (label.replace(/</g,'&lt;')) + '</strong> · ' + outilsDuMetier().length + ' outils';
-  let html = '<div style="display:flex;flex-direction:column;gap:8px;">';
-  outilsDuMetier().forEach(o => {
-    html += `<button type="button" onclick="ouvrirOutilMetier('${o.id}')" class="btn-action" style="text-align:left;padding:12px 14px;background:rgba(59,130,246,0.12);color:var(--text-primary);border:1px solid var(--border-color);box-shadow:none;">
-      <div style="font-weight:700;font-size:13px;color:var(--accent);">${o.titre}</div>
-      <div style="font-size:11px;color:var(--text-secondary);margin-top:4px;">${o.desc}</div>
-    </button>`;
+
+  if (!utilisateur || !(utilisateur.metier || utilisateur.metierGroupe)) {
+    liste.innerHTML = '<p style="font-size:13px;color:var(--text-secondary);padding:12px;text-align:center;">Indique ton <b>métier</b> dans le profil pour voir uniquement tes outils.</p>';
+    if (badge) badge.textContent = '';
+    return;
+  }
+
+  const groupes = groupesPourUtilisateur();
+  if (badge) {
+    badge.innerHTML = 'Métier : <strong>' + String(utilisateur.metier || groupes[0].label).replace(/</g,'&lt;') + '</strong> · ' +
+      groupes.length + ' famille' + (groupes.length > 1 ? 's proches' : '') + ' d’outils';
+  }
+
+  // Ouvrir automatiquement la première catégorie si rien d'ouvert
+  if (!window._outilCategorieOuverte || !groupes.find(g => g.id === window._outilCategorieOuverte)) {
+    window._outilCategorieOuverte = groupes[0].id;
+  }
+
+  let html = '';
+  groupes.forEach(g => {
+    const ouverte = window._outilCategorieOuverte === g.id;
+    html += '<div style="border:1px solid '+(ouverte?'var(--accent)':'var(--border-color)')+';border-radius:14px;margin-bottom:8px;overflow:hidden;background:var(--bg-color);">';
+    html += '<button type="button" onclick="toggleCategorieOutil(\''+g.id+'\')" style="width:100%;text-align:left;padding:12px 14px;border:none;background:rgba(59,130,246,0.1);cursor:pointer;color:var(--text-primary);display:flex;justify-content:space-between;align-items:center;">';
+    html += '<span><strong style="font-size:13px;color:var(--accent);">'+g.label+'</strong>';
+    html += '<div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">'+g.outils.length+' outils — toucher pour '+(ouverte?'replier':'déplier')+'</div></span>';
+    html += '<span style="color:var(--accent);">'+(ouverte?'▲':'▼')+'</span></button>';
+    if (ouverte) {
+      html += '<div style="padding:0 10px 12px;border-top:1px solid var(--border-color);">';
+      g.outils.forEach(o => {
+        html += '<button type="button" onclick="ouvrirOutilMetier(\''+g.id+'\',\''+o.id+'\')" class="btn-action" style="text-align:left;padding:10px 12px;margin-top:8px;background:rgba(15,23,42,0.55);color:var(--text-primary);border:1px solid var(--border-color);box-shadow:none;">';
+        html += '<div style="font-weight:700;font-size:12.5px;color:var(--success);">'+o.titre+'</div>';
+        html += '<div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">'+o.desc+'</div></button>';
+      });
+      html += '</div>';
+    }
+    html += '</div>';
   });
-  html += '</div>';
   liste.innerHTML = html;
+}
+
+function toggleCategorieOutil(id) {
+  window._outilCategorieOuverte = (window._outilCategorieOuverte === id) ? null : id;
+  fermerOutilActif();
+  afficherOutilsMetier();
 }
 
 function fermerOutilActif() {
@@ -618,15 +627,17 @@ function fermerOutilActif() {
   if (card) card.style.display = 'none';
 }
 
-function ouvrirOutilMetier(outilId) {
-  const outil = outilsDuMetier().find(o => o.id === outilId) || Object.values(OUTILS_PAR_METIER).flat().find(o => o.id === outilId);
+function ouvrirOutilMetier(groupeId, outilId) {
+  const g = METIERS_GROUPES.find(x => x.id === groupeId);
+  const outil = g && g.outils.find(o => o.id === outilId);
   if (!outil) return;
+  window._outilCourant = { groupeId, outilId, type: outil.type };
   const card = document.getElementById('outilActifCard');
   const titre = document.getElementById('outilActifTitre');
   const corps = document.getElementById('outilActifCorps');
   if (!card || !corps) return;
   if (titre) titre.textContent = outil.titre;
-  corps.innerHTML = rendreOutilCorps(outil);
+  corps.innerHTML = rendreCorpsOutil(outil);
   card.style.display = 'block';
   card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
@@ -642,173 +653,154 @@ function lectureOutil(key, def) {
   return utilisateur.outilsData[key] != null ? utilisateur.outilsData[key] : def;
 }
 
-function rendreOutilCorps(outil) {
+function rendreCorpsOutil(outil) {
   const t = outil.type;
   if (t === 'calc_marge') {
-    return `<label>Coût d'achat / revient</label><input type="number" id="om_cout" class="input" placeholder="0">
-      <label>Marge souhaitée (%)</label><input type="number" id="om_marge" class="input" placeholder="30" value="30">
-      <button class="btn-action" style="background:var(--success)" onclick="runCalcMarge()">Calculer le prix de vente</button>
-      <div id="om_result" style="margin-top:10px;font-size:14px;color:var(--accent);"></div>`;
+    return `<label>Coût de revient</label><input type="number" id="om_cout" class="input" placeholder="0">
+      <label>Marge %</label><input type="number" id="om_marge" class="input" value="30">
+      <button class="btn-action" style="background:var(--success)" onclick="runCalcMargeUI()">Calculer</button>
+      <div id="om_res" style="margin-top:10px;color:var(--accent);font-weight:700;"></div>`;
   }
   if (t === 'devis') {
-    const prev = lectureOutil('devis_txt', '');
-    return `<label>Client</label><input id="om_client" class="input" placeholder="Nom du client">
-      <label>Désignation</label><input id="om_desig" class="input" placeholder="Prestation / produit">
-      <label>Montant</label><input id="om_montant" type="number" class="input" placeholder="0">
-      <button class="btn-action" style="background:var(--success)" onclick="runDevis()">Générer le devis texte</button>
-      <textarea id="om_devis_out" class="input" style="height:120px;margin-top:8px;">${String(prev).replace(/</g,'&lt;')}</textarea>
-      <button class="btn-action" style="margin-top:6px;background:rgba(59,130,246,0.2);color:var(--accent);border:1px solid var(--border-color);box-shadow:none;" onclick="navigator.clipboard&&navigator.clipboard.writeText(document.getElementById('om_devis_out').value)">📋 Copier</button>`;
+    return `<label>Client</label><input id="om_client" class="input">
+      <label>Désignation</label><input id="om_desig" class="input">
+      <label>Montant</label><input id="om_montant" type="number" class="input">
+      <button class="btn-action" style="background:var(--success)" onclick="runDevisUI()">Générer</button>
+      <textarea id="om_out" class="input" style="height:110px;margin-top:8px;"></textarea>`;
   }
   if (t === 'stock') {
-    const lines = lectureOutil('stock_lines', []);
-    let list = (lines || []).map((l,i)=>`<div style="display:flex;justify-content:space-between;gap:6px;padding:6px 0;border-bottom:1px solid var(--border-color);font-size:12px;"><span>${String(l.nom).replace(/</g,'&lt;')} : <b>${l.qte}</b></span><button onclick="stockDelta(${i},-1)" style="background:none;border:none;color:#f87171;cursor:pointer;">−</button><button onclick="stockDelta(${i},1)" style="background:none;border:none;color:var(--success);cursor:pointer;">+</button></div>`).join('');
-    return `<label>Article</label><input id="om_stock_nom" class="input" placeholder="Nom">
-      <label>Quantité</label><input id="om_stock_qte" type="number" class="input" value="1">
-      <button class="btn-action" style="background:var(--success)" onclick="stockAdd()">Ajouter</button>
-      <div style="margin-top:10px;">${list || '<p style="font-size:12px;color:var(--text-secondary)">Stock vide.</p>'}</div>`;
-  }
-  if (t === 'todo_pro') {
-    const items = lectureOutil('todo_'+outil.id, []);
-    return renderTodo(outil.id, items);
-  }
-  if (t === 'notes_pro' || t === 'note_sav' || t === 'brief' || t === 'plan_lecon' || t === 'lettre' || t === 'ticket_it' || t === 'script_relance') {
-    const key = 'note_'+outil.id;
-    const val = lectureOutil(key, '');
-    const ph = t==='script_relance' ? 'Bonjour, je me permets de vous relancer…' : t==='lettre' ? 'Objet : …\nMadame, Monsieur,\n…' : t==='ticket_it' ? 'Problème:\nCause:\nSolution:' : t==='plan_lecon' ? 'Objectif:\nDéroulement:\nÉvaluation:' : t==='brief' ? 'Objectif:\nPublic:\nMessage clé:' : 'Vos notes…';
-    return `<textarea id="om_note" class="input" style="height:140px;" placeholder="${ph}">${String(val).replace(/</g,'&lt;')}</textarea>
-      <button class="btn-action" style="background:var(--success)" onclick="saveOmNote('${key}')">💾 Enregistrer</button>`;
-  }
-  if (t === 'calc_parcelle') {
-    return `<label>Semences</label><input type="number" id="om_s1" class="input" value="0">
-      <label>Main-d'œuvre</label><input type="number" id="om_s2" class="input" value="0">
-      <label>Engrais / phytos</label><input type="number" id="om_s3" class="input" value="0">
-      <label>Autre</label><input type="number" id="om_s4" class="input" value="0">
-      <button class="btn-action" style="background:var(--success)" onclick="const t=+om_s1.value+ +om_s2.value+ +om_s3.value+ +om_s4.value;om_par_res.textContent='Coût total estimé : '+t;">Calculer</button>
-      <div id="om_par_res" style="margin-top:10px;color:var(--accent);font-weight:700;"></div>`;
+    const lines = lectureOutil('stock', []) || [];
+    let list = lines.map((l,i) => `<div style="display:flex;justify-content:space-between;font-size:12px;padding:6px 0;border-bottom:1px solid var(--border-color);"><span>${String(l.n).replace(/</g,'&lt;')} : <b>${l.q}</b></span><span><button type="button" onclick="stockAdj(${i},-1)" style="background:none;border:none;color:#f87171;cursor:pointer">−</button> <button type="button" onclick="stockAdj(${i},1)" style="background:none;border:none;color:var(--success);cursor:pointer">+</button></span></div>`).join('');
+    return `<label>Article</label><input id="om_sn" class="input"><label>Qté</label><input id="om_sq" type="number" class="input" value="1">
+      <button class="btn-action" style="background:var(--success)" onclick="stockAddLine()">Ajouter</button>
+      <div style="margin-top:8px;">${list || '<p style="font-size:12px;color:var(--text-secondary)">Vide</p>'}</div>`;
   }
   if (t === 'caisse') {
-    const solde = lectureOutil('caisse_solde', 0);
-    const hist = lectureOutil('caisse_hist', []);
-    return `<div style="font-size:18px;font-weight:800;color:var(--success);margin-bottom:10px;">Solde : <span id="om_caisse_solde">${solde}</span></div>
-      <label>Montant</label><input type="number" id="om_caisse_m" class="input" placeholder="0">
-      <label>Libellé</label><input id="om_caisse_l" class="input" placeholder="Vente, achat…">
-      <div style="display:flex;gap:6px;"><button class="btn-action" style="background:var(--success)" onclick="caisseMove(1)">+ Entrée</button><button class="btn-action" style="background:#ef4444" onclick="caisseMove(-1)">− Sortie</button></div>
-      <div id="om_caisse_hist" style="margin-top:10px;font-size:12px;">${(hist||[]).slice(0,8).map(x=>x).join('<br>')}</div>`;
+    const solde = lectureOutil('caisse_s', 0);
+    const hist = lectureOutil('caisse_h', []) || [];
+    return `<div style="font-size:18px;font-weight:800;color:var(--success);margin-bottom:8px;">Solde : <span id="om_cs">${solde}</span></div>
+      <input id="om_cm" type="number" class="input" placeholder="Montant">
+      <input id="om_cl" class="input" placeholder="Libellé">
+      <div style="display:flex;gap:6px;"><button class="btn-action" style="background:var(--success)" onclick="caisseAdj(1)">Entrée</button><button class="btn-action" style="background:#ef4444" onclick="caisseAdj(-1)">Sortie</button></div>
+      <div style="margin-top:8px;font-size:11px;color:var(--text-secondary);">${hist.slice(0,6).join('<br>')}</div>`;
+  }
+  if (t === 'todo_pro') {
+    const items = lectureOutil('todo_' + outil.id, []) || [];
+    let htm = `<div style="display:flex;gap:6px;"><input id="om_ti" class="input" placeholder="Tâche" style="margin:0;"><button class="btn-action" style="width:auto;padding:0 12px;background:var(--success)" onclick="todoAdd('${outil.id}')">+</button></div>`;
+    items.forEach((it, i) => {
+      htm += `<div style="display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border-color);font-size:13px;"><input type="checkbox" ${it.d?'checked':''} onchange="todoTg('${outil.id}',${i})"><span style="flex:1;${it.d?'text-decoration:line-through;opacity:.6':''}">${String(it.t).replace(/</g,'&lt;')}</span><button type="button" onclick="todoRm('${outil.id}',${i})" style="background:none;border:none;color:#f87171;cursor:pointer">✕</button></div>`;
+    });
+    return htm;
+  }
+  if (t === 'calc_somme') {
+    return `<label>Ligne 1</label><input type="number" id="om_a" class="input" value="0">
+      <label>Ligne 2</label><input type="number" id="om_b" class="input" value="0">
+      <label>Ligne 3</label><input type="number" id="om_c" class="input" value="0">
+      <label>Ligne 4</label><input type="number" id="om_d" class="input" value="0">
+      <button class="btn-action" style="background:var(--success)" onclick="runSommeUI()">Additionner</button>
+      <div id="om_sum" style="margin-top:10px;color:var(--accent);font-weight:700;"></div>`;
+  }
+  if (t === 'tarif_course') {
+    return `<label>Base</label><input type="number" id="om_base" class="input" value="500">
+      <label>Prix / km</label><input type="number" id="om_pk" class="input" value="150">
+      <label>Km</label><input type="number" id="om_km" class="input" value="5">
+      <button class="btn-action" style="background:var(--success)" onclick="runTarifUI()">Calculer</button>
+      <div id="om_tr" style="margin-top:10px;color:var(--accent);font-weight:700;"></div>`;
   }
   if (t === 'interet') {
     return `<label>Capital</label><input type="number" id="om_cap" class="input">
-      <label>Taux % l'an</label><input type="number" id="om_taux" class="input" value="10">
-      <label>Durée (mois)</label><input type="number" id="om_mois" class="input" value="12">
-      <button class="btn-action" style="background:var(--success)" onclick="const i=(+om_cap.value)*(+om_taux.value/100)*(+om_mois.value/12);om_int_res.textContent='Intérêt simple ≈ '+i.toFixed(2)+' · Total ≈ '+(+om_cap.value+i).toFixed(2);">Calculer</button>
-      <div id="om_int_res" style="margin-top:10px;color:var(--accent);font-weight:700;"></div>`;
+      <label>Taux % / an</label><input type="number" id="om_tx" class="input" value="10">
+      <label>Mois</label><input type="number" id="om_mo" class="input" value="12">
+      <button class="btn-action" style="background:var(--success)" onclick="runInteretUI()">Calculer</button>
+      <div id="om_ir" style="margin-top:10px;color:var(--accent);font-weight:700;"></div>`;
   }
-  if (t === 'tarif_course') {
-    return `<label>Forfait de base</label><input type="number" id="om_base" class="input" value="500">
-      <label>Prix / km</label><input type="number" id="om_km_prix" class="input" value="150">
-      <label>Km</label><input type="number" id="om_km" class="input" value="5">
-      <button class="btn-action" style="background:var(--success)" onclick="om_course_res.textContent='Prix suggéré : '+(+om_base.value + +om_km_prix.value * +om_km.value);">Calculer</button>
-      <div id="om_course_res" style="margin-top:10px;color:var(--accent);font-weight:700;"></div>`;
-  }
-  if (t === 'checklist_vehicule' || t === 'checklist_agri' || t === 'checklist_admin' || t === 'checklist_it' || t === 'checklist_securite') {
-    const items = {
+  if (t === 'checklist_vehicule' || t === 'checklist_agri' || t === 'checklist_secu') {
+    const map = {
       checklist_vehicule: ['Pneus','Freins','Feux','Huile','Carburant','Papiers'],
-      checklist_agri: ['Préparer le sol','Semis','Arrosage','Désherbage','Récolte','Stockage'],
-      checklist_admin: ['Ordre du jour','Convocations','Salle','Compte-rendu','Suivi décisions'],
-      checklist_it: ['Backup','Tests','DNS','HTTPS','Monitoring','Rollback prêt'],
-      checklist_securite: ['EPI','Balisage','Extincteur','Consignation','Brief équipe']
-    }[t] || ['Étape 1','Étape 2'];
-    return items.map((it,i)=>`<label style="display:flex;gap:8px;align-items:center;margin:6px 0;font-size:13px;"><input type="checkbox"> ${it}</label>`).join('') +
-      `<p style="font-size:11px;color:var(--text-secondary);margin-top:8px;">Coche sur place — reste sur cet écran.</p>`;
+      checklist_agri: ['Sol','Semis','Arrosage','Entretien','Récolte','Stockage'],
+      checklist_secu: ['EPI','Balisage','Brief équipe','Extincteur','Zone sécurisée']
+    };
+    return (map[t] || []).map(x => `<label style="display:flex;gap:8px;margin:6px 0;font-size:13px;"><input type="checkbox"> ${x}</label>`).join('');
   }
-  if (t === 'materiaux' || t === 'recette_cout' || t === 'elevage' || t === 'prix_marche' || t === 'carburant' || t === 'carnet_trajets' || t === 'suivi_eleves' || t === 'quiz_enseignant' || t === 'urgences') {
-    const key = 'free_'+outil.id;
-    const val = lectureOutil(key, '');
-    return `<textarea id="om_free" class="input" style="height:130px;" placeholder="Saisis ici les lignes utiles…">${String(val).replace(/</g,'&lt;')}</textarea>
-      <button class="btn-action" style="background:var(--success)" onclick="stockageOutil('${key}', document.getElementById('om_free').value);alert('Enregistré.');">💾 Enregistrer</button>`;
-  }
-  return `<p style="font-size:13px;">Outil prêt pour ton métier.</p>`;
+  const key = 'note_' + outil.id;
+  const val = lectureOutil(key, '');
+  return `<textarea id="om_note" class="input" style="height:130px;">${String(val).replace(/</g,'&lt;')}</textarea>
+    <button class="btn-action" style="background:var(--success)" onclick="saveNoteUI('${key}')">💾 Enregistrer</button>`;
 }
 
-function renderTodo(id, items) {
-  items = items || [];
-  let html = `<div style="display:flex;gap:6px;margin-bottom:8px;"><input id="om_todo_in" class="input" placeholder="Nouvelle tâche" style="margin:0;"><button class="btn-action" style="width:auto;padding:0 12px;background:var(--success)" onclick="todoAdd('${id}')">+</button></div>`;
-  items.forEach((it,i) => {
-    html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border-color);font-size:13px;">
-      <input type="checkbox" ${it.done?'checked':''} onchange="todoToggle('${id}',${i})">
-      <span style="flex:1;${it.done?'text-decoration:line-through;opacity:0.6':''}">${String(it.t).replace(/</g,'&lt;')}</span>
-      <button onclick="todoDel('${id}',${i})" style="background:none;border:none;color:#f87171;cursor:pointer;">✕</button></div>`;
-  });
-  return html;
+function runCalcMargeUI() {
+  const c = +document.getElementById('om_cout').value || 0;
+  const m = +document.getElementById('om_marge').value || 0;
+  const p = c * (1 + m / 100);
+  document.getElementById('om_res').textContent = 'Prix vente ≈ ' + p.toFixed(2) + ' (gain ≈ ' + (p - c).toFixed(2) + ')';
+}
+function runDevisUI() {
+  const t = 'DEVIS\\nDe: ' + ((utilisateur && utilisateur.nom) || '') + '\\nPour: ' + (document.getElementById('om_client').value || '') + '\\n' + (document.getElementById('om_desig').value || '') + '\\nMontant: ' + (document.getElementById('om_montant').value || '');
+  document.getElementById('om_out').value = t.replace(/\\\\n/g, '\\n');
+  stockageOutil('devis', document.getElementById('om_out').value);
+}
+function runSommeUI() {
+  document.getElementById('om_sum').textContent = 'Total : ' + (+om_a.value + +om_b.value + +om_c.value + +om_d.value);
+}
+function runTarifUI() {
+  document.getElementById('om_tr').textContent = 'Prix suggéré : ' + (+om_base.value + +om_pk.value * +om_km.value);
+}
+function runInteretUI() {
+  const i = (+om_cap.value) * (+om_tx.value / 100) * (+om_mo.value / 12);
+  document.getElementById('om_ir').textContent = 'Intérêt ≈ ' + i.toFixed(2) + ' · Total ≈ ' + (+om_cap.value + i).toFixed(2);
+}
+function saveNoteUI(key) {
+  stockageOutil(key, document.getElementById('om_note').value);
+  alert('Enregistré.');
+}
+
+function stockAddLine() {
+  const n = document.getElementById('om_sn')?.value?.trim();
+  const q = parseFloat(document.getElementById('om_sq')?.value||'0')||0;
+  if (!n) return;
+  const lines = lectureOutil('stock', []) || [];
+  lines.push({ n: n, q: q });
+  stockageOutil('stock', lines);
+  if (window._outilCourant) ouvrirOutilMetier(window._outilCourant.groupeId, window._outilCourant.outilId);
+}
+function stockAdj(i, d) {
+  const lines = lectureOutil('stock', []) || [];
+  if (!lines[i]) return;
+  lines[i].q = (parseFloat(lines[i].q)||0) + d;
+  stockageOutil('stock', lines);
+  if (window._outilCourant) ouvrirOutilMetier(window._outilCourant.groupeId, window._outilCourant.outilId);
+}
+function caisseAdj(sens) {
+  const m = parseFloat(document.getElementById('om_cm')?.value||'0')||0;
+  const l = document.getElementById('om_cl')?.value || '';
+  if (!m) return;
+  let s = parseFloat(lectureOutil('caisse_s', 0))||0;
+  s += sens * m;
+  const h = lectureOutil('caisse_h', []) || [];
+  h.unshift((sens>0?'+':'-')+m+' · '+l+' · '+s);
+  stockageOutil('caisse_s', s);
+  stockageOutil('caisse_h', h.slice(0, 20));
+  if (window._outilCourant) ouvrirOutilMetier(window._outilCourant.groupeId, window._outilCourant.outilId);
 }
 function todoAdd(id) {
-  const v = document.getElementById('om_todo_in')?.value?.trim();
+  const v = document.getElementById('om_ti')?.value?.trim();
   if (!v) return;
-  const items = lectureOutil('todo_'+id, []);
-  items.unshift({ t: v, done: false });
+  const items = lectureOutil('todo_'+id, []) || [];
+  items.unshift({ t: v, d: false });
   stockageOutil('todo_'+id, items);
-  ouvrirOutilMetier(id);
+  if (window._outilCourant) ouvrirOutilMetier(window._outilCourant.groupeId, window._outilCourant.outilId);
 }
-function todoToggle(id, i) {
-  const items = lectureOutil('todo_'+id, []);
-  if (items[i]) items[i].done = !items[i].done;
+function todoTg(id, i) {
+  const items = lectureOutil('todo_'+id, []) || [];
+  if (items[i]) items[i].d = !items[i].d;
   stockageOutil('todo_'+id, items);
-  ouvrirOutilMetier(id);
+  if (window._outilCourant) ouvrirOutilMetier(window._outilCourant.groupeId, window._outilCourant.outilId);
 }
-function todoDel(id, i) {
-  const items = lectureOutil('todo_'+id, []);
+function todoRm(id, i) {
+  const items = lectureOutil('todo_'+id, []) || [];
   items.splice(i, 1);
   stockageOutil('todo_'+id, items);
-  ouvrirOutilMetier(id);
-}
-function runCalcMarge() {
-  const cout = parseFloat(document.getElementById('om_cout')?.value||'0')||0;
-  const marge = parseFloat(document.getElementById('om_marge')?.value||'0')||0;
-  const prix = cout * (1 + marge/100);
-  const el = document.getElementById('om_result');
-  if (el) el.textContent = 'Prix de vente suggéré : ' + prix.toFixed(2) + ' (bénéfice unitaire ≈ ' + (prix-cout).toFixed(2) + ')';
-}
-function runDevis() {
-  const client = document.getElementById('om_client')?.value||'Client';
-  const desig = document.getElementById('om_desig')?.value||'Prestation';
-  const montant = document.getElementById('om_montant')?.value||'0';
-  const nom = utilisateur?.nom || 'Moi';
-  const txt = `DEVIS\\nDe : ${nom}\\nPour : ${client}\\nDésignation : ${desig}\\nMontant : ${montant}\\nDate : ${new Date().toLocaleDateString()}\\nMerci pour votre confiance.`;
-  const out = document.getElementById('om_devis_out');
-  if (out) out.value = txt;
-  stockageOutil('devis_txt', txt);
-}
-function stockAdd() {
-  const nom = document.getElementById('om_stock_nom')?.value?.trim();
-  const qte = parseFloat(document.getElementById('om_stock_qte')?.value||'0')||0;
-  if (!nom) return;
-  const lines = lectureOutil('stock_lines', []);
-  lines.push({ nom, qte });
-  stockageOutil('stock_lines', lines);
-  ouvrirOutilMetier('stock_simple');
-}
-function stockDelta(i, d) {
-  const lines = lectureOutil('stock_lines', []);
-  if (!lines[i]) return;
-  lines[i].qte = (parseFloat(lines[i].qte)||0) + d;
-  stockageOutil('stock_lines', lines);
-  ouvrirOutilMetier('stock_simple');
-}
-function saveOmNote(key) {
-  const v = document.getElementById('om_note')?.value || '';
-  stockageOutil(key, v);
-  alert('Enregistré sur cet appareil.');
-}
-function caisseMove(sens) {
-  const m = parseFloat(document.getElementById('om_caisse_m')?.value||'0')||0;
-  const l = document.getElementById('om_caisse_l')?.value || '';
-  if (!m) return;
-  let solde = parseFloat(lectureOutil('caisse_solde', 0))||0;
-  solde += sens * m;
-  const hist = lectureOutil('caisse_hist', []);
-  hist.unshift((sens>0?'+':'-') + m + ' · ' + l + ' · solde ' + solde);
-  stockageOutil('caisse_solde', solde);
-  stockageOutil('caisse_hist', hist.slice(0,30));
-  ouvrirOutilMetier('caisse');
+  if (window._outilCourant) ouvrirOutilMetier(window._outilCourant.groupeId, window._outilCourant.outilId);
 }
 
 function switchTab(tabId) {

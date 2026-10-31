@@ -43,7 +43,8 @@
 
                 <label style="font-size:11.5px; color:var(--text-primary);">Métier / Profession :</label>
                 <select id="inputMetier" class="input" onchange="onMetierSelectChange(this)"></select>
-            <input type="text" id="inputMetierAutre" class="input" placeholder="Préciser votre métier" style="display:none;margin-top:6px;">
+            <input type="text" id="inputMetierAutre" class="input" placeholder="Préciser (optionnel)" style="display:none;margin-top:6px;">
+            </div>
             <button onclick="demanderPermissionsEtActiverProfil()" class="btn-action">🚀 Valider & Accéder à l'Application</button>
         </div>
     </div>
@@ -275,7 +276,7 @@
             <section id="tab-outils" class="tab-content" style="display:none;">
                 <div class="card">
                     <h2>🛠️ Outils de travail</h2>
-                    <p style="font-size:12px;color:var(--text-secondary);margin:-4px 0 10px 0;">Outils adaptés à <b>ton métier</b> — précis et utilisables sur le terrain.</p>
+                    <p style="font-size:12px;color:var(--text-secondary);margin:-4px 0 10px 0;">Uniquement les outils de <b>ton métier</b> (et familles très proches). Clique une catégorie → les outils s’affichent en dessous.</p>
                     <div id="outilsMetierBadge" style="font-size:12px;color:var(--accent);margin-bottom:12px;"></div>
                     <div id="outilsMetierListe"></div>
                 </div>
