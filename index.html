@@ -42,8 +42,7 @@
                 <input type="text" id="inputTelProfil" class="input" value="+22898231402">
 
                 <label style="font-size:11.5px; color:var(--text-primary);">Métier / Profession :</label>
-                <select id="inputMetier" class="input" onchange="onMetierSelectChange(this)"></select>
-            <input type="text" id="inputMetierAutre" class="input" placeholder="Préciser (optionnel)" style="display:none;margin-top:6px;">
+                <input type="text" id="inputMetier" class="input" value="Administration & Systèmes">
             </div>
             <button onclick="demanderPermissionsEtActiverProfil()" class="btn-action">🚀 Valider & Accéder à l'Application</button>
         </div>
@@ -89,20 +88,40 @@
                 <h3 id="sidebarUserName" style="font-size:14px; margin:0; color:var(--accent);">Kodjo Marceline</h3>
                 <span id="sidebarUserRole" style="font-size:11px; color:var(--success);">Opérateur Actif</span>
             </div>
-            <div style="display:flex; flex-direction:column; gap:6px; flex:1;">
-                <a href="#" onclick="switchTab('dashboard')" class="nav-link active" id="link-dashboard">📊 Dashboard HUD</a>
-                <a href="#" onclick="switchTab('elaws-ia')" class="nav-link" id="link-elaws-ia">🤖 Assistant IA ELAWS</a>
-                <a href="#" onclick="switchTab('contacts')" class="nav-link" id="link-contacts">📇 Contacts & Annuaire</a>
-                <a href="#" onclick="switchTab('map')" class="nav-link" id="link-map">🗺️ Carte & Position GPS</a>
-                <a href="#" onclick="switchTab('messagerie')" class="nav-link" id="link-messagerie">💬 Messagerie & Fichiers</a>
-                <a href="#" onclick="switchTab('communications')" class="nav-link" id="link-communications">📞 Appels & VoIP Directs</a>
-                <a href="#" onclick="switchTab('parametres')" class="nav-link" id="link-parametres">⚙️ Paramètres & Sonneries</a>
-                <a href="#" onclick="switchTab('quetes')" class="nav-link" id="link-quetes">⚡ Quêtes & Qubits</a>
-                <a href="#" onclick="switchTab('succes1000')" class="nav-link" id="link-succes1000">💎 Stratégie Succès</a>
-                <a href="#" onclick="switchTab('sync')" class="nav-link" id="link-sync">☁️ Sauvegarde Cloud</a>
-                <a href="#" onclick="switchTab('voyage')" class="nav-link" id="link-voyage">✈️ Guide Voyage & Visa</a>
-                <a href="#" onclick="switchTab('profil')" class="nav-link" id="link-profil">👤 Profil & Sécurité</a>
-                <a href="#" onclick="switchTab('outils')" class="nav-link" id="link-outils">🛠️ Bloc-Notes & Outils</a>
+            <div style="display:flex; flex-direction:column; gap:4px; flex:1;" id="navModulesRoot">
+                <div class="nav-module" data-module="accueil">
+                    <button type="button" class="nav-module-btn" onclick="toggleGrandModule('accueil')">🏠 1 · Accueil <span class="nav-chevron">▼</span></button>
+                    <div class="nav-sous" id="sous-accueil" style="display:none;">
+                        <a href="#" class="nav-link" id="link-dashboard" onclick="ouvrirSousModule('dashboard'); return false;">📊 Tableau de bord</a>
+                        <a href="#" class="nav-link" id="link-map" onclick="ouvrirSousModule('map'); return false;">🗺️ Carte GPS</a>
+                    </div>
+                </div>
+                <div class="nav-module" data-module="messages">
+                    <button type="button" class="nav-module-btn" onclick="toggleGrandModule('messages')">💬 2 · Messages <span class="nav-chevron">▼</span></button>
+                    <div class="nav-sous" id="sous-messages" style="display:none;">
+                        <a href="#" class="nav-link" id="link-messagerie" onclick="ouvrirSousModule('messagerie'); return false;">💬 Discussions</a>
+                        <a href="#" class="nav-link" id="link-communications" onclick="ouvrirSousModule('messagerie'); if(typeof ouvrirPanneauAppels==='function')setTimeout(ouvrirPanneauAppels,80); return false;">📞 Appels audio / vidéo</a>
+                    </div>
+                </div>
+                <div class="nav-module" data-module="reseau">
+                    <button type="button" class="nav-module-btn" onclick="toggleGrandModule('reseau')">👥 3 · Réseau <span class="nav-chevron">▼</span></button>
+                    <div class="nav-sous" id="sous-reseau" style="display:none;">
+                        <a href="#" class="nav-link" id="link-contacts" onclick="ouvrirSousModule('contacts'); return false;">📇 Contacts</a>
+                        <a href="#" class="nav-link" id="link-profil" onclick="ouvrirSousModule('profil'); return false;">👤 Mon profil</a>
+                    </div>
+                </div>
+                <div class="nav-module" data-module="elaws">
+                    <button type="button" class="nav-module-btn" onclick="toggleGrandModule('elaws')">⚡ 4 · ELAWS & Outils <span class="nav-chevron">▼</span></button>
+                    <div class="nav-sous" id="sous-elaws" style="display:none;">
+                        <a href="#" class="nav-link" id="link-elaws-ia" onclick="ouvrirSousModule('elaws-ia'); return false;">🤖 Assistant ELAWS</a>
+                        <a href="#" class="nav-link" id="link-outils" onclick="ouvrirSousModule('outils'); return false;">🛠️ Outils de métier</a>
+                        <a href="#" class="nav-link" id="link-parametres" onclick="ouvrirSousModule('parametres'); return false;">⚙️ Paramètres</a>
+                        <a href="#" class="nav-link" id="link-voyage" onclick="ouvrirSousModule('voyage'); return false;">✈️ Voyage</a>
+                        <a href="#" class="nav-link" id="link-sync" onclick="ouvrirSousModule('sync'); return false;">☁️ Sauvegarde</a>
+                        <a href="#" class="nav-link" id="link-quetes" onclick="ouvrirSousModule('quetes'); return false;">⚡ Quêtes</a>
+                        <a href="#" class="nav-link" id="link-succes1000" onclick="ouvrirSousModule('succes1000'); return false;">💎 Stratégie</a>
+                    </div>
+                </div>
             </div>
             <div style="margin-top:auto; padding-top:10px; border-top:1px solid var(--border-color);">
                 <button onclick="deconnecterUtilisateur()" class="btn-action" style="background:rgba(239,68,68,0.15); color:#ef4444; border:1px solid #ef4444; font-size:12px;">🔄 Refaire l'enregistrement</button>
@@ -275,23 +294,10 @@
 
             <section id="tab-outils" class="tab-content" style="display:none;">
                 <div class="card">
-                    <h2>🛠️ Outils de travail</h2>
-                    <p style="font-size:12px;color:var(--text-secondary);margin:-4px 0 10px 0;">Uniquement les outils de <b>ton métier</b> (et familles très proches). Clique une catégorie → les outils s’affichent en dessous.</p>
-                    <div id="outilsMetierBadge" style="font-size:12px;color:var(--accent);margin-bottom:12px;"></div>
-                    <div id="outilsMetierListe"></div>
-                </div>
-                <div class="card" id="outilActifCard" style="display:none;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;">
-                        <h2 id="outilActifTitre" style="margin:0;font-size:14px;">Outil</h2>
-                        <button type="button" onclick="fermerOutilActif()" class="btn-action" style="width:auto;padding:6px 10px;font-size:11px;">✕</button>
-                    </div>
-                    <div id="outilActifCorps"></div>
-                </div>
-                <div class="card">
-                    <h2>📝 Notes rapides</h2>
-                    <input type="text" id="noteTitre" class="input" placeholder="Titre…">
-                    <textarea id="noteContenu" class="input" placeholder="Contenu…" style="height:60px;"></textarea>
-                    <button class="btn-action" onclick="ajouterNoteBlocNotes()">Enregistrer la note</button>
+                    <h2>🛠️ Bloc-Notes & Outils</h2>
+                    <input type="text" id="noteTitre" class="input" placeholder="Titre...">
+                    <textarea id="noteContenu" class="input" placeholder="Contenu..." style="height:60px;"></textarea>
+                    <button class="btn-action" onclick="ajouterNoteBlocNotes()">Enregistrer</button>
                     <div id="listeNotesContainer" style="margin-top:10px;"></div>
                 </div>
             </section>
