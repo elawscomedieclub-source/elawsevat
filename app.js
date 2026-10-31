@@ -252,7 +252,6 @@ function appliquerInfosProfil() {
     
     verifierEtSynchroniserContacts();
     afficherContacts();
-    afficherMonProfilResume();
 }
 
 function verifierEtSynchroniserContacts() {
@@ -269,210 +268,137 @@ function verifierEtSynchroniserContacts() {
     });
 }
 
-let contactOuvertIndex = null;
 
-function escContact(s) {
-    const d = document.createElement('div');
-    d.textContent = s == null ? '' : String(s);
-    return d.innerHTML;
-}
-
-function initialesContact(nom) {
-    const p = String(nom || '?').trim().split(/\s+/).filter(Boolean);
-    if (!p.length) return '?';
-    if (p.length === 1) return p[0].slice(0, 2).toUpperCase();
-    return (p[0][0] + p[p.length - 1][0]).toUpperCase();
-}
-
-function couleurAvatarContact(nom) {
-    const palette = ['#0ea5e9', '#06b6d4', '#10b981', '#8b5cf6', '#f59e0b', '#3b82f6', '#14b8a6', '#6366f1'];
-    let h = 0;
-    const s = String(nom || '');
-    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-    return palette[h % palette.length];
-}
-
-function basculerDetailContact(index, event) {
-    if (event) {
-        event.stopPropagation();
-        // ignore clicks on buttons inside
-        if (event.target.closest && event.target.closest('button')) return;
+function toggleFormProfil(force) {
+    const form = document.getElementById('formEditProfil');
+    const btn = document.getElementById('btnToggleEditProfil');
+    if (!form) return;
+    const open = typeof force === 'boolean' ? force : form.style.display === 'none' || !form.style.display;
+    // if currently none, open=true when force undefined: check display
+    let show;
+    if (typeof force === 'boolean') show = force;
+    else show = form.style.display === 'none' || getComputedStyle(form).display === 'none';
+    form.style.display = show ? 'block' : 'none';
+    if (btn) btn.textContent = show ? '✕ Fermer' : '✏️ Modifier';
+    if (show && utilisateur) {
+        const n = document.getElementById('inputNomProfil');
+        const t = document.getElementById('inputTelProfil2');
+        const m = document.getElementById('inputMetierProfil');
+        if (n) n.value = utilisateur.nom || '';
+        if (t) t.value = utilisateur.telephone || '';
+        if (m) m.value = utilisateur.metier || '';
     }
-    contactOuvertIndex = (contactOuvertIndex === index) ? null : index;
-    afficherContacts();
 }
 
-/** Affiche la liste contacts dans #listeContactsContainer et/ou #profilContactsContainer */
-function afficherContacts() {
-    if (!utilisateur) return;
-    if (!utilisateur.contacts) utilisateur.contacts = [];
-
-    const containers = [];
-    const a = document.getElementById('listeContactsContainer');
-    const b = document.getElementById('profilContactsContainer');
-    if (a) containers.push(a);
-    if (b) containers.push(b);
-    if (!containers.length) return;
-
-    const q = (document.getElementById('rechercheContact')?.value || document.getElementById('rechercheContactProfil')?.value || '').trim().toLowerCase();
-    let list = utilisateur.contacts.map((c, index) => ({ ...c, _i: index }));
-    if (q) {
-        list = list.filter(c =>
-            (c.nom || '').toLowerCase().includes(q) ||
-            (c.telephone || '').toLowerCase().includes(q) ||
-            (c.metier || '').toLowerCase().includes(q)
-        );
-    }
-    list.sort((a, b) => String(a.nom || '').localeCompare(String(b.nom || ''), 'fr', { sensitivity: 'base' }));
-
-    const total = utilisateur.contacts.length;
-    const enLigne = utilisateur.contacts.filter(c => c.enLigne).length;
-
-    let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;flex-wrap:wrap;">
-        <div style="font-size:12px;color:var(--text-secondary);">
-            <strong style="color:var(--accent);">${total}</strong> contact${total > 1 ? 's' : ''}
-            ${enLigne ? ` · <span style="color:var(--success);">${enLigne} en ligne</span>` : ''}
-            ${q ? ` · ${list.length} trouvé(s)` : ''}
-        </div>
-    </div>`;
-
-    if (total === 0) {
-        html += `<div style="text-align:center;padding:20px 12px;border:1px dashed var(--border-color);border-radius:12px;">
-            <div style="font-size:26px;margin-bottom:6px;">📇</div>
-            <p style="font-size:13px;margin:0 0 4px 0;font-weight:600;">Aucun contact</p>
-            <p style="font-size:12px;color:var(--text-secondary);margin:0;">Ajoute un contact ci-dessous pour appeler ou écrire.</p>
-        </div>`;
-    } else if (list.length === 0) {
-        html += `<p style="color:var(--text-secondary);font-size:12px;text-align:center;padding:12px;">Aucun résultat.</p>`;
-    } else {
-        list.forEach((c) => {
-            const index = c._i;
-            const open = contactOuvertIndex === index;
-            const online = !!c.enLigne;
-            const color = couleurAvatarContact(c.nom);
-            const ini = initialesContact(c.nom);
-            const telSafe = String(c.telephone || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-            const nomSafe = String(c.nom || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-            const metier = c.metier && c.metier !== 'Recherche...' ? c.metier : 'Contact';
-
-            html += `<div style="border:1px solid ${open ? 'var(--accent)' : 'var(--border-color)'};border-radius:14px;margin-bottom:8px;overflow:hidden;background:var(--card-bg, var(--bg-color));">
-              <div onclick="basculerDetailContact(${index}, event)" style="display:flex;align-items:center;gap:12px;padding:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;">
-                <div style="position:relative;flex-shrink:0;">
-                  <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(145deg,${color},${color}99);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#fff;">${escContact(ini)}</div>
-                  <span style="position:absolute;right:-2px;bottom:-2px;width:11px;height:11px;border-radius:50%;border:2px solid var(--bg-color,#030712);background:${online ? 'var(--success)' : '#64748b'};"></span>
-                </div>
-                <div style="flex:1;min-width:0;">
-                  <div style="font-weight:700;font-size:14px;color:var(--text-primary);">${escContact(c.nom)}</div>
-                  <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">${online ? 'En ligne' : 'Hors ligne'} · ${escContact(metier)}</div>
-                </div>
-                <div style="color:var(--accent);font-size:12px;flex-shrink:0;">${open ? '▲' : '▼'}</div>
-              </div>`;
-
-            if (open) {
-                html += `<div style="padding:0 12px 12px 12px;border-top:1px solid var(--border-color);">
-                  <div style="padding:10px 0 8px 0;">
-                    <div style="font-size:11px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.4px;">Numéro</div>
-                    <div style="font-size:15px;font-weight:600;color:var(--accent);margin-top:2px;">${escContact(c.telephone)}</div>
-                    ${c.metier ? `<div style="font-size:12px;color:var(--text-secondary);margin-top:6px;">${escContact(metier)}</div>` : ''}
-                  </div>
-                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-                    <button onclick="event.stopPropagation();preparerAppel('${telSafe}')" class="btn-action" style="padding:10px;font-size:12px;background:linear-gradient(135deg,#10b981,#059669);">📞 Appel</button>
-                    <button onclick="event.stopPropagation();ecrireAuContact('${nomSafe}','${telSafe}')" class="btn-action" style="padding:10px;font-size:12px;">💬 Message</button>
-                    <button onclick="event.stopPropagation();modifierContact(${index})" class="btn-action" style="padding:10px;font-size:12px;background:rgba(59,130,246,0.15);color:var(--accent);border:1px solid var(--border-color);box-shadow:none;">✏️ Modifier</button>
-                    <button onclick="event.stopPropagation();supprimerContact(${index})" class="btn-action" style="padding:10px;font-size:12px;background:rgba(248,113,113,0.12);color:#f87171;border:1px solid rgba(248,113,113,0.35);box-shadow:none;">🗑️ Supprimer</button>
-                  </div>
-                </div>`;
-            }
-            html += `</div>`;
-        });
-    }
-
-    containers.forEach(el => { el.innerHTML = html; });
-    afficherMonProfilResume();
+function toggleFormAjoutContact(force) {
+    const form = document.getElementById('formAjoutContactProfil');
+    const btn = document.getElementById('btnToggleAddContact');
+    if (!form) return;
+    let show;
+    if (typeof force === 'boolean') show = force;
+    else show = form.style.display === 'none' || getComputedStyle(form).display === 'none';
+    form.style.display = show ? 'block' : 'none';
+    if (btn) btn.textContent = show ? '✕ Fermer' : '➕ Ajouter';
 }
 
-function filtrerContactsListe() {
-    afficherContacts();
-}
 
 function afficherMonProfilResume() {
     const el = document.getElementById('monProfilResume');
     if (!el || !utilisateur) return;
-    const color = couleurAvatarContact(utilisateur.nom);
-    const ini = initialesContact(utilisateur.nom);
-    el.innerHTML = `
-      <div style="display:flex;align-items:center;gap:14px;">
-        <div style="width:56px;height:56px;border-radius:16px;background:linear-gradient(145deg,${color},#34d399);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;color:#fff;box-shadow:0 4px 16px rgba(14,165,233,0.35);">${escContact(ini)}</div>
+    const color = (typeof couleurAvatarContact === 'function') ? couleurAvatarContact(utilisateur.nom) : '#0ea5e9';
+    const ini = (typeof initialesContact === 'function') ? initialesContact(utilisateur.nom) : 'EV';
+    const esc = (typeof escContact === 'function') ? escContact : (s => String(s||''));
+    el.innerHTML = `<div style="display:flex;align-items:center;gap:14px;">
+        <div style="width:56px;height:56px;border-radius:16px;background:linear-gradient(145deg,${color},#34d399);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;color:#fff;box-shadow:0 4px 16px rgba(14,165,233,0.35);">${esc(ini)}</div>
         <div style="flex:1;min-width:0;">
-          <div style="font-size:11px;color:var(--success);font-weight:600;margin-bottom:2px;">Mon profil</div>
-          <div style="font-size:16px;font-weight:800;color:var(--text-primary);">${escContact(utilisateur.nom || '—')}</div>
-          <div style="font-size:12px;color:var(--accent);margin-top:2px;">${escContact(utilisateur.telephone || '')}</div>
-          <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">${escContact(utilisateur.metier || '')}</div>
+          <div style="font-size:11px;color:var(--success);font-weight:600;">Mon profil</div>
+          <div style="font-size:16px;font-weight:800;">${esc(utilisateur.nom || '—')}</div>
+          <div style="font-size:12px;color:var(--accent);margin-top:2px;">${esc(utilisateur.telephone || '')}</div>
+          <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">${esc(utilisateur.metier || '')}</div>
         </div>
       </div>`;
 }
 
-function ajouterNouveauContact() {
-    const nom = (document.getElementById('nouveauNomContact') || document.getElementById('nouveauNomContactProfil'))?.value?.trim() || '';
-    const tel = (document.getElementById('nouveauTelContact') || document.getElementById('nouveauTelContactProfil'))?.value?.trim() || '';
-    const metier = (document.getElementById('nouveauMetierContact') || document.getElementById('nouveauMetierContactProfil'))?.value?.trim() || '';
-    if (!nom || !tel) {
-        alert('Nom et numéro obligatoires.');
+function toggleFormAjoutContactAnnuaire(force) {
+    const form = document.getElementById('formAjoutContactAnnuaire');
+    if (!form) return;
+    let show;
+    if (typeof force === 'boolean') show = force;
+    else show = form.style.display === 'none' || getComputedStyle(form).display === 'none';
+    form.style.display = show ? 'block' : 'none';
+}
+
+function afficherContacts() {
+    const container = document.getElementById('listeContactsContainer');
+    if(!container || !utilisateur || !utilisateur.contacts) return;
+    if(utilisateur.contacts.length === 0) {
+        container.innerHTML = `<p style="color:var(--text-secondary); font-size:11.5px;">Aucun contact.</p>`;
         return;
     }
-    if (!utilisateur.contacts) utilisateur.contacts = [];
-    const telClean = tel.replace(/\s+/g, '');
-    if (utilisateur.contacts.some(c => (c.telephone || '').replace(/\s+/g, '') === telClean)) {
-        alert('Ce numéro est déjà enregistré.');
-        return;
-    }
-    utilisateur.contacts.push({ nom, telephone: telClean, metier: metier || 'Contact', enLigne: false });
-    localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
-    ['nouveauNomContact','nouveauTelContact','nouveauMetierContact','nouveauNomContactProfil','nouveauTelContactProfil','nouveauMetierContactProfil'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.value = '';
+    let html = '';
+    utilisateur.contacts.forEach((c, index) => {
+        html += `<div style="background:var(--bg-color); border:1px solid var(--border-color); padding:10px; border-radius:10px; display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <div>
+                <strong style="color:var(--accent); font-size:12.5px;">👤 ${c.nom}</strong>
+                <div style="font-size:11px; color:var(--text-secondary);">📞 ${c.telephone} • <i style="color:var(--success);">${c.metier || 'Sync...'}</i></div>
+            </div>
+            <div style="display:flex; gap:4px; flex-wrap:wrap; justify-content:flex-end;">
+                <button onclick="preparerAppel('${c.telephone}')" class="btn-action" style="background:var(--success); color:#fff; padding:5px 8px; font-size:10.5px;" title="Appeler">📞</button>
+                <button onclick="ecrireAuContact('${c.nom}', '${c.telephone}')" class="btn-action" style="background:var(--accent); color:#030712; padding:5px 8px; font-size:10.5px;" title="Écrire">💬</button>
+                <button onclick="modifierContact(${index})" class="btn-action" style="background:rgba(59,130,246,0.2); color:var(--accent); border:1px solid var(--accent); padding:5px 8px; font-size:10.5px;" title="Modifier">✏️</button>
+                <button onclick="supprimerContact(${index})" class="btn-action" style="background:rgba(239,68,68,0.2); color:#ef4444; border:1px solid #ef4444; padding:5px 8px; font-size:10.5px;" title="Supprimer">🗑️</button>
+            </div>
+        </div>`;
     });
-    contactOuvertIndex = utilisateur.contacts.length - 1;
+    container.innerHTML = html;
+}
+
+function ajouterNouveauContact() {
+    const nom = document.getElementById('nouveauNomContact').value.trim();
+    const tel = document.getElementById('nouveauTelContact').value.trim();
+    if(!nom || !tel) {
+        alert("Nom et numéro obligatoires.");
+        return;
+    }
+    if(!utilisateur.contacts) utilisateur.contacts = [];
+    utilisateur.contacts.push({ nom, telephone: tel, metier: "Recherche..." });
+    localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
+    document.getElementById('nouveauNomContact').value = '';
+    document.getElementById('nouveauTelContact').value = '';
     afficherContacts();
     verifierEtSynchroniserContacts();
-    alert('Contact enregistré.');
+    alert("✅ Contact enregistré !");
 }
 
 function modifierContact(index) {
     const c = utilisateur.contacts[index];
-    if (!c) return;
-    const nouveauNom = prompt('Nom :', c.nom);
-    if (nouveauNom === null) return;
-    const nouveauTel = prompt('Numéro :', c.telephone);
-    if (nouveauTel === null) return;
-    const nouveauMetier = prompt('Métier / note :', c.metier || '');
-    if (nouveauMetier === null) return;
+    const nouveauNom = prompt("Modifier le nom :", c.nom);
+    if(nouveauNom === null) return;
+    const nouveauTel = prompt("Modifier le numéro :", c.telephone);
+    if(nouveauTel === null) return;
     utilisateur.contacts[index].nom = nouveauNom.trim();
-    utilisateur.contacts[index].telephone = nouveauTel.replace(/\s+/g, '').trim();
-    utilisateur.contacts[index].metier = nouveauMetier.trim() || 'Contact';
+    utilisateur.contacts[index].telephone = nouveauTel.trim();
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
-    contactOuvertIndex = index;
     afficherContacts();
     verifierEtSynchroniserContacts();
 }
 
 function supprimerContact(index) {
-    if (!confirm('Supprimer ce contact ?')) return;
-    utilisateur.contacts.splice(index, 1);
-    localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
-    contactOuvertIndex = null;
-    afficherContacts();
+    if(confirm("Supprimer ce contact ?")) {
+        utilisateur.contacts.splice(index, 1);
+        localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
+        afficherContacts();
+    }
 }
 
 function ecrireAuContact(nom, tel) {
     const message = prompt(`Message à ${nom} (${tel}) :`);
-    if (!message) return;
-    if (!utilisateur.messagesLocaux) utilisateur.messagesLocaux = [];
-    utilisateur.messagesLocaux.push({ expediteur: utilisateur.nom || 'Moi', texte: `À ${nom} : ${message}`, heure: new Date().toLocaleTimeString() });
+    if(!message) return;
+    if(!utilisateur.messagesLocaux) utilisateur.messagesLocaux = [];
+    utilisateur.messagesLocaux.push({ expediteur: utilisateur.nom || "Moi", texte: `À ${nom} : ${message}`, heure: new Date().toLocaleTimeString() });
     localStorage.setItem('evat_profil', JSON.stringify(utilisateur));
     switchTab('messagerie');
-    if (typeof afficherMessagesLocaux === 'function') afficherMessagesLocaux();
-    alert('Message enregistré.');
+    alert("✅ Message enregistré !");
 }
 
 function preparerAppel(tel) {
@@ -568,8 +494,8 @@ function switchTab(tabId) {
     if(link) link.classList.add('active');
     fermerTousLesMenus();
 
-    if(tabId === 'contacts') afficherContacts();
-    if(tabId === 'profil') { appliquerInfosProfil(); afficherContacts(); }
+    if(tabId === 'contacts') { afficherContacts(); if(typeof toggleFormAjoutContactAnnuaire==='function') toggleFormAjoutContactAnnuaire(false); }
+    if(tabId === 'profil') { appliquerInfosProfil(); if(typeof afficherMonProfilResume==='function') afficherMonProfilResume(); afficherContacts(); if(typeof toggleFormProfil==='function') toggleFormProfil(false); }
     if(tabId === 'map') {
         setTimeout(() => {
             if(!mapInstance) {
