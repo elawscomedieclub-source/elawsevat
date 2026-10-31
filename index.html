@@ -16,7 +16,7 @@
     </script>
 </head>
 <body>
-    <div id="welcomeModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(3,7,18,0.95); z-index:99999; display:flex; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+    <div id="welcomeModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(3,7,18,0.95); z-index:99999; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
         <div class="card" style="max-width:420px; width:100%; text-align:center;">
             <div class="quantum-globe-container" style="margin: 0 auto 15px auto;">
                 <div class="earth-globe"></div>
@@ -76,7 +76,7 @@
                 <h1 style="font-size:14px; margin:0; color:var(--accent);">EVAT <span style="font-weight:300; font-size:11px; color:var(--text-secondary);">| Continuum</span></h1>
             </div>
             <div class="elaws-widget">
-                <button onclick="switchTab('elaws-ia')" class="elaws-magic-bubble" style="cursor:pointer; display:flex; align-items:center; gap:6px;">
+                <button onclick="switchTab('elaws-ia'); return false;" class="elaws-magic-bubble" style="cursor:pointer; display:flex; align-items:center; gap:6px;">
                     <div class="magic-sphere-core"></div>
                     <span>🤖 ELAWS AI</span>
                 </button>
@@ -89,19 +89,19 @@
                 <span id="sidebarUserRole" style="font-size:11px; color:var(--success);">Opérateur Actif</span>
             </div>
             <div style="display:flex; flex-direction:column; gap:6px; flex:1;">
-                <a href="#" onclick="switchTab('dashboard')" class="nav-link active" id="link-dashboard">📊 Dashboard HUD</a>
-                <a href="#" onclick="switchTab('elaws-ia')" class="nav-link" id="link-elaws-ia">🤖 Assistant IA ELAWS</a>
-                <a href="#" onclick="switchTab('contacts')" class="nav-link" id="link-contacts">📇 Contacts & Annuaire</a>
-                <a href="#" onclick="switchTab('map')" class="nav-link" id="link-map">🗺️ Carte & Position GPS</a>
-                <a href="#" onclick="switchTab('messagerie')" class="nav-link" id="link-messagerie">💬 Messagerie & Fichiers</a>
-                <a href="#" onclick="switchTab('communications')" class="nav-link" id="link-communications">📞 Appels & VoIP Directs</a>
-                <a href="#" onclick="switchTab('parametres')" class="nav-link" id="link-parametres">⚙️ Paramètres & Sonneries</a>
-                <a href="#" onclick="switchTab('quetes')" class="nav-link" id="link-quetes">⚡ Quêtes & Qubits</a>
-                <a href="#" onclick="switchTab('succes1000')" class="nav-link" id="link-succes1000">💎 Stratégie Succès</a>
-                <a href="#" onclick="switchTab('sync')" class="nav-link" id="link-sync">☁️ Sauvegarde Cloud</a>
-                <a href="#" onclick="switchTab('voyage')" class="nav-link" id="link-voyage">✈️ Guide Voyage & Visa</a>
-                <a href="#" onclick="switchTab('profil')" class="nav-link" id="link-profil">👤 Profil & Sécurité</a>
-                <a href="#" onclick="switchTab('outils')" class="nav-link" id="link-outils">🛠️ Bloc-Notes & Outils</a>
+                <a href="#" onclick="switchTab('dashboard'); return false;" class="nav-link active" id="link-dashboard">📊 Dashboard HUD</a>
+                <a href="#" onclick="switchTab('elaws-ia'); return false;" class="nav-link" id="link-elaws-ia">🤖 Assistant IA ELAWS</a>
+                <a href="#" onclick="switchTab('contacts'); return false;" class="nav-link" id="link-contacts">📇 Contacts & Annuaire</a>
+                <a href="#" onclick="switchTab('map'); return false;" class="nav-link" id="link-map">🗺️ Carte & Position GPS</a>
+                <a href="#" onclick="switchTab('messagerie'); return false;" class="nav-link" id="link-messagerie">💬 Messagerie & Fichiers</a>
+                <a href="#" onclick="switchTab('communications'); return false;" class="nav-link" id="link-communications">📞 Appels & VoIP Directs</a>
+                <a href="#" onclick="switchTab('parametres'); return false;" class="nav-link" id="link-parametres">⚙️ Paramètres & Sonneries</a>
+                <a href="#" onclick="switchTab('quetes'); return false;" class="nav-link" id="link-quetes">⚡ Quêtes & Qubits</a>
+                <a href="#" onclick="switchTab('succes1000'); return false;" class="nav-link" id="link-succes1000">💎 Stratégie Succès</a>
+                <a href="#" onclick="switchTab('sync'); return false;" class="nav-link" id="link-sync">☁️ Sauvegarde Cloud</a>
+                <a href="#" onclick="switchTab('voyage'); return false;" class="nav-link" id="link-voyage">✈️ Guide Voyage & Visa</a>
+                <a href="#" onclick="switchTab('profil'); return false;" class="nav-link" id="link-profil">👤 Profil & Sécurité</a>
+                <a href="#" onclick="switchTab('outils'); return false;" class="nav-link" id="link-outils">🛠️ Bloc-Notes & Outils</a>
             </div>
             <div style="margin-top:auto; padding-top:10px; border-top:1px solid var(--border-color);">
                 <button onclick="deconnecterUtilisateur()" class="btn-action" style="background:rgba(239,68,68,0.15); color:#ef4444; border:1px solid #ef4444; font-size:12px;">🔄 Refaire l'enregistrement</button>
@@ -173,22 +173,17 @@
 
             <section id="tab-messagerie" class="tab-content" style="display:none;">
                 <div class="card">
-                    <h2>💬 Messages</h2>
-                    <div style="background:rgba(16,185,129,0.1); padding:8px 10px; border-radius:10px; border:1px solid rgba(16,185,129,0.35); margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+                    <h2>💬 Messagerie & Stockage Interne</h2>
+                    <div style="background:var(--bg-color); padding:10px; border-radius:10px; border:1px solid var(--success); margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
                         <div>
-                            <strong style="font-size:12px; color:var(--success);">📁 Stockage sur ton téléphone</strong>
-                            <div style="font-size:10.5px; color:var(--text-secondary);">Les messages et photos restent en local — le serveur ne fait que relayer si les deux sont en ligne</div>
+                            <strong style="font-size:12px; color:var(--success);">📁 Stockage Appareil</strong>
+                            <div style="font-size:11px; color:var(--text-secondary);">Géré automatiquement en arrière-plan</div>
                         </div>
                         <span style="font-size:18px;">🔒</span>
                     </div>
-                    <div id="chatConversationHeader" style="display:none;align-items:center;gap:8px;margin-bottom:10px;padding:8px;border:1px solid var(--border-color);border-radius:12px;"></div>
-                    <div id="chatEmptyHint" style="display:none;"></div>
-                    <div id="listeMessagesLocaux" style="background:var(--bg-color); border:1px solid var(--border-color); border-radius:12px; padding:10px; height:280px; overflow-y:auto; margin-bottom:10px;"></div>
-                    <div id="chatPhotoPreview" style="display:none;margin-bottom:8px;"></div>
-                    <div style="display:flex; gap:6px; align-items:center;">
-                        <input type="file" id="chatPhotoInput" accept="image/*" style="display:none" onchange="onChatPhotoSelected(event)">
-                        <button type="button" onclick="choisirPhotoChat()" class="btn-action" style="width:auto;padding:0 12px;background:rgba(59,130,246,0.15);color:var(--accent);border:1px solid var(--border-color);box-shadow:none;" title="Photo">🖼️</button>
-                        <input type="text" id="chatLocalInput" class="input" placeholder="Écrire un message…" style="margin-bottom:0;flex:1;" onkeypress="if(event.key==='Enter') envoyerMessageChatLocal()">
+                    <div id="listeMessagesLocaux" style="background:var(--bg-color); border:1px solid var(--border-color); border-radius:10px; padding:10px; height:200px; overflow-y:auto; margin-bottom:10px;"></div>
+                    <div style="display:flex; gap:6px;">
+                        <input type="text" id="chatLocalInput" class="input" placeholder="Message..." style="margin-bottom:0;" onkeypress="if(event.key==='Enter') envoyerMessageChatLocal()">
                         <button onclick="envoyerMessageChatLocal()" class="btn-action" style="width:auto; padding:0 16px; background:var(--success);">Envoyer</button>
                     </div>
                 </div>

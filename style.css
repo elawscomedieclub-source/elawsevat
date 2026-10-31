@@ -27,12 +27,13 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: var(--card-bg);
+    background: var(--header-bg, rgba(15, 23, 42, 0.95));
+    backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border-color);
     padding: 10px 14px;
     position: sticky;
     top: 0;
-    z-index: 100;
+    z-index: 1100;
 }
 
 .header-left {
@@ -57,7 +58,7 @@ body {
     height: 100vh;
     background: var(--card-bg);
     border-right: 1px solid var(--border-color);
-    z-index: 1000;
+    z-index: 1200;
     transition: left 0.3s ease;
     padding: 20px;
     display: flex;
@@ -200,3 +201,11 @@ body {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
+/* ui-fix: ensure controls stay clickable */
+.header { z-index: 1100 !important; }
+.sidebar { z-index: 1200 !important; }
+.app-overlay { z-index: 1150 !important; }
+.menu-btn, .nav-link, .btn-action { pointer-events: auto !important; cursor: pointer; }
+.modal-overlay { display: none; }
+.modal-overlay.is-open { display: flex !important; }
