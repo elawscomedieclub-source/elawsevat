@@ -42,8 +42,8 @@
                 <input type="text" id="inputTelProfil" class="input" value="+22898231402">
 
                 <label style="font-size:11.5px; color:var(--text-primary);">Métier / Profession :</label>
-                <input type="text" id="inputMetier" class="input" value="Administration & Systèmes">
-            </div>
+                <select id="inputMetier" class="input" onchange="onMetierSelectChange(this)"></select>
+            <input type="text" id="inputMetierAutre" class="input" placeholder="Préciser votre métier" style="display:none;margin-top:6px;">
             <button onclick="demanderPermissionsEtActiverProfil()" class="btn-action">🚀 Valider & Accéder à l'Application</button>
         </div>
     </div>
@@ -88,40 +88,20 @@
                 <h3 id="sidebarUserName" style="font-size:14px; margin:0; color:var(--accent);">Kodjo Marceline</h3>
                 <span id="sidebarUserRole" style="font-size:11px; color:var(--success);">Opérateur Actif</span>
             </div>
-            <div style="display:flex; flex-direction:column; gap:4px; flex:1;">
-                <div class="nav-group">
-                    <a href="#" onclick="switchTab('dashboard'); return false;" class="nav-link active" id="link-dashboard">🏠 1 · Accueil</a>
-                    <div class="nav-sub">
-                        <a href="#" onclick="switchTab('dashboard'); return false;" class="nav-link nav-sublink">📊 Tableau de bord</a>
-                        <a href="#" onclick="switchTab('map'); return false;" class="nav-link nav-sublink" id="link-map">🗺️ Carte GPS</a>
-                    </div>
-                </div>
-                <div class="nav-group">
-                    <a href="#" onclick="switchTab('messagerie'); return false;" class="nav-link" id="link-messagerie">💬 2 · Messages</a>
-                    <div class="nav-sub">
-                        <a href="#" onclick="switchTab('messagerie'); return false;" class="nav-link nav-sublink">💬 Discussions</a>
-                        <a href="#" onclick="ouvrirPanneauAppels(); return false;" class="nav-link nav-sublink">📞 Appels audio / vidéo</a>
-                    </div>
-                </div>
-                <div class="nav-group">
-                    <a href="#" onclick="switchTab('contacts'); return false;" class="nav-link" id="link-contacts">👥 3 · Réseau</a>
-                    <div class="nav-sub">
-                        <a href="#" onclick="switchTab('contacts'); return false;" class="nav-link nav-sublink">📇 Contacts</a>
-                        <a href="#" onclick="switchTab('profil'); return false;" class="nav-link nav-sublink" id="link-profil">👤 Mon profil</a>
-                    </div>
-                </div>
-                <div class="nav-group">
-                    <a href="#" onclick="switchTab('elaws-ia'); return false;" class="nav-link" id="link-elaws-ia">⚡ 4 · ELAWS & Outils</a>
-                    <div class="nav-sub">
-                        <a href="#" onclick="switchTab('elaws-ia'); return false;" class="nav-link nav-sublink">🤖 Assistant ELAWS</a>
-                        <a href="#" onclick="switchTab('outils'); return false;" class="nav-link nav-sublink" id="link-outils">🛠️ Notes</a>
-                        <a href="#" onclick="switchTab('parametres'); return false;" class="nav-link nav-sublink" id="link-parametres">⚙️ Paramètres</a>
-                        <a href="#" onclick="switchTab('voyage'); return false;" class="nav-link nav-sublink" id="link-voyage">✈️ Voyage</a>
-                        <a href="#" onclick="switchTab('sync'); return false;" class="nav-link nav-sublink" id="link-sync">☁️ Sauvegarde</a>
-                        <a href="#" onclick="switchTab('quetes'); return false;" class="nav-link nav-sublink" id="link-quetes">⚡ Quêtes</a>
-                        <a href="#" onclick="switchTab('succes1000'); return false;" class="nav-link nav-sublink" id="link-succes1000">💎 Stratégie</a>
-                    </div>
-                </div>
+            <div style="display:flex; flex-direction:column; gap:6px; flex:1;">
+                <a href="#" onclick="switchTab('dashboard')" class="nav-link active" id="link-dashboard">📊 Dashboard HUD</a>
+                <a href="#" onclick="switchTab('elaws-ia')" class="nav-link" id="link-elaws-ia">🤖 Assistant IA ELAWS</a>
+                <a href="#" onclick="switchTab('contacts')" class="nav-link" id="link-contacts">📇 Contacts & Annuaire</a>
+                <a href="#" onclick="switchTab('map')" class="nav-link" id="link-map">🗺️ Carte & Position GPS</a>
+                <a href="#" onclick="switchTab('messagerie')" class="nav-link" id="link-messagerie">💬 Messagerie & Fichiers</a>
+                <a href="#" onclick="switchTab('communications')" class="nav-link" id="link-communications">📞 Appels & VoIP Directs</a>
+                <a href="#" onclick="switchTab('parametres')" class="nav-link" id="link-parametres">⚙️ Paramètres & Sonneries</a>
+                <a href="#" onclick="switchTab('quetes')" class="nav-link" id="link-quetes">⚡ Quêtes & Qubits</a>
+                <a href="#" onclick="switchTab('succes1000')" class="nav-link" id="link-succes1000">💎 Stratégie Succès</a>
+                <a href="#" onclick="switchTab('sync')" class="nav-link" id="link-sync">☁️ Sauvegarde Cloud</a>
+                <a href="#" onclick="switchTab('voyage')" class="nav-link" id="link-voyage">✈️ Guide Voyage & Visa</a>
+                <a href="#" onclick="switchTab('profil')" class="nav-link" id="link-profil">👤 Profil & Sécurité</a>
+                <a href="#" onclick="switchTab('outils')" class="nav-link" id="link-outils">🛠️ Bloc-Notes & Outils</a>
             </div>
             <div style="margin-top:auto; padding-top:10px; border-top:1px solid var(--border-color);">
                 <button onclick="deconnecterUtilisateur()" class="btn-action" style="background:rgba(239,68,68,0.15); color:#ef4444; border:1px solid #ef4444; font-size:12px;">🔄 Refaire l'enregistrement</button>
@@ -193,41 +173,17 @@
 
             <section id="tab-messagerie" class="tab-content" style="display:none;">
                 <div class="card">
-                    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
-                        <h2 style="margin:0;">💬 Messages</h2>
-                        <div style="display:flex;gap:6px;">
-                            <button type="button" onclick="ouvrirPanneauAppels()" class="btn-action" style="width:auto;padding:8px 12px;font-size:12px;background:linear-gradient(135deg,#10b981,#059669);" title="Appels">📞 Appel</button>
+                    <h2>💬 Messagerie & Stockage Interne</h2>
+                    <div style="background:var(--bg-color); padding:10px; border-radius:10px; border:1px solid var(--success); margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <strong style="font-size:12px; color:var(--success);">📁 Stockage Appareil</strong>
+                            <div style="font-size:11px; color:var(--text-secondary);">Géré automatiquement en arrière-plan</div>
                         </div>
+                        <span style="font-size:18px;">🔒</span>
                     </div>
-                    <p style="font-size:12px;color:var(--text-secondary);margin:0 0 10px 0;">Discussions + appels audio et vidéo dans le même module.</p>
-                    <div style="background:rgba(16,185,129,0.1); padding:8px 10px; border-radius:10px; border:1px solid rgba(16,185,129,0.35); margin-bottom:12px; font-size:11px; color:var(--text-secondary);">
-                        📁 Messages stockés sur l'appareil · 🔒 Relais temporaire si les deux sont en ligne
-                    </div>
-                    <div id="panneauAppels" style="display:none;margin-bottom:14px;padding:14px;border:1px solid var(--border-color);border-radius:14px;background:rgba(59,130,246,0.08);">
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                            <strong style="color:var(--accent);font-size:13px;">📞 Choisir le type d'appel</strong>
-                            <button type="button" onclick="fermerPanneauAppels()" style="background:none;border:none;color:var(--text-secondary);font-size:16px;cursor:pointer;">✕</button>
-                        </div>
-                        <div id="voipStatusDisplay" style="margin:0 0 10px 0; color:var(--accent); font-weight:600; text-align:center; font-size:12px;">ID VoIP</div>
-                        <input type="text" id="appelCibleNum" class="input" placeholder="Numéro du contact (ex: +228…)" style="margin-bottom:10px;">
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-                            <button onclick="lancerAppelDirectPeer('audio')" class="btn-action" style="background:linear-gradient(135deg,#10b981,#059669);padding:14px 10px;">
-                                🎙️<br><span style="font-size:11px;">Appel simple</span>
-                            </button>
-                            <button onclick="lancerAppelDirectPeer('video')" class="btn-action" style="background:linear-gradient(135deg,#0ea5e9,#0284c7);padding:14px 10px;">
-                                📹<br><span style="font-size:11px;">Appel vidéo</span>
-                            </button>
-                        </div>
-                        <div id="callContainer" style="margin-top:12px; display:none; background:#000; border-radius:10px; padding:10px; text-align:center;">
-                            <video id="remoteVideo" autoplay playsinline style="width:100%; max-height:200px; border-radius:8px; background:#111;"></video>
-                            <audio id="remoteAudio" autoplay></audio>
-                            <button onclick="raccrocherAppel()" class="btn-action" style="background:#ef4444; margin-top:8px;">❌ Raccrocher</button>
-                        </div>
-                        <div id="callStatusLog" style="margin-top:10px; font-size:11px; color:var(--success); text-align:center;">Prêt à appeler.</div>
-                    </div>
-                    <div id="listeMessagesLocaux" style="background:var(--bg-color); border:1px solid var(--border-color); border-radius:12px; padding:10px; height:240px; overflow-y:auto; margin-bottom:10px;"></div>
+                    <div id="listeMessagesLocaux" style="background:var(--bg-color); border:1px solid var(--border-color); border-radius:10px; padding:10px; height:200px; overflow-y:auto; margin-bottom:10px;"></div>
                     <div style="display:flex; gap:6px;">
-                        <input type="text" id="chatLocalInput" class="input" placeholder="Écrire un message…" style="margin-bottom:0; flex:1;" onkeypress="if(event.key==='Enter') envoyerMessageChatLocal()">
+                        <input type="text" id="chatLocalInput" class="input" placeholder="Message..." style="margin-bottom:0;" onkeypress="if(event.key==='Enter') envoyerMessageChatLocal()">
                         <button onclick="envoyerMessageChatLocal()" class="btn-action" style="width:auto; padding:0 16px; background:var(--success);">Envoyer</button>
                     </div>
                 </div>
@@ -235,9 +191,18 @@
 
             <section id="tab-communications" class="tab-content" style="display:none;">
                 <div class="card">
-                    <h2>📞 Appels</h2>
-                    <p style="font-size:13px;color:var(--text-secondary);">Les appels sont dans le module <b>Messages</b>.</p>
-                    <button onclick="switchTab('messagerie'); setTimeout(ouvrirPanneauAppels, 100);" class="btn-action" style="background:var(--success);">Ouvrir Messages → Appels</button>
+                    <h2>📞 Appels Directs & VoIP</h2>
+                    <div id="voipStatusDisplay" style="margin:12px 0; color:var(--accent); font-weight:700; text-align:center;">ID : +228 98 23 14 02</div>
+                    <input type="text" id="appelCibleNum" class="input" placeholder="Numéro du contact (ex: +22898231401)">
+                    <button onclick="lancerAppelDirectPeer('audio')" class="btn-action" style="background:var(--success); margin-bottom:8px;">🎙️ Appel Audio Direct</button>
+                    <button onclick="lancerAppelDirectPeer('video')" class="btn-action" style="background:var(--accent); color:#030712; margin-bottom:8px;">📹 Appel Vidéo Direct</button>
+                    
+                    <div id="callContainer" style="margin-top:10px; display:none; background:#000; border-radius:10px; padding:10px; text-align:center;">
+                        <video id="remoteVideo" autoplay playsinline style="width:100%; max-height:200px; border-radius:8px; background:#111;"></video>
+                        <audio id="remoteAudio" autoplay></audio>
+                        <button onclick="raccrocherAppel()" class="btn-action" style="background:#ef4444; margin-top:8px;">❌ Raccrocher</button>
+                    </div>
+                    <div id="callStatusLog" style="margin-top:10px; font-size:11px; color:var(--success); text-align:center;">Système prêt.</div>
                 </div>
             </section>
 
@@ -309,10 +274,23 @@
 
             <section id="tab-outils" class="tab-content" style="display:none;">
                 <div class="card">
-                    <h2>🛠️ Bloc-Notes & Outils</h2>
-                    <input type="text" id="noteTitre" class="input" placeholder="Titre...">
-                    <textarea id="noteContenu" class="input" placeholder="Contenu..." style="height:60px;"></textarea>
-                    <button class="btn-action" onclick="ajouterNoteBlocNotes()">Enregistrer</button>
+                    <h2>🛠️ Outils de travail</h2>
+                    <p style="font-size:12px;color:var(--text-secondary);margin:-4px 0 10px 0;">Outils adaptés à <b>ton métier</b> — précis et utilisables sur le terrain.</p>
+                    <div id="outilsMetierBadge" style="font-size:12px;color:var(--accent);margin-bottom:12px;"></div>
+                    <div id="outilsMetierListe"></div>
+                </div>
+                <div class="card" id="outilActifCard" style="display:none;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;">
+                        <h2 id="outilActifTitre" style="margin:0;font-size:14px;">Outil</h2>
+                        <button type="button" onclick="fermerOutilActif()" class="btn-action" style="width:auto;padding:6px 10px;font-size:11px;">✕</button>
+                    </div>
+                    <div id="outilActifCorps"></div>
+                </div>
+                <div class="card">
+                    <h2>📝 Notes rapides</h2>
+                    <input type="text" id="noteTitre" class="input" placeholder="Titre…">
+                    <textarea id="noteContenu" class="input" placeholder="Contenu…" style="height:60px;"></textarea>
+                    <button class="btn-action" onclick="ajouterNoteBlocNotes()">Enregistrer la note</button>
                     <div id="listeNotesContainer" style="margin-top:10px;"></div>
                 </div>
             </section>
