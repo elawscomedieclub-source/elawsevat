@@ -1,15 +1,18 @@
 {
-  "name": "EVAT | ELAWS Quantum",
+  "name": "EVAT | ELAWS Quantum Continuum",
   "short_name": "EVAT",
+  "description": "Réseau quantique d'opérateurs — messagerie, appels P2P, GPS, IA ELAWS",
   "start_url": "./index.html",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#030712",
   "theme_color": "#030712",
   "icons": [
     {
       "src": "logo_evat.svg",
       "sizes": "any",
-      "type": "image/svg+xml"
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
     }
   ]
 }

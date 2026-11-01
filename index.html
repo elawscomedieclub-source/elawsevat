@@ -3,11 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>EVAT | ELAWS Quantum v3.92 Continuum</title>
+    <title>EVAT | ELAWS Quantum v3.95 Continuum</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" href="logo_evat.svg" type="image/svg+xml">
     <meta name="theme-color" content="#030712">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -16,20 +18,29 @@
     </script>
 </head>
 <body>
-    <div id="welcomeModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(3,7,18,0.95); z-index:99999; display:flex; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
-        <div class="card" style="max-width:420px; width:100%; text-align:center;">
+    <!-- Modal d'enregistrement sécurisé -->
+    <div id="welcomeModal" class="modal-overlay" style="display:none;">
+        <div class="card welcome-card">
             <div class="quantum-globe-container" style="margin: 0 auto 15px auto;">
                 <div class="earth-globe"></div>
                 <div class="orbit-ring"></div>
             </div>
-            <h2 style="color:var(--accent); font-size:18px; margin-bottom:6px;">EVAT v3.92 Continuum</h2>
-            <p style="font-size:12px; color:var(--text-secondary); margin-bottom:14px;">Enregistrement unique de votre profil opérateur.</p>
-            
-            <div style="text-align:left; margin-bottom:14px;">
-                <label style="font-size:11.5px; color:var(--text-primary);">Nom & Prénom :</label>
-                <input type="text" id="inputNom" class="input" value="Kodjo Marceline">
-                
-                <label style="font-size:11.5px; color:var(--text-primary);">Pays / Indicatif :</label>
+            <h2 style="color:var(--accent); font-size:18px; margin-bottom:6px;">EVAT v3.95 Continuum</h2>
+            <p style="font-size:12px; color:var(--text-secondary); margin-bottom:10px;">
+                Un numéro = un seul compte. Entrez <strong>vos propres informations</strong> (pas d’exemple).
+            </p>
+
+            <div class="auth-tabs">
+                <button type="button" id="tabBtnCreate" class="auth-tab active" onclick="afficherModeAuth('create')">Créer un compte</button>
+                <button type="button" id="tabBtnRecover" class="auth-tab" onclick="afficherModeAuth('recover')">Récupérer mon compte</button>
+            </div>
+
+            <!-- MODE CRÉATION -->
+            <div id="authModeCreate" style="text-align:left;">
+                <label>Nom & Prénom (le vôtre uniquement) :</label>
+                <input type="text" id="inputNom" class="input" placeholder="Ex: Afi Mensah" autocomplete="name" value="">
+
+                <label>Pays / Indicatif :</label>
                 <select id="selectPays" class="input" onchange="mettreAJourIndicatif()">
                     <option value="+228" selected>🇹🇬 Togo (+228)</option>
                     <option value="+233">🇬🇭 Ghana (+233)</option>
@@ -38,34 +49,71 @@
                     <option value="+1">🇺🇸 États-Unis (+1)</option>
                 </select>
 
-                <label style="font-size:11.5px; color:var(--text-primary);">Numéro de téléphone / VoIP :</label>
-                <input type="text" id="inputTelProfil" class="input" value="+22898231402">
+                <label>Numéro de téléphone (unique) :</label>
+                <input type="tel" id="inputTelProfil" class="input" placeholder="+228XXXXXXXX" autocomplete="tel" value="">
 
-                <label style="font-size:11.5px; color:var(--text-primary);">Métier / Profession :</label>
-                <input type="text" id="inputMetier" class="input" value="Administration & Systèmes">
+                <label>Métier / Profession :</label>
+                <input type="text" id="inputMetier" class="input" placeholder="Votre métier" value="">
+
+                <p id="authCreateError" class="auth-error" style="display:none;"></p>
+                <button type="button" onclick="demanderPermissionsEtActiverProfil()" class="btn-action">🚀 Créer mon compte</button>
             </div>
-            <button onclick="demanderPermissionsEtActiverProfil()" class="btn-action">🚀 Valider & Accéder à l'Application</button>
+
+            <!-- MODE RÉCUPÉRATION -->
+            <div id="authModeRecover" style="text-align:left; display:none;">
+                <p style="font-size:11.5px; color:var(--text-secondary); margin-bottom:10px;">
+                    Changement d’appareil ? Même numéro + <strong>code de récupération</strong> reçu à la création.
+                </p>
+                <label>Numéro du compte :</label>
+                <input type="tel" id="inputTelRecover" class="input" placeholder="+228XXXXXXXX" value="">
+
+                <label>Code de récupération (6 chiffres) :</label>
+                <input type="text" id="inputPinRecover" class="input" placeholder="123456" maxlength="8" inputmode="numeric" value="">
+
+                <label>Métier (optionnel) :</label>
+                <input type="text" id="inputMetierRecover" class="input" placeholder="Votre métier" value="">
+
+                <p id="authRecoverError" class="auth-error" style="display:none;"></p>
+                <button type="button" onclick="recupererCompteExistant()" class="btn-action btn-success">🔓 Récupérer mon compte</button>
+            </div>
         </div>
     </div>
 
-    <div id="installBanner" style="position:fixed; bottom:15px; left:50%; transform:translateX(-50%); z-index:9999; width:90%; max-width:400px; display:none; background:rgba(15,23,42,0.95); color:#fff; padding:12px 16px; border-radius:14px; border:1px solid var(--accent); align-items:center; justify-content:space-between; gap:10px;">
+    <!-- Code de récupération (affiché une seule fois) -->
+    <div id="pinModal" class="modal-overlay" style="display:none;">
+        <div class="card welcome-card" style="max-width:380px;">
+            <h2 style="color:var(--success); font-size:17px; margin-bottom:8px;">🔐 Code de récupération</h2>
+            <p style="font-size:12px; color:var(--text-secondary); margin-bottom:12px;">
+                Notez ce code <strong>maintenant</strong>. Il sera demandé si vous changez de téléphone. Il ne s’affichera plus.
+            </p>
+            <div id="pinDisplay" class="pin-display">------</div>
+            <p style="font-size:11px; color:var(--danger); margin:10px 0 14px 0;">
+                Ne le partagez avec personne. Sans ce code, impossible de récupérer le compte.
+            </p>
+            <button type="button" onclick="fermerPinModal()" class="btn-action btn-success">J’ai noté mon code — Continuer</button>
+        </div>
+    </div>
+
+    <!-- Bannière installation PWA -->
+    <div id="installBanner">
         <div>
             <strong style="font-size:12.5px; color:var(--accent); display:block;">📱 Installer EVAT Continuum</strong>
             <span style="font-size:11px; color:var(--text-secondary);">Ajoutez l'application sur votre écran d'accueil.</span>
         </div>
         <div style="display:flex; gap:6px;">
             <button onclick="declencherInstallationApp()" class="btn-action" style="background:var(--success); color:#fff; padding:6px 12px; font-size:11px; width:auto;">Installer</button>
-            <button onclick="fermerBanniereInstall()" style="background:transparent; border:1px solid var(--border-color); color:var(--text-secondary); padding:6px 8px; font-size:11px; border-radius:8px; cursor:pointer;">✕</button>
+            <button onclick="fermerBanniereInstall()" class="btn-close">✕</button>
         </div>
     </div>
 
-    <div id="notificationBanner" style="position:fixed; top:12px; left:50%; transform:translateX(-50%); z-index:9999; width:90%; max-width:400px; display:none; background:rgba(16,185,129,0.95); color:#fff; padding:12px; border-radius:12px; border:1px solid #34d399;">
+    <!-- Notification temps réel -->
+    <div id="notificationBanner">
         <div style="display:flex; justify-content:space-between; align-items:center;">
             <div>
                 <strong style="font-size:13px; display:block;">🚨 Alerte Sentinelle Continuum</strong>
                 <span id="notificationText" style="font-size:12px;">Contact inscrit !</span>
             </div>
-            <button onclick="fermerNotification()" style="background:none; border:none; color:#fff; font-size:16px; cursor:pointer;">✕</button>
+            <button onclick="fermerNotification()" class="btn-close">✕</button>
         </div>
     </div>
 
@@ -73,73 +121,83 @@
         <header class="header">
             <div class="header-left">
                 <button onclick="toggleMenu(event)" class="menu-btn" aria-label="Menu">☰</button>
-                <h1 style="font-size:14px; margin:0; color:var(--accent);">EVAT <span style="font-weight:300; font-size:11px; color:var(--text-secondary);">| Continuum</span></h1>
+                <button type="button" id="headerProfilBtn" onclick="switchTab('profil');return false;" class="header-profil-btn">
+                    <span id="headerProfilPhoto">?</span>
+                    <span class="header-profil-text">
+                        <span id="headerProfilNom">Profil</span>
+                        <span id="headerProfilTel"></span>
+                    </span>
+                </button>
             </div>
             <div class="elaws-widget">
-                <button onclick="switchTab('elaws-ia')" class="elaws-magic-bubble" style="cursor:pointer; display:flex; align-items:center; gap:6px;">
+                <button onclick="switchTab('elaws-ia')" class="elaws-magic-bubble">
                     <div class="magic-sphere-core"></div>
-                    <span>🤖 ELAWS AI</span>
+                    <span>🤖 ELAWS</span>
                 </button>
             </div>
         </header>
 
         <nav id="sidebar" class="sidebar" onclick="event.stopPropagation()">
-            <div style="margin-bottom:15px; border-bottom:1px solid var(--border-color); padding-bottom:10px;">
-                <h3 id="sidebarUserName" style="font-size:14px; margin:0; color:var(--accent);">Kodjo Marceline</h3>
-                <span id="sidebarUserRole" style="font-size:11px; color:var(--success);">Opérateur Actif</span>
+            <div class="sidebar-user">
+                <h3 id="sidebarUserName">—</h3>
+                <span id="sidebarUserRole">Non connecté</span>
             </div>
-            <div style="display:flex; flex-direction:column; gap:4px; flex:1;" id="navModulesRoot">
-                <div class="nav-module" data-module="accueil">
-                    <button type="button" class="nav-module-btn" onclick="toggleGrandModule('accueil')">🏠 1 · Accueil <span class="nav-chevron">▼</span></button>
-                    <div class="nav-sous" id="sous-accueil" style="display:none;">
-                        <a href="#" class="nav-link" id="link-dashboard" onclick="ouvrirSousModule('dashboard'); return false;">📊 Tableau de bord</a>
-                        <a href="#" class="nav-link" id="link-map" onclick="ouvrirSousModule('map'); return false;">🗺️ Carte GPS</a>
-                    </div>
+            <div class="nav-modules" id="navModulesRoot">
+                <p class="nav-hint">4 modules — profil en haut</p>
+                
+                <!-- Module 1 : un seul nom clair -->
+                <div class="nav-module" data-module="dashboard">
+                    <button type="button" class="nav-module-btn" onclick="ouvrirSousModule('dashboard');">
+                        🏠 1 · Tableau de bord
+                    </button>
                 </div>
+
                 <div class="nav-module" data-module="messages">
-                    <button type="button" class="nav-module-btn" onclick="toggleGrandModule('messages')">💬 2 · Messages <span class="nav-chevron">▼</span></button>
-                    <div class="nav-sous" id="sous-messages" style="display:none;">
-                        <a href="#" class="nav-link" id="link-messagerie" onclick="ouvrirSousModule('messagerie'); return false;">💬 Discussions</a>
-                        <a href="#" class="nav-link" id="link-communications" onclick="ouvrirSousModule('messagerie'); if(typeof ouvrirPanneauAppels==='function')setTimeout(ouvrirPanneauAppels,80); return false;">📞 Appels audio / vidéo</a>
-                    </div>
+                    <button type="button" class="nav-module-btn" onclick="ouvrirSousModule('messagerie');">
+                        💬 2 · Discussion, Appels & GPS
+                    </button>
                 </div>
+
                 <div class="nav-module" data-module="reseau">
-                    <button type="button" class="nav-module-btn" onclick="toggleGrandModule('reseau')">👥 3 · Réseau <span class="nav-chevron">▼</span></button>
-                    <div class="nav-sous" id="sous-reseau" style="display:none;">
-                        <a href="#" class="nav-link" id="link-contacts" onclick="ouvrirSousModule('contacts'); return false;">📇 Contacts</a>
-                        <a href="#" class="nav-link" id="link-profil" onclick="ouvrirSousModule('profil'); return false;">👤 Mon profil</a>
-                    </div>
+                    <button type="button" class="nav-module-btn" onclick="ouvrirSousModule('contacts');">
+                        👥 3 · Contacts
+                    </button>
                 </div>
+
                 <div class="nav-module" data-module="elaws">
-                    <button type="button" class="nav-module-btn" onclick="toggleGrandModule('elaws')">⚡ 4 · ELAWS & Outils <span class="nav-chevron">▼</span></button>
-                    <div class="nav-sous" id="sous-elaws" style="display:none;">
-                        <a href="#" class="nav-link" id="link-elaws-ia" onclick="ouvrirSousModule('elaws-ia'); return false;">🤖 Assistant ELAWS</a>
-                        <a href="#" class="nav-link" id="link-outils" onclick="ouvrirSousModule('outils'); return false;">🛠️ Outils de métier</a>
-                        <a href="#" class="nav-link" id="link-parametres" onclick="ouvrirSousModule('parametres'); return false;">⚙️ Paramètres</a>
-                        <a href="#" class="nav-link" id="link-voyage" onclick="ouvrirSousModule('voyage'); return false;">✈️ Voyage</a>
-                        <a href="#" class="nav-link" id="link-sync" onclick="ouvrirSousModule('sync'); return false;">☁️ Sauvegarde</a>
-                        <a href="#" class="nav-link" id="link-quetes" onclick="ouvrirSousModule('quetes'); return false;">⚡ Quêtes</a>
-                        <a href="#" class="nav-link" id="link-succes1000" onclick="ouvrirSousModule('succes1000'); return false;">💎 Stratégie</a>
+                    <button type="button" class="nav-module-btn" onclick="toggleGrandModule('elaws');">
+                        ⚡ 4 · ELAWS, Quêtes, Outils & Stratégie <span class="nav-chevron">▼</span>
+                    </button>
+                    <div class="nav-sous">
+                        <a href="#" class="nav-link" id="link-elaws-ia" onclick="ouvrirSousModule('elaws-ia');return false;">🤖 ELAWS AI</a>
+                        <a href="#" class="nav-link" id="link-outils" onclick="ouvrirSousModule('outils');return false;">🛠️ Bloc-notes</a>
+                        <a href="#" class="nav-link" id="link-parametres" onclick="ouvrirSousModule('parametres');return false;">⚙️ Paramètres</a>
+                        <a href="#" class="nav-link" id="link-voyage" onclick="ouvrirSousModule('voyage');return false;">✈️ Voyage</a>
+                        <a href="#" class="nav-link" id="link-sync" onclick="ouvrirSousModule('sync');return false;">☁️ Sauvegarde</a>
+                        <a href="#" class="nav-link" id="link-quetes" onclick="ouvrirSousModule('quetes');return false;">⚡ Quêtes</a>
+                        <a href="#" class="nav-link" id="link-succes1000" onclick="ouvrirSousModule('succes1000');return false;">💎 Stratégie</a>
                     </div>
                 </div>
             </div>
-            <div style="margin-top:auto; padding-top:10px; border-top:1px solid var(--border-color);">
-                <button onclick="deconnecterUtilisateur()" class="btn-action" style="background:rgba(239,68,68,0.15); color:#ef4444; border:1px solid #ef4444; font-size:12px;">🔄 Refaire l'enregistrement</button>
+            <div class="sidebar-footer">
+                <button onclick="deconnecterUtilisateur()" class="btn-action btn-danger">🔄 Refaire l'enregistrement</button>
             </div>
         </nav>
 
         <div id="appOverlay" class="app-overlay" onclick="fermerTousLesMenus()"></div>
 
-        <main style="padding:14px;">
+        <main>
+            <!-- DASHBOARD -->
             <section id="tab-dashboard" class="tab-content active">
-                <div class="card" style="text-align:center; padding:12px;">
+                <div class="card text-center">
                     <div class="nexus-avatar-frame"><div class="nexus-avatar-glow"></div></div>
-                    <h3 id="dashUserName" style="color:var(--accent); font-size:13px; margin:6px 0 2px 0;">KODJO MARCELINE</h3>
-                    <span id="dashUserMetier" style="font-size:10.5px; color:var(--text-secondary);">Administration & Systèmes</span>
+                    <h3 id="dashUserName" class="dash-name">—</h3>
+                    <span id="dashUserMetier" class="dash-metier">Profil non chargé</span>
                 </div>
-                <div class="card" style="text-align:center;">
-                    <h3 style="color:var(--accent); font-size:13.5px; margin-bottom:2px;">RÉSEAU QUANTIQUE MONDIAL</h3>
-                    <p style="font-size:11px; color:var(--success); margin-bottom:10px;" id="serverConnectionStatus">🟢 Connexion active</p>
+                <div class="card text-center">
+                    <h3 class="section-title">RÉSEAU QUANTIQUE MONDIAL</h3>
+                    <p class="status-line" id="serverConnectionStatus">🟢 Connexion active</p>
+                    <p class="online-count">Opérateurs en ligne : <strong id="onlineCount">0</strong></p>
                     <div class="quantum-globe-container">
                         <div class="earth-globe"></div>
                         <div class="orbit-ring"></div>
@@ -147,92 +205,120 @@
                 </div>
             </section>
 
+            <!-- ELAWS AI -->
             <section id="tab-elaws-ia" class="tab-content" style="display:none;">
                 <div class="card">
                     <h2>🤖 Assistant IA ELAWS</h2>
-                    <div id="elawsChatBox" style="background:var(--bg-color); border:1px solid var(--border-color); border-radius:10px; padding:10px; height:220px; overflow-y:auto; margin-bottom:10px; display:flex; flex-direction:column; gap:8px;">
-                        <div style="background:rgba(59,130,246,0.1); border:1px solid var(--accent); padding:8px; border-radius:8px;">
-                            <strong style="color:var(--accent); font-size:11.5px;">🤖 ELAWS AI :</strong>
-                            <p style="font-size:12px; margin:3px 0 0 0;">Bonjour ! Je suis prêt. Parlez ou écrivez, je réponds instantanément !</p>
+                    <div id="elawsChatBox" class="chat-box">
+                        <div class="msg-ai">
+                            <strong>🤖 ELAWS AI</strong>
+                            <p>Bonjour ! Je suis prêt. Parlez ou écrivez, je réponds de façon dynamique et contextuelle.</p>
                         </div>
                     </div>
-                    <div style="display:flex; gap:6px;">
-                        <input type="text" id="elawsInput" class="input" placeholder="Posez votre question..." style="margin-bottom:0; flex:1;" onkeypress="if(event.key==='Enter') poserQuestionElaws()">
-                        <button onclick="basculerEcouteVocaleIA()" class="btn-action" style="width:auto; padding:0 12px; background:rgba(59,130,246,0.2); color:var(--accent); border:1px solid var(--accent);">🎙️</button>
-                        <button onclick="poserQuestionElaws()" class="btn-action" style="width:auto; padding:0 16px; background:var(--success); color:#fff;">Envoyer</button>
+                    <div class="chat-input-row">
+                        <textarea id="elawsInput" class="input input-message" rows="1" placeholder="Posez votre question..." oninput="autoResize(this)" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();poserQuestionElaws();}"></textarea>
+                        <button onclick="basculerEcouteVocaleIA()" class="btn-action btn-mic">🎙️</button>
+                        <button onclick="poserQuestionElaws()" class="btn-action btn-send">Envoyer</button>
                     </div>
-                    <div id="micStatusElaws" style="font-size:11px; color:var(--text-secondary); margin-top:4px; text-align:right;"></div>
+                    <div id="micStatusElaws" class="mic-status"></div>
                 </div>
             </section>
 
+            <!-- CONTACTS -->
             <section id="tab-contacts" class="tab-content" style="display:none;">
                 <div class="card">
                     <h2>📇 Annuaire & Contacts</h2>
-                    <div style="background:var(--bg-color); padding:10px; border-radius:10px; border:1px solid var(--border-color); margin-bottom:12px;">
-                        <strong style="font-size:12px; color:var(--accent);">➕ Enregistrer un contact</strong>
-                        <div style="display:flex; flex-direction:column; gap:6px; margin-top:8px;">
-                            <input type="text" id="nouveauNomContact" class="input" placeholder="Nom..." style="margin-bottom:0;">
-                            <input type="text" id="nouveauTelContact" class="input" placeholder="Numéro avec indicatif (ex: +228...)" style="margin-bottom:0;">
-                            <button onclick="ajouterNouveauContact()" class="btn-action" style="background:var(--success);">Enregistrer</button>
+                    <div class="add-contact-box">
+                        <strong>➕ Enregistrer un contact</strong>
+                        <div class="add-contact-form">
+                            <input type="text" id="nouveauNomContact" class="input" placeholder="Nom...">
+                            <input type="text" id="nouveauTelContact" class="input" placeholder="Numéro avec indicatif (ex: +228...)">
+                            <button onclick="ajouterNouveauContact()" class="btn-action btn-success">Enregistrer</button>
                         </div>
                     </div>
-                    <div id="listeContactsContainer" style="display:flex; flex-direction:column; gap:8px;"></div>
+                    <div id="listeContactsContainer" class="contacts-list"></div>
                 </div>
             </section>
 
+            <!-- MAP (legacy) -->
             <section id="tab-map" class="tab-content" style="display:none;">
                 <div class="card">
                     <h2>🗺️ Carte & Position GPS</h2>
-                    <div style="margin-bottom:10px; display:flex; gap:8px;">
-                        <button onclick="partagerMaPositionGPS()" class="btn-action" style="background:var(--success);">📍 Partager ma Position</button>
-                        <button onclick="centrerSurMoi()" class="btn-action" style="background:var(--accent); color:#030712;">🎯 Centrer</button>
+                    <div class="map-actions">
+                        <button onclick="partagerMaPositionGPS()" class="btn-action btn-success">📍 Partager ma Position</button>
+                        <button onclick="centrerSurMoi()" class="btn-action btn-accent">🎯 Centrer</button>
                     </div>
-                    <div id="mapContainer" style="width:100%; height:260px; border-radius:14px; border:1px solid var(--border-color);"></div>
+                    <div id="mapContainer" class="map-box"></div>
                 </div>
             </section>
 
+            <!-- MESSAGERIE (page unique dynamique) -->
             <section id="tab-messagerie" class="tab-content" style="display:none;">
                 <div class="card">
-                    <h2>💬 Messagerie & Stockage Interne</h2>
-                    <div style="background:var(--bg-color); padding:10px; border-radius:10px; border:1px solid var(--success); margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
-                        <div>
-                            <strong style="font-size:12px; color:var(--success);">📁 Stockage Appareil</strong>
-                            <div style="font-size:11px; color:var(--text-secondary);">Géré automatiquement en arrière-plan</div>
+                    <h2>💬 Discussion, Appels & GPS</h2>
+                    <p class="subtitle">Une seule page : messages temps réel + 📞 appels + 🗺️ GPS.</p>
+                    
+                    <div id="listeMessagesLocaux" class="messages-list"></div>
+
+                    <!-- Panneau Appel -->
+                    <div id="panneauChoixAppel" class="panel-call" style="display:none;">
+                        <div class="panel-header">
+                            <strong>📞 Type d'appel</strong>
+                            <button type="button" onclick="fermerChoixAppel()" class="btn-close">✕</button>
                         </div>
-                        <span style="font-size:18px;">🔒</span>
+                        <div id="voipStatusDisplay" class="voip-id">ID VoIP</div>
+                        <input type="text" id="appelCibleNum" class="input" placeholder="Numéro à appeler">
+                        <div class="call-type-grid">
+                            <button type="button" onclick="lancerAppelDirectPeer('audio')" class="btn-action btn-call-audio">🎙️<br><span>Appel simple</span></button>
+                            <button type="button" onclick="lancerAppelDirectPeer('video')" class="btn-action btn-call-video">📹<br><span>Appel vidéo</span></button>
+                        </div>
+                        <div id="callContainer" class="call-media" style="display:none;">
+                            <video id="remoteVideo" autoplay playsinline></video>
+                            <audio id="remoteAudio" autoplay></audio>
+                            <button onclick="raccrocherAppel()" class="btn-action btn-hangup">❌ Raccrocher</button>
+                        </div>
+                        <div id="callStatusLog" class="call-status">Prêt.</div>
                     </div>
-                    <div id="listeMessagesLocaux" style="background:var(--bg-color); border:1px solid var(--border-color); border-radius:10px; padding:10px; height:200px; overflow-y:auto; margin-bottom:10px;"></div>
-                    <div style="display:flex; gap:6px;">
-                        <input type="text" id="chatLocalInput" class="input" placeholder="Message..." style="margin-bottom:0;" onkeypress="if(event.key==='Enter') envoyerMessageChatLocal()">
-                        <button onclick="envoyerMessageChatLocal()" class="btn-action" style="width:auto; padding:0 16px; background:var(--success);">Envoyer</button>
+
+                    <!-- Panneau GPS -->
+                    <div id="panneauGpsMessage" class="panel-gps" style="display:none;">
+                        <div class="panel-header">
+                            <strong>🗺️ GPS</strong>
+                            <button type="button" onclick="fermerGpsMessage()" class="btn-close">✕</button>
+                        </div>
+                        <div class="gps-actions">
+                            <button type="button" onclick="centrerSurMoiMessage()" class="btn-action btn-accent">📍 Me localiser</button>
+                            <button type="button" onclick="partagerMaPositionGPS()" class="btn-action btn-success">📤 Partager</button>
+                        </div>
+                        <div id="mapContainerMessage" class="map-box-sm"></div>
+                        <div id="gpsMessageStatus" class="gps-status"></div>
+                    </div>
+
+                    <div class="chat-toolbar">
+                        <button type="button" id="btnAppelDiscussion" onclick="toggleChoixAppel()" class="btn-action btn-call-icon">📞</button>
+                        <button type="button" id="btnGpsDiscussion" onclick="toggleGpsMessage()" class="btn-action btn-gps-icon">🗺️</button>
+                        <textarea id="chatLocalInput" class="input input-message" rows="1" placeholder="Écrivez votre message… (Shift+Entrée = nouvelle ligne)" oninput="autoResize(this)" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();envoyerMessageChatLocal();}"></textarea>
+                        <button onclick="envoyerMessageChatLocal()" class="btn-action btn-send">Envoyer</button>
                     </div>
                 </div>
             </section>
 
+            <!-- COMMUNICATIONS (redirect) -->
             <section id="tab-communications" class="tab-content" style="display:none;">
                 <div class="card">
-                    <h2>📞 Appels Directs & VoIP</h2>
-                    <div id="voipStatusDisplay" style="margin:12px 0; color:var(--accent); font-weight:700; text-align:center;">ID : +228 98 23 14 02</div>
-                    <input type="text" id="appelCibleNum" class="input" placeholder="Numéro du contact (ex: +22898231401)">
-                    <button onclick="lancerAppelDirectPeer('audio')" class="btn-action" style="background:var(--success); margin-bottom:8px;">🎙️ Appel Audio Direct</button>
-                    <button onclick="lancerAppelDirectPeer('video')" class="btn-action" style="background:var(--accent); color:#030712; margin-bottom:8px;">📹 Appel Vidéo Direct</button>
-                    
-                    <div id="callContainer" style="margin-top:10px; display:none; background:#000; border-radius:10px; padding:10px; text-align:center;">
-                        <video id="remoteVideo" autoplay playsinline style="width:100%; max-height:200px; border-radius:8px; background:#111;"></video>
-                        <audio id="remoteAudio" autoplay></audio>
-                        <button onclick="raccrocherAppel()" class="btn-action" style="background:#ef4444; margin-top:8px;">❌ Raccrocher</button>
-                    </div>
-                    <div id="callStatusLog" style="margin-top:10px; font-size:11px; color:var(--success); text-align:center;">Système prêt.</div>
+                    <p>Appels sur <b>Discussion, Appels & GPS</b>.</p>
+                    <button type="button" class="btn-action btn-success" onclick="ouvrirSousModule('messagerie');setTimeout(function(){toggleChoixAppel(true);},80);">Ouvrir</button>
                 </div>
             </section>
 
+            <!-- PARAMÈTRES -->
             <section id="tab-parametres" class="tab-content" style="display:none;">
                 <div class="card">
                     <h2>⚙️ Paramètres & Sonneries</h2>
-                    <p style="font-size:12px; color:var(--text-secondary); margin-bottom:14px;">Personnalisez la sonnerie de vos appels entrants.</p>
+                    <p class="subtitle">Personnalisez la sonnerie de vos appels entrants.</p>
                     
-                    <label style="font-size:11.5px; color:var(--text-primary); display:block; margin-bottom:6px;">Type de Sonnerie :</label>
-                    <select id="selectSonnerieType" class="input" style="margin-bottom:14px;">
+                    <label>Type de Sonnerie :</label>
+                    <select id="selectSonnerieType" class="input">
                         <option value="iphone">📱 Style iPhone (Marimba)</option>
                         <option value="motorola">📟 Style Motorola (Électronique)</option>
                         <option value="samsung">🎶 Style Samsung (Over the Horizon)</option>
@@ -240,65 +326,80 @@
                         <option value="custom">🎵 Fichier MP3 Personnel</option>
                     </select>
 
-                    <label style="font-size:11.5px; color:var(--text-primary); display:block; margin-bottom:6px;">Importer un fichier MP3 (Max 1 Mo) :</label>
-                    <input type="file" id="inputCustomRingtone" accept="audio/mp3,audio/*" class="input" onchange="chargerSonneriePerso(event)" style="margin-bottom:16px;">
+                    <label>Importer un fichier MP3 (Max 1 Mo) :</label>
+                    <input type="file" id="inputCustomRingtone" accept="audio/mp3,audio/*" class="input" onchange="chargerSonneriePerso(event)">
 
-                    <button onclick="sauvegarderParametresApp()" class="btn-action" style="background:var(--success);">💾 Enregistrer les Paramètres</button>
+                    <button onclick="sauvegarderParametresApp()" class="btn-action btn-success">💾 Enregistrer les Paramètres</button>
                 </div>
             </section>
 
+            <!-- QUÊTES -->
             <section id="tab-quetes" class="tab-content" style="display:none;">
                 <div class="card">
                     <h2>⚡ Quêtes & Qubits</h2>
-                    <div style="background:var(--bg-color); padding:10px; border-radius:8px; border:1px solid var(--success);">
+                    <div class="quest-card">
                         <strong>✅ Configuration du Système</strong>
-                        <p style="font-size:11px; color:var(--accent); margin:2px 0;">+50 Qubits</p>
+                        <p class="quest-reward">+50 Qubits</p>
+                    </div>
+                    <div class="quest-card">
+                        <strong>📡 Première connexion réseau</strong>
+                        <p class="quest-reward">+30 Qubits</p>
                     </div>
                 </div>
             </section>
 
+            <!-- STRATÉGIE -->
             <section id="tab-succes1000" class="tab-content" style="display:none;">
                 <div class="card">
                     <h2>💎 Stratégie Succès</h2>
                     <input type="text" id="inputObjectif1000" class="input" placeholder="Votre objectif...">
-                    <button class="btn-action" onclick="genererPlanSucces1000()">Générer</button>
+                    <button class="btn-action" onclick="genererPlanSucces1000()">Générer le plan</button>
                     <div id="resultatPlan1000" style="margin-top:10px; display:none;"></div>
                 </div>
             </section>
 
+            <!-- SYNC -->
             <section id="tab-sync" class="tab-content" style="display:none;">
                 <div class="card">
                     <h2>☁️ Sauvegarde Cloud</h2>
-                    <button onclick="exporterDonneesCloud()" class="btn-action">📥 Télécharger</button>
+                    <p class="subtitle">Téléchargez une copie JSON de votre profil, notes et messages.</p>
+                    <button onclick="exporterDonneesCloud()" class="btn-action btn-success">📥 Télécharger la sauvegarde</button>
                 </div>
             </section>
 
+            <!-- VOYAGE -->
             <section id="tab-voyage" class="tab-content" style="display:none;">
                 <div class="card">
                     <h2>✈️ Guide Voyage & Visa</h2>
-                    <input type="text" id="voyageDestination" class="input" placeholder="Ex: Paris">
+                    <input type="text" id="voyageDestination" class="input" placeholder="Ex: Paris, Accra, Dubai...">
                     <button class="btn-action" onclick="lancerAnalyseVoyageAvance()">Analyser</button>
                     <div id="resultatAssistantVoyage" style="margin-top:10px; display:none;"></div>
                 </div>
             </section>
 
+            <!-- PROFIL -->
             <section id="tab-profil" class="tab-content" style="display:none;">
                 <div class="card">
                     <h2>👤 Profil & Sécurité</h2>
-                    <input type="text" id="inputNomProfil" class="input">
-                    <input type="text" id="inputTelProfil2" class="input">
-                    <input type="text" id="inputMetierProfil" class="input" style="margin-bottom:12px;">
-                    <button onclick="sauvegarderProfilBaseDesdeProfil()" class="btn-action" style="margin-bottom:10px;">Enregistrer les Modifications</button>
+                    <p class="subtitle">Le numéro de compte est unique et ne peut pas être modifié. Pour un nouvel appareil, utilisez « Récupérer mon compte » avec votre code.</p>
+                    <label>Nom & Prénom</label>
+                    <input type="text" id="inputNomProfil" class="input" placeholder="Votre nom">
+                    <label>Numéro de compte (verrouillé)</label>
+                    <input type="text" id="inputTelProfil2" class="input" placeholder="Téléphone" readonly style="opacity:0.75;cursor:not-allowed;">
+                    <label>Métier</label>
+                    <input type="text" id="inputMetierProfil" class="input" placeholder="Métier">
+                    <button onclick="sauvegarderProfilBaseDesdeProfil()" class="btn-action btn-success">Enregistrer les Modifications</button>
                 </div>
             </section>
 
+            <!-- OUTILS / NOTES -->
             <section id="tab-outils" class="tab-content" style="display:none;">
                 <div class="card">
                     <h2>🛠️ Bloc-Notes & Outils</h2>
-                    <input type="text" id="noteTitre" class="input" placeholder="Titre...">
-                    <textarea id="noteContenu" class="input" placeholder="Contenu..." style="height:60px;"></textarea>
-                    <button class="btn-action" onclick="ajouterNoteBlocNotes()">Enregistrer</button>
-                    <div id="listeNotesContainer" style="margin-top:10px;"></div>
+                    <input type="text" id="noteTitre" class="input" placeholder="Titre de la note...">
+                    <textarea id="noteContenu" class="input" placeholder="Contenu..." rows="3"></textarea>
+                    <button class="btn-action btn-success" onclick="ajouterNoteBlocNotes()">Enregistrer la note</button>
+                    <div id="listeNotesContainer" class="notes-list"></div>
                 </div>
             </section>
         </main>
