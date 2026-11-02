@@ -134,9 +134,8 @@
                 </button>
             </div>
             <div class="elaws-widget">
-                <button onclick="switchTab('elaws-ia')" class="elaws-magic-bubble">
-                    <div class="magic-sphere-core"></div>
-                    <span>🤖 ELAWS</span>
+                <button type="button" onclick="ouvrirIA('general')" class="elaws-orb" aria-label="ELAWS : l'IA qui répond à toutes vos questions" title="ELAWS — posez n'importe quelle question">
+                    <span class="orb"></span>
                 </button>
             </div>
         </header>
@@ -173,7 +172,8 @@
                         ⚡ 4 · ELAWS, Quêtes, Outils & Stratégie <span class="nav-chevron">▼</span>
                     </button>
                     <div class="nav-sous">
-                        <a href="#" class="nav-link" id="link-elaws-ia" onclick="ouvrirSousModule('elaws-ia');return false;">🤖 ELAWS AI</a>
+                        <a href="#" class="nav-link" id="link-elaws-ia" onclick="ouvrirSousModule('elaws-ia');return false;">🔮 ELAWS (répond à tout)</a>
+                        <a href="#" class="nav-link" id="link-ia-metier" onclick="ouvrirSousModule('ia-metier');return false;">💼 Assistant métier</a>
                         <a href="#" class="nav-link" id="link-outils" onclick="ouvrirSousModule('outils');return false;">🛠️ Bloc-notes</a>
                         <a href="#" class="nav-link" id="link-parametres" onclick="ouvrirSousModule('parametres');return false;">⚙️ Paramètres</a>
                         <a href="#" class="nav-link" id="link-voyage" onclick="ouvrirSousModule('voyage');return false;">✈️ Voyage</a>
@@ -218,6 +218,17 @@
                     </button>
                 </div>
 
+                <div class="ia-duo">
+                    <button type="button" class="ia-card metier" onclick="ouvrirIA('metier')">
+                        <span class="orb orb-md metier"></span>
+                        <span class="ia-card-text"><strong id="iaMetierTitre">Assistant métier</strong><small>Votre expert, uniquement sur votre activité</small></span>
+                    </button>
+                    <button type="button" class="ia-card" onclick="ouvrirIA('general')">
+                        <span class="orb orb-md"></span>
+                        <span class="ia-card-text"><strong>ELAWS</strong><small>Répond à toutes vos questions</small></span>
+                    </button>
+                </div>
+
                 <div id="pushPrompt" class="push-card" style="display:none;">
                     <div>
                         <strong>🔔 Recevez vos appels même app fermée</strong>
@@ -235,22 +246,39 @@
                 </div>
             </section>
 
-            <!-- ELAWS AI -->
-            <section id="tab-elaws-ia" class="tab-content" style="display:none;">
-                <div class="card">
-                    <h2>🤖 Assistant IA ELAWS</h2>
-                    <div id="elawsChatBox" class="chat-box">
-                        <div class="msg-ai">
-                            <strong>🤖 ELAWS AI</strong>
-                            <p>Bonjour ! Je suis prêt. Parlez ou écrivez, je réponds de façon dynamique et contextuelle.</p>
-                        </div>
+            <!-- ELAWS : IA généraliste -->
+            <section id="tab-elaws-ia" class="tab-content ia-tab" style="display:none;">
+                <div class="ia-view">
+                    <div class="ia-top">
+                        <span class="orb orb-md "></span>
+                        <div class="ia-title"><strong>ELAWS</strong><span>Répond à toutes vos questions</span></div>
+                        <button type="button" class="btn-icon" onclick="nouvelleDiscussionIA('general')" aria-label="Nouvelle discussion" title="Nouvelle discussion">🗑️</button>
                     </div>
-                    <div class="chat-input-row">
-                        <textarea id="elawsInput" class="input input-message" rows="1" placeholder="Posez votre question..." oninput="autoResize(this)" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();poserQuestionElaws();}"></textarea>
-                        <button onclick="basculerEcouteVocaleIA()" class="btn-action btn-mic">🎙️</button>
-                        <button onclick="poserQuestionElaws()" class="btn-action btn-send">Envoyer</button>
-                    </div>
+                    <div id="elawsChatBox" class="ia-thread"></div>
                     <div id="micStatusElaws" class="mic-status"></div>
+                    <div class="ia-toolbar">
+                        <textarea id="elawsInput" class="input input-message" rows="1" placeholder="Posez votre question…" enterkeyhint="send" oninput="autoResize(this)" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();actionEnvoiIA('general');}"></textarea>
+                        <button type="button" onclick="basculerEcouteVocaleIA('general')" class="btn-icon btn-mic-round" aria-label="Dicter">🎙️</button>
+                        <button type="button" id="elawsSend" onclick="actionEnvoiIA('general')" class="btn-send-round" aria-label="Envoyer">➤</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Assistant métier : uniquement le métier de la personne -->
+            <section id="tab-ia-metier" class="tab-content ia-tab" style="display:none;">
+                <div class="ia-view">
+                    <div class="ia-top">
+                        <span class="orb orb-md metier"></span>
+                        <div class="ia-title"><strong><span id="iaMetierTop">Assistant métier</span></strong><span>Spécialiste de votre activité</span></div>
+                        <button type="button" class="btn-icon" onclick="nouvelleDiscussionIA('metier')" aria-label="Nouvelle discussion" title="Nouvelle discussion">🗑️</button>
+                    </div>
+                    <div id="metierChatBox" class="ia-thread"></div>
+                    <div id="micStatusMetier" class="mic-status"></div>
+                    <div class="ia-toolbar">
+                        <textarea id="metierInput" class="input input-message" rows="1" placeholder="Question sur votre métier…" enterkeyhint="send" oninput="autoResize(this)" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();actionEnvoiIA('metier');}"></textarea>
+                        <button type="button" onclick="basculerEcouteVocaleIA('metier')" class="btn-icon btn-mic-round" aria-label="Dicter">🎙️</button>
+                        <button type="button" id="metierSend" onclick="actionEnvoiIA('metier')" class="btn-send-round" aria-label="Envoyer">➤</button>
+                    </div>
                 </div>
             </section>
 

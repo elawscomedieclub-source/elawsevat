@@ -1,5 +1,5 @@
 /* ============================================================
-   EVAT Continuum v4.1 — Client dynamique
+   EVAT Continuum v4.2 — Client dynamique
    ============================================================ */
 
 /* ---------- Persistance optimisée ----------
@@ -703,74 +703,7 @@ function supprimerContact(index) {
 
 function ecrireAuContact(nom, tel) { ouvrirMessagerie(tel); }
 
-// ---------- IA ELAWS améliorée (dynamique) ----------
-function basculerEcouteVocaleIA() {
-    const statusEl = document.getElementById('micStatusElaws');
-    const inputEl = document.getElementById('elawsInput');
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-        alert("Reconnaissance vocale non supportée.");
-        return;
-    }
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'fr-FR';
-    if (statusEl) statusEl.innerText = "🎙️ Écoute...";
-
-    recognition.onresult = (event) => {
-        inputEl.value = event.results[0][0].transcript;
-        if (statusEl) statusEl.innerText = "";
-        poserQuestionElaws();
-    };
-    recognition.onerror = () => { if (statusEl) statusEl.innerText = ""; };
-    recognition.onend = () => { if (statusEl) statusEl.innerText = ""; };
-    recognition.start();
-}
-
-function poserQuestionElaws() {
-    const input = document.getElementById('elawsInput');
-    const question = input.value.trim();
-    if (!question || !utilisateur) return;
-
-    const chatBox = document.getElementById('elawsChatBox');
-    const now = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-
-    // Message utilisateur
-    chatBox.insertAdjacentHTML('beforeend', `
-        <div class="msg-user">
-            <strong>👤 ${escapeHtml(utilisateur.nom)}</strong>
-            <span class="msg-time">${now}</span>
-            <p>${escapeHtml(question)}</p>
-        </div>`);
-    input.value = '';
-    input.style.height = '42px'; // reset hauteur pour revoir tout le prochain texte
-    chatBox.scrollTop = chatBox.scrollHeight;
-
-    // Typing indicator
-    const typingId = 'typing-' + Date.now();
-    chatBox.insertAdjacentHTML('beforeend', `<div id="${typingId}" class="msg-ai typing">🤖 ELAWS analyse...</div>`);
-    chatBox.scrollTop = chatBox.scrollHeight;
-
-    // Réponse dynamique (simulation de latence réaliste)
-    setTimeout(() => {
-        const typingEl = document.getElementById(typingId);
-        if (typingEl) typingEl.remove();
-
-        const reponse = genererReponseElaws(question);
-        chatBox.insertAdjacentHTML('beforeend', `
-            <div class="msg-ai">
-                <strong>🤖 ELAWS AI</strong>
-                <span class="msg-time">${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
-                <p>${escapeHtml(reponse)}</p>
-            </div>`);
-        chatBox.scrollTop = chatBox.scrollHeight;
-
-        // Historique local
-        if (!utilisateur.historiqueElaws) utilisateur.historiqueElaws = [];
-        utilisateur.historiqueElaws.push({ q: question, r: reponse, t: Date.now() });
-        if (utilisateur.historiqueElaws.length > 30) utilisateur.historiqueElaws.shift();
-        sauverProfil();
-    }, 200 + Math.random() * 250);
-}
+// ---------- IA : voir module « Deux IA » plus bas ----------
 
 function genererReponseElaws(question) {
     const q = question.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -1036,6 +969,8 @@ function switchTab(tabId) {
     if (tabId === 'dashboard') majStatsAccueil();
     majNavChat();
     majNavActive(tabId);
+    if (tabId === 'elaws-ia') rendreIA('general');
+    if (tabId === 'ia-metier') rendreIA('metier');
     window.scrollTo(0, 0);
     if (tabId === 'map') {
         chargerLeaflet().then(() => setTimeout(() => {
@@ -2280,12 +2215,292 @@ function gererOuvertureNotification(data, action) {
 
 /* ---------- Accueil : cartes de statistiques ---------- */
 function majStatsAccueil() {
+    majTitresIA();
     majBadges();
     majCartePush();
 }
 
 function majNavActive(tabId) {
     document.querySelectorAll('#bottomNav [data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === tabId));
+}
+
+// ---------- Deux IA (v4.2) ----------
+/*  - ELAWS (la sphère en haut) : répond à toutes les questions
+    - Assistant métier : répond uniquement aux questions du métier de la personne
+    Les réponses arrivent en direct (mot après mot). La clé d'API reste sur le serveur.  */
+
+const IA_CFG = {
+    general: { box: 'elawsChatBox', input: 'elawsInput', send: 'elawsSend', nom: 'ELAWS' },
+    metier:  { box: 'metierChatBox', input: 'metierInput', send: 'metierSend', nom: 'Assistant métier' }
+};
+const IA_MAX_HIST = 60;      // messages gardés sur le téléphone, par IA
+const IA_CONTEXTE = 16;      // derniers messages envoyés au serveur pour garder le fil
+const iaEtat = { actif: null, reqId: null, buf: '', el: null, raf: 0, question: '' };
+
+function iaHist(mode) {
+    utilisateur.iaHistorique = utilisateur.iaHistorique || {};
+    return (utilisateur.iaHistorique[mode] = utilisateur.iaHistorique[mode] || []);
+}
+
+function prenomUtilisateur() {
+    return String((utilisateur && utilisateur.nom) || '').trim().split(/\s+/)[0] || '';
+}
+
+/* ---------- Mini-rendu Markdown sûr (le texte est échappé AVANT toute mise en forme) ---------- */
+function mdVersHtml(src) {
+    let t = String(src || '');
+    if ((t.match(/```/g) || []).length % 2 === 1) t += '\n```';          // bloc de code pas encore fermé (streaming)
+    t = escapeHtml(t);
+    const blocs = [];
+    t = t.replace(/```[a-zA-Z0-9_-]*\n?([\s\S]*?)```/g, (_, c) => { blocs.push(c.replace(/\n$/, '')); return '\u0000B' + (blocs.length - 1) + '\u0000'; });
+
+    const inline = s => s
+        .replace(/`([^`\n]+)`/g, '<code>$1</code>')
+        .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+        .replace(/(^|[^*\w])\*([^*\s][^*\n]*?)\*(?!\w)/g, '$1<em>$2</em>');
+
+    let out = '', liste = null;
+    const fermer = () => { if (liste) { out += '</' + liste + '>'; liste = null; } };
+    for (const l of t.split('\n')) {
+        let m;
+        if (/^\u0000B\d+\u0000$/.test(l.trim())) { fermer(); out += l.trim(); }
+        else if ((m = /^\s*[-*•]\s+(.*)$/.exec(l))) { if (liste !== 'ul') { fermer(); out += '<ul>'; liste = 'ul'; } out += '<li>' + inline(m[1]) + '</li>'; }
+        else if ((m = /^\s*\d+[.)]\s+(.*)$/.exec(l))) { if (liste !== 'ol') { fermer(); out += '<ol>'; liste = 'ol'; } out += '<li>' + inline(m[1]) + '</li>'; }
+        else if ((m = /^#{1,4}\s+(.*)$/.exec(l))) { fermer(); out += '<p class="md-h">' + inline(m[1]) + '</p>'; }
+        else if (!l.trim()) { fermer(); }
+        else { fermer(); out += '<p>' + inline(l) + '</p>'; }
+    }
+    fermer();
+    return out.replace(/\u0000B(\d+)\u0000/g, (_, i) => '<pre><code>' + blocs[i] + '</code></pre>');
+}
+
+/* ---------- Affichage ---------- */
+function bulleIA(mode, role, html, extraClass) {
+    const cfg = IA_CFG[mode];
+    if (role === 'user') {
+        return `<div class="ia-msg me"><div class="ia-body">${html}</div></div>`;
+    }
+    return `<div class="ia-msg ai ${extraClass || ''}"><span class="orb orb-xs"></span><div class="ia-body">${html}</div></div>`;
+}
+
+function bienvenueIA(mode) {
+    const p = prenomUtilisateur();
+    const metier = (utilisateur && utilisateur.metier) || '';
+    const chips = mode === 'general'
+        ? ['Explique-moi simplement comment fonctionne l’inflation',
+           'Aide-moi à écrire un message poli pour réclamer un remboursement',
+           'Que cuisiner ce soir avec du riz, des œufs et des tomates ?',
+           'Je dois prendre une décision difficile, aide-moi à y voir clair']
+        : [`Quelles erreurs courantes éviter dans mon métier ?`,
+           'Comment fixer mes prix et rester rentable ?',
+           'Comment trouver plus de clients ?',
+           'Prépare-moi une checklist pour ma journée de travail'];
+    const intro = mode === 'general'
+        ? `Bonjour${p ? ' ' + escapeHtml(p) : ''} ! Je suis <strong>ELAWS</strong>. Posez-moi n’importe quelle question : je réfléchis avec vous, comme une personne de confiance.`
+        : `Je suis votre <strong>assistant ${escapeHtml(metier || 'métier')}</strong>. Je réponds uniquement aux questions de votre métier. Pour tout le reste, touchez la sphère <span class="orb orb-xs inline"></span> en haut.`;
+    return `<div class="ia-welcome">
+        <span class="orb ${mode === 'general' ? 'orb-lg' : 'orb-lg metier'}"></span>
+        <p>${intro}</p>
+        <div class="ia-chips">${chips.map(c => `<button type="button" class="ia-chip" data-ia="${mode}" data-q="${escapeHtml(c)}">${escapeHtml(c)}</button>`).join('')}</div>
+    </div>`;
+}
+
+function rendreIA(mode) {
+    if (!utilisateur) return;
+    const cfg = IA_CFG[mode];
+    const box = document.getElementById(cfg.box);
+    if (!box) return;
+    const hist = iaHist(mode);
+    if (!hist.length) { box.innerHTML = bienvenueIA(mode); majTitresIA(); return; }
+    box.innerHTML = hist.map(m => m.role === 'user'
+        ? bulleIA(mode, 'user', escapeHtml(m.content).replace(/\n/g, '<br>'))
+        : bulleIA(mode, 'ai', mdVersHtml(m.content))).join('');
+    box.scrollTop = box.scrollHeight;
+    majTitresIA();
+}
+
+function majTitresIA() {
+    if (!utilisateur) return;
+    const metier = (utilisateur.metier || '').trim();
+    const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+    set('iaMetierTitre', metier ? 'Assistant ' + metier : 'Assistant métier');
+    set('iaMetierTop', metier ? 'Assistant ' + metier : 'Assistant métier');
+}
+
+function iaDefiler(box) {
+    if (box.scrollHeight - box.scrollTop - box.clientHeight < 160) box.scrollTop = box.scrollHeight;
+}
+
+function iaBasculerBouton(mode, enCours) {
+    const b = document.getElementById(IA_CFG[mode].send);
+    if (!b) return;
+    b.textContent = enCours ? '■' : '➤';
+    b.classList.toggle('stop', enCours);
+    b.setAttribute('aria-label', enCours ? 'Arrêter' : 'Envoyer');
+}
+
+/* ---------- Envoi / réception ---------- */
+function actionEnvoiIA(mode) {
+    if (iaEtat.actif === mode) arreterIA(mode);
+    else envoyerQuestionIA(mode);
+}
+
+function envoyerQuestionIA(mode, texteForce) {
+    if (!utilisateur) return;
+    const cfg = IA_CFG[mode];
+    const input = document.getElementById(cfg.input);
+    const question = String(texteForce != null ? texteForce : (input ? input.value : '')).trim().slice(0, 2000);
+    if (!question) return;
+    if (iaEtat.actif) { montrerNotification('⏳ Une réponse est déjà en cours.'); return; }
+
+    const box = document.getElementById(cfg.box);
+    const hist = iaHist(mode);
+    if (!hist.length) box.innerHTML = '';
+
+    if (input) { input.value = ''; input.style.height = '42px'; }
+    hist.push({ role: 'user', content: question, t: Date.now() });
+    box.insertAdjacentHTML('beforeend', bulleIA(mode, 'user', escapeHtml(question).replace(/\n/g, '<br>')));
+    box.insertAdjacentHTML('beforeend', bulleIA(mode, 'ai', '<span class="ia-dots"><i></i><i></i><i></i></span>', 'pending'));
+    const el = box.lastElementChild;
+    box.scrollTop = box.scrollHeight;
+
+    const reqId = 'ia' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    Object.assign(iaEtat, { actif: mode, reqId, buf: '', el, question });
+    iaBasculerBouton(mode, true);
+
+    const messages = hist.slice(-IA_CONTEXTE).map(m => ({ role: m.role, content: m.content }));
+    if (!socket.connected) { iaEchec(mode, 'Vous êtes hors ligne. Reconnectez-vous pour interroger l’IA.', true); return; }
+
+    socket.emit('ai_ask', { mode, reqId, messages }, (res) => {
+        if (res && res.ok) return;
+        iaEchec(mode, (res && res.error) || 'IA indisponible.', true, res && res.code === 'no_key');
+    });
+}
+
+socket.on('ai_chunk', (d) => {
+    if (!d || d.reqId !== iaEtat.reqId || !iaEtat.actif) return;
+    iaEtat.buf += d.text;
+    if (iaEtat.raf) return;
+    iaEtat.raf = requestAnimationFrame(() => {
+        iaEtat.raf = 0;
+        if (!iaEtat.el) return;
+        iaEtat.el.classList.remove('pending');
+        const body = iaEtat.el.querySelector('.ia-body');
+        body.innerHTML = mdVersHtml(iaEtat.buf);
+        iaDefiler(iaEtat.el.parentElement);
+    });
+});
+
+socket.on('ai_done', (d) => {
+    if (!d || d.reqId !== iaEtat.reqId || !iaEtat.actif) return;
+    const mode = iaEtat.actif;
+    if (iaEtat.raf) { cancelAnimationFrame(iaEtat.raf); iaEtat.raf = 0; }
+    const texte = iaEtat.buf.trim();
+    if (iaEtat.el) {
+        iaEtat.el.classList.remove('pending');
+        iaEtat.el.querySelector('.ia-body').innerHTML = texte ? mdVersHtml(texte) : '<em>Réponse interrompue.</em>';
+        iaDefiler(iaEtat.el.parentElement);
+    }
+    if (texte) {
+        iaHist(mode).push({ role: 'assistant', content: texte, t: Date.now() });
+        utilisateur.iaHistorique[mode] = iaHist(mode).slice(-IA_MAX_HIST);
+    } else {
+        iaHist(mode).pop();                      // question sans réponse : on la retire pour garder l'alternance
+    }
+    sauverProfil();
+    iaFin(mode);
+});
+
+socket.on('ai_error', (d) => {
+    if (!d || d.reqId !== iaEtat.reqId || !iaEtat.actif) return;
+    iaEchec(iaEtat.actif, d.error || 'L’IA est momentanément indisponible.', iaEtat.buf.trim() === '');
+});
+
+socket.on('disconnect', () => {
+    if (iaEtat.actif) iaEchec(iaEtat.actif, 'Connexion perdue pendant la réponse.', iaEtat.buf.trim() === '');
+});
+
+function iaFin(mode) {
+    Object.assign(iaEtat, { actif: null, reqId: null, buf: '', el: null });
+    iaBasculerBouton(mode, false);
+}
+
+/** Échec : on retire la question de l'historique (si rien n'a été reçu) et on la remet dans la zone de saisie. */
+function iaEchec(mode, message, retirerQuestion, sansCle) {
+    const question = iaEtat.question;
+    const el = iaEtat.el;
+    if (iaEtat.raf) { cancelAnimationFrame(iaEtat.raf); iaEtat.raf = 0; }
+    const partiel = iaEtat.buf.trim();
+
+    // IA généraliste sans clé serveur : on garde l'ancienne réponse locale, limitée mais utile hors ligne
+    if (sansCle && mode === 'general' && typeof genererReponseElaws === 'function' && question) {
+        const rep = genererReponseElaws(question);
+        if (el) { el.classList.remove('pending'); el.querySelector('.ia-body').innerHTML = mdVersHtml(rep) + '<p class="ia-note">Mode limité : l’IA complète n’est pas encore activée sur le serveur.</p>'; }
+        iaHist(mode).push({ role: 'assistant', content: rep, t: Date.now() });
+        sauverProfil();
+        iaFin(mode);
+        return;
+    }
+
+    if (el) {
+        el.classList.remove('pending');
+        el.classList.add('error');
+        el.querySelector('.ia-body').innerHTML = (partiel ? mdVersHtml(partiel) : '') + `<p class="ia-note err">⚠️ ${escapeHtml(message)}</p>`;
+    }
+    if (partiel) {
+        iaHist(mode).push({ role: 'assistant', content: partiel, t: Date.now() });
+    } else if (retirerQuestion) {
+        iaHist(mode).pop();
+        const input = document.getElementById(IA_CFG[mode].input);
+        if (input && !input.value) input.value = question;
+    }
+    sauverProfil();
+    iaFin(mode);
+}
+
+function arreterIA(mode) {
+    if (iaEtat.actif === mode) socket.emit('ai_cancel');
+}
+
+function nouvelleDiscussionIA(mode) {
+    if (iaEtat.actif === mode) arreterIA(mode);
+    if (!iaHist(mode).length) return;
+    if (!confirm('Effacer cette discussion ?')) return;
+    utilisateur.iaHistorique[mode] = [];
+    sauverProfil();
+    rendreIA(mode);
+}
+
+function ouvrirIA(mode) {
+    switchTab(mode === 'metier' ? 'ia-metier' : 'elaws-ia');
+}
+
+// Suggestions cliquables
+document.addEventListener('click', (e) => {
+    const c = e.target.closest && e.target.closest('.ia-chip');
+    if (c) envoyerQuestionIA(c.dataset.ia, c.dataset.q);
+});
+
+// Compatibilité avec l'ancien code
+function poserQuestionElaws() { envoyerQuestionIA('general'); }
+function poserQuestionMetier() { envoyerQuestionIA('metier'); }
+
+function basculerEcouteVocaleIA(mode) {
+    mode = mode === 'metier' ? 'metier' : 'general';
+    const statusEl = document.getElementById(mode === 'metier' ? 'micStatusMetier' : 'micStatusElaws');
+    const inputEl = document.getElementById(IA_CFG[mode].input);
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { alert('Reconnaissance vocale non supportée sur ce navigateur.'); return; }
+    const rec = new SR();
+    rec.lang = 'fr-FR';
+    if (statusEl) statusEl.textContent = '🎙️ Je vous écoute…';
+    rec.onresult = (ev) => {
+        inputEl.value = ev.results[0][0].transcript;
+        if (statusEl) statusEl.textContent = '';
+        envoyerQuestionIA(mode);
+    };
+    rec.onerror = rec.onend = () => { if (statusEl) statusEl.textContent = ''; };
+    rec.start();
 }
 
 // ---------- Initialisation ----------
