@@ -1,5 +1,5 @@
 /* ============================================================
-   EVAT Continuum v4.3 — Client dynamique
+   EVAT Continuum v4.4 — Client dynamique
    ============================================================ */
 
 /* ---------- Persistance optimisée ----------
@@ -95,17 +95,158 @@ function fermerBanniereInstall() {
     if (banner) banner.style.display = 'none';
 }
 
-// ---------- Indicatif téléphone ----------
+// ---------- Pays du monde (v4.4) : indicatifs, numéros internationaux ----------
+/*  Tous les pays peuvent s'inscrire : la liste vient de cette table (ISO → indicatif),
+    les noms de pays sont fournis en français par le navigateur (Intl.DisplayNames).        */
+const DIAL_PAYS = {
+    AF:'93', AL:'355', DZ:'213', AS:'1684', AD:'376', AO:'244', AI:'1264', AG:'1268', AR:'54', AM:'374', AW:'297',
+    AU:'61', AT:'43', AZ:'994', BS:'1242', BH:'973', BD:'880', BB:'1246', BY:'375', BE:'32', BZ:'501', BJ:'229',
+    BM:'1441', BT:'975', BO:'591', BA:'387', BW:'267', BR:'55', IO:'246', VG:'1284', BN:'673', BG:'359', BF:'226',
+    BI:'257', KH:'855', CM:'237', CA:'1', CV:'238', BQ:'599', KY:'1345', CF:'236', TD:'235', CL:'56', CN:'86',
+    CX:'61', CC:'61', CO:'57', KM:'269', CG:'242', CD:'243', CK:'682', CR:'506', CI:'225', HR:'385', CU:'53',
+    CW:'599', CY:'357', CZ:'420', DK:'45', DJ:'253', DM:'1767', DO:'1', EC:'593', EG:'20', SV:'503', GQ:'240',
+    ER:'291', EE:'372', SZ:'268', ET:'251', FK:'500', FO:'298', FJ:'679', FI:'358', FR:'33', GF:'594', PF:'689',
+    GA:'241', GM:'220', GE:'995', DE:'49', GH:'233', GI:'350', GR:'30', GL:'299', GD:'1473', GP:'590', GU:'1671',
+    GT:'502', GG:'44', GN:'224', GW:'245', GY:'592', HT:'509', HN:'504', HK:'852', HU:'36', IS:'354', IN:'91',
+    ID:'62', IR:'98', IQ:'964', IE:'353', IM:'44', IL:'972', IT:'39', JM:'1876', JP:'81', JE:'44', JO:'962',
+    KZ:'7', KE:'254', KI:'686', XK:'383', KW:'965', KG:'996', LA:'856', LV:'371', LB:'961', LS:'266', LR:'231',
+    LY:'218', LI:'423', LT:'370', LU:'352', MO:'853', MG:'261', MW:'265', MY:'60', MV:'960', ML:'223', MT:'356',
+    MH:'692', MQ:'596', MR:'222', MU:'230', YT:'262', MX:'52', FM:'691', MD:'373', MC:'377', MN:'976', ME:'382',
+    MS:'1664', MA:'212', MZ:'258', MM:'95', NA:'264', NR:'674', NP:'977', NL:'31', NC:'687', NZ:'64', NI:'505',
+    NE:'227', NG:'234', NU:'683', NF:'672', KP:'850', MK:'389', MP:'1670', NO:'47', OM:'968', PK:'92', PW:'680',
+    PS:'970', PA:'507', PG:'675', PY:'595', PE:'51', PH:'63', PL:'48', PT:'351', PR:'1', QA:'974', RE:'262',
+    RO:'40', RU:'7', RW:'250', BL:'590', SH:'290', KN:'1869', LC:'1758', MF:'590', PM:'508', VC:'1784', WS:'685',
+    SM:'378', ST:'239', SA:'966', SN:'221', RS:'381', SC:'248', SL:'232', SG:'65', SX:'1721', SK:'421', SI:'386',
+    SB:'677', SO:'252', ZA:'27', KR:'82', SS:'211', ES:'34', LK:'94', SD:'249', SR:'597', SJ:'47', SE:'46',
+    CH:'41', SY:'963', TW:'886', TJ:'992', TZ:'255', TH:'66', TL:'670', TG:'228', TK:'690', TO:'676', TT:'1868',
+    TN:'216', TR:'90', TM:'993', TC:'1649', TV:'688', VI:'1340', UG:'256', UA:'380', AE:'971', GB:'44', US:'1',
+    UY:'598', UZ:'998', VU:'678', VA:'379', VE:'58', VN:'84', WF:'681', EH:'212', YE:'967', ZM:'260', ZW:'263',
+    AX:'358'
+};
+// Pays dont le « 0 » du début fait partie du numéro (on ne le retire jamais)
+const GARDE_ZERO = new Set(['IT', 'SM', 'VA', 'CI', 'BJ', 'GA', 'CG']);
+// Pays « principal » quand plusieurs partagent un indicatif
+const PAYS_PRINCIPAL = { '1': 'US', '7': 'RU', '44': 'GB', '358': 'FI', '61': 'AU', '47': 'NO', '590': 'GP', '599': 'CW', '262': 'RE', '212': 'MA', '39': 'IT' };
+
+const _ISO_PAR_DIAL = {};
+Object.keys(DIAL_PAYS).forEach(iso => { (_ISO_PAR_DIAL[DIAL_PAYS[iso]] = _ISO_PAR_DIAL[DIAL_PAYS[iso]] || []).push(iso); });
+const _DIALS_TRIES = Object.keys(_ISO_PAR_DIAL).sort((a, b) => b.length - a.length);   // le plus long d'abord
+
+function drapeEmoji(iso) {
+    try { return String.fromCodePoint(...[...iso].map(c => 0x1F1E6 + c.charCodeAt(0) - 65)); } catch (e) { return '🌍'; }
+}
+
+let _nomsPays = null;
+function nomPays(iso) {
+    try {
+        _nomsPays = _nomsPays || new Intl.DisplayNames(['fr'], { type: 'region' });
+        return _nomsPays.of(iso) || iso;
+    } catch (e) { return iso; }
+}
+
+function dialPlusLong(chiffres) {
+    for (const d of _DIALS_TRIES) if (chiffres.startsWith(d)) return d;
+    return null;
+}
+
+function isoDepuisTel(tel) {
+    const d = String(tel || '').replace(/\D/g, '');
+    const dial = dialPlusLong(d);
+    return dial ? (PAYS_PRINCIPAL[dial] || _ISO_PAR_DIAL[dial][0]) : null;
+}
+
+function paysUtilisateur() {
+    return (typeof utilisateur !== 'undefined' && utilisateur && (utilisateur.pays || isoDepuisTel(utilisateur.telephone))) || null;
+}
+
+function paysParDefaut() {
+    try {
+        const m = (navigator.language || '').match(/[-_]([A-Za-z]{2})\b/);
+        if (m && DIAL_PAYS[m[1].toUpperCase()]) return m[1].toUpperCase();
+    } catch (e) {}
+    return 'TG';
+}
+
+/** Numéro → format international (+indicatif…). Sans « + », le numéro est national et reçoit l'indicatif du pays. */
+function normaliserTel(v, isoDefaut) {
+    let t = String(v || '').replace(/[\s\-.()\u00A0\u202F]/g, '');
+    if (!t) return '';
+    if (t.startsWith('00')) t = '+' + t.slice(2);
+    if (t.startsWith('+')) {
+        const chiffres = t.slice(1).replace(/\D/g, '');
+        const dial = dialPlusLong(chiffres);
+        if (!dial) return '+' + chiffres;
+        const iso = PAYS_PRINCIPAL[dial] || _ISO_PAR_DIAL[dial][0];
+        let reste = chiffres.slice(dial.length);
+        if (reste.startsWith('0') && reste.length > 1 && !GARDE_ZERO.has(iso)) reste = reste.replace(/^0+/, '');   // « +233 0244… »
+        return '+' + dial + reste;
+    }
+    const iso = (isoDefaut && DIAL_PAYS[isoDefaut]) ? isoDefaut : (paysUtilisateur() || paysParDefaut());
+    let nat = t.replace(/\D/g, '');
+    if (nat.startsWith('0') && !GARDE_ZERO.has(iso)) nat = nat.replace(/^0+/, '');
+    return '+' + DIAL_PAYS[iso] + nat;
+}
+
+function telEstValideClient(tel) {
+    const t = String(tel || '').replace(/[\s\-.()]/g, '');
+    return /^\+[1-9]\d{6,14}$/.test(t);
+}
+
+/** Nom : toutes les écritures (latin, arabe, cyrillique, chinois…) ; seuls les noms d'exemple exacts sont refusés */
+const NOMS_INTERDITS = ['kodjo marceline', 'test', 'admin', 'utilisateur', 'user', 'exemple', 'demo', 'opérateur', 'operateur'];
+function nomEstValideClient(nom) {
+    const n = String(nom || '').trim().replace(/\s+/g, ' ');
+    if ([...n].length < 2 || [...n].length > 80) return false;
+    const simple = n.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (NOMS_INTERDITS.includes(simple)) return false;
+    return /\p{L}/u.test(n);
+}
+
+/* ---------- Sélecteur de pays (inscription) ---------- */
+function initialiserSelecteurPays() {
+    const sel = document.getElementById('selectPays');
+    if (!sel || sel.dataset.pret) return;
+    sel.dataset.pret = '1';
+    const liste = Object.keys(DIAL_PAYS).map(iso => ({ iso, nom: nomPays(iso) }))
+        .sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
+    sel.innerHTML = liste.map(p =>
+        `<option value="+${DIAL_PAYS[p.iso]}" data-iso="${p.iso}">${drapeEmoji(p.iso)} ${escapeHtml(p.nom)} (+${DIAL_PAYS[p.iso]})</option>`).join('');
+    const defaut = paysParDefaut();
+    const opt = [...sel.options].find(o => o.dataset.iso === defaut);
+    if (opt) opt.selected = true;
+    const tel = document.getElementById('inputTelProfil');
+    if (tel && !tel.value) tel.value = sel.value;
+}
+
+function isoSelectionne() {
+    const sel = document.getElementById('selectPays');
+    return sel && sel.selectedOptions[0] ? sel.selectedOptions[0].dataset.iso : null;
+}
+
+// Changer de pays : remplace l'indicatif au début du champ numéro
 function mettreAJourIndicatif() {
-    const select = document.getElementById('selectPays');
+    const sel = document.getElementById('selectPays');
     const telInput = document.getElementById('inputTelProfil');
-    if (!select || !telInput) return;
-    const prefix = select.value;
-    let currentVal = telInput.value.trim();
-    ['+228', '+233', '+225', '+33', '+1'].forEach(p => {
-        if (currentVal.startsWith(p)) currentVal = currentVal.substring(p.length);
-    });
-    telInput.value = prefix + currentVal;
+    if (!sel || !telInput) return;
+    let cur = telInput.value.replace(/[\s\-.()]/g, '');
+    if (cur.startsWith('+')) {
+        const d = dialPlusLong(cur.slice(1).replace(/\D/g, ''));
+        cur = d ? cur.slice(1 + d.length) : cur.slice(1);
+    }
+    telInput.value = sel.value + cur;
+}
+
+// Numéro tapé en entier (+33…, +81…) : le pays s'ajuste tout seul
+function synchroniserPaysDepuisTel() {
+    const sel = document.getElementById('selectPays');
+    const telInput = document.getElementById('inputTelProfil');
+    if (!sel || !telInput || !telInput.value.trim().startsWith('+')) return;
+    const iso = isoDepuisTel(telInput.value);
+    if (!iso) return;
+    const actuel = sel.selectedOptions[0];
+    if (actuel && DIAL_PAYS[actuel.dataset.iso] === DIAL_PAYS[iso]) return;     // même indicatif : on garde le pays choisi
+    const opt = [...sel.options].find(o => o.dataset.iso === iso);
+    if (opt) opt.selected = true;
 }
 
 // ---------- Socket.io ----------
@@ -293,24 +434,6 @@ function fermerNotification() {
 }
 
 // ---------- Auth sécurisée (1 numéro = 1 compte) ----------
-const NOMS_INTERDITS = [
-    'kodjo marceline', 'kodjo', 'marceline', 'test', 'admin',
-    'utilisateur', 'user', 'exemple', 'demo', 'opérateur', 'operateur'
-];
-
-function nomEstValideClient(nom) {
-    if (!nom || nom.trim().length < 3) return false;
-    const n = nom.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    if (NOMS_INTERDITS.some(x => n === x || n.includes(x))) return false;
-    if (!/[a-zàâäéèêëïîôùûüç]/i.test(nom)) return false;
-    return true;
-}
-
-function telEstValideClient(tel) {
-    const t = String(tel || '').replace(/[\s\-\.\(\)]/g, '');
-    return /^\+[1-9]\d{8,14}$/.test(t);
-}
-
 function afficherErreurAuth(id, msg) {
     const el = document.getElementById(id);
     if (!el) return;
@@ -345,13 +468,14 @@ function creerProfilLocal(nom, tel, metier, recoveryPin) {
         telephone: tel,
         metier: metier || 'Opérateur',
         recoveryPin: recoveryPin || null,
+        pays: isoDepuisTel(tel),
         qubits: 365,
         notes: [],
         messagesLocaux: [],
         contacts: [],
         historiqueElaws: [],
         parametres: {
-            sonnerieType: 'iphone',
+            sonnerieType: 'telephone',      // sonnerie du téléphone (notification) par défaut
             customRingtoneBase64: null,
             vibration: true
         },
@@ -361,7 +485,8 @@ function creerProfilLocal(nom, tel, metier, recoveryPin) {
 
 function sauvegarderProfilBase() {
     const nom = document.getElementById('inputNom').value.trim();
-    const tel = document.getElementById('inputTelProfil').value.trim().replace(/[\s\-\.\(\)]/g, '');
+    const paysChoisi = isoSelectionne();
+    const tel = normaliserTel(document.getElementById('inputTelProfil').value, paysChoisi);
     const metier = document.getElementById('inputMetier').value.trim();
 
     afficherErreurAuth('authCreateError', '');
@@ -375,7 +500,7 @@ function sauvegarderProfilBase() {
         return;
     }
     if (!telEstValideClient(tel)) {
-        afficherErreurAuth('authCreateError', 'Numéro invalide. Format : +228XXXXXXXX');
+        afficherErreurAuth('authCreateError', 'Numéro invalide. Entrez l’indicatif du pays puis le numéro (ex : +228 90 12 34 56).');
         return;
     }
 
@@ -393,6 +518,7 @@ function sauvegarderProfilBase() {
         }
 
         utilisateur = creerProfilLocal(nom, tel, metier, res.recoveryPin);
+        if (paysChoisi) utilisateur.pays = paysChoisi;
         sauverProfil();
 
         // Afficher le code UNE SEULE FOIS
@@ -416,7 +542,7 @@ function fermerPinModal() {
 }
 
 function recupererCompteExistant() {
-    const tel = document.getElementById('inputTelRecover').value.trim().replace(/[\s\-\.\(\)]/g, '');
+    const tel = normaliserTel(document.getElementById('inputTelRecover').value);
     const pin = document.getElementById('inputPinRecover').value.trim();
     const metier = document.getElementById('inputMetierRecover').value.trim();
 
@@ -427,7 +553,7 @@ function recupererCompteExistant() {
         return;
     }
     if (!telEstValideClient(tel)) {
-        afficherErreurAuth('authRecoverError', 'Numéro invalide. Format : +228XXXXXXXX');
+        afficherErreurAuth('authRecoverError', 'Numéro invalide. Entrez l’indicatif du pays puis le numéro (ex : +228 90 12 34 56).');
         return;
     }
 
@@ -468,7 +594,7 @@ function recupererCompteExistant() {
 function sauvegarderProfilBaseDesdeProfil() {
     if (!utilisateur) return;
     const nom = document.getElementById('inputNomProfil').value.trim();
-    const tel = document.getElementById('inputTelProfil2').value.trim().replace(/[\s\-\.\(\)]/g, '');
+    const tel = normaliserTel(document.getElementById('inputTelProfil2').value, paysUtilisateur());
     const metier = document.getElementById('inputMetierProfil').value.trim();
 
     if (!nom || !tel) {
@@ -661,7 +787,7 @@ function ajouterNouveauContact() {
         return;
     }
     if (!telEstValideClient(tel)) {
-        alert("Numéro invalide. Format : +228XXXXXXXX (ou 8 chiffres pour le Togo).");
+        alert("Numéro invalide. Entrez l’indicatif du pays puis le numéro (ex : +228 90 12 34 56).");
         return;
     }
     if (!utilisateur.contacts) utilisateur.contacts = [];
@@ -1138,15 +1264,9 @@ let audioCtx = null;
 let ringInterval = null;
 let customAudioRing = null;
 let wakeLock = null;
+let sysRingTimer = null;
 
 /* ---------- Utilitaires ---------- */
-function normaliserTel(v) {
-    let t = String(v || '').replace(/[\s\-.()]/g, '');
-    if (t.startsWith('00')) t = '+' + t.slice(2);
-    if (/^\d{8}$/.test(t)) t = '+228' + t;          // numéro togolais local (8 chiffres)
-    return t;
-}
-
 function nomPourTel(tel) {
     const c = utilisateur && utilisateur.contacts && utilisateur.contacts.find(x => x.telephone === tel);
     return c ? c.nom : tel;
@@ -1213,7 +1333,9 @@ function jouerSonSonnerie(mode) {
         const p = (utilisateur && utilisateur.parametres) || {};
         const type = p.sonnerieType || 'iphone';
 
-        if (type === 'custom' && p.customRingtoneBase64) {
+        if (type === 'telephone' && notificationsPretes()) {
+            demarrerSonnerieTelephone();
+        } else if (type === 'custom' && p.customRingtoneBase64) {
             customAudioRing = new Audio(p.customRingtoneBase64);
             customAudioRing.loop = true;
             customAudioRing.play().catch(() => {});
@@ -1235,7 +1357,29 @@ function jouerSonSonnerie(mode) {
     } catch (e) { /* audio indisponible : on continue sans son */ }
 }
 
+function notificationsPretes() {
+    return 'Notification' in window && Notification.permission === 'granted' && 'serviceWorker' in navigator;
+}
+
+/** « Sonnerie du téléphone » : une notification d'appel est ré-affichée toutes les 4,5 s, donc le téléphone joue
+    lui-même son propre son (réglable dans Réglages → Applications → EVAT → Notifications). */
+async function demarrerSonnerieTelephone() {
+    try {
+        const reg = await navigator.serviceWorker.ready;
+        const nom = nomPourTel(Call.peer);
+        const video = Call.type === 'video';
+        const alerter = () => reg.showNotification(video ? '📹 Appel vidéo EVAT' : '📞 Appel EVAT', {
+            body: nom + ' vous appelle', tag: 'evat-call', renotify: true, requireInteraction: true,
+            vibrate: [600, 250, 600, 250, 600], icon: 'icon-192.png', badge: 'icon-192.png', silent: false
+        }).catch(() => {});
+        alerter();
+        clearInterval(sysRingTimer);
+        sysRingTimer = setInterval(() => { if (Call.state === 'ringing') alerter(); else { clearInterval(sysRingTimer); sysRingTimer = null; } }, 4500);
+    } catch (e) {}
+}
+
 function arreterSonSonnerie(garderTimers) {
+    if (sysRingTimer) { clearInterval(sysRingTimer); sysRingTimer = null; }
     if (ringInterval) { clearInterval(ringInterval); ringInterval = null; }
     if (Call.timers.vib) { clearInterval(Call.timers.vib); Call.timers.vib = null; }
     if (navigator.vibrate) navigator.vibrate(0);
@@ -1435,7 +1579,7 @@ async function lancerAppelDirectPeer(type, telOverride) {
     if (input && !telOverride) input.value = cible;
 
     if (!utilisateur) { alert('Créez ou récupérez votre compte avant d’appeler.'); return; }
-    if (!telEstValideClient(cible)) { alert('Numéro invalide. Format : +228XXXXXXXX'); return; }
+    if (!telEstValideClient(cible)) { alert('Numéro invalide. Entrez l’indicatif du pays puis le numéro (ex : +228 90 12 34 56).'); return; }
     if (cible === utilisateur.telephone) { alert('Impossible de s’appeler soi-même !'); return; }
     if (Call.state !== 'idle') { alert('Un appel est déjà en cours.'); return; }
     if (!socket.connected) { setStatutAppel('❌ Serveur hors ligne. Réessayez dans un instant.'); return; }
@@ -2220,6 +2364,15 @@ function majStatsAccueil() {
     majCartePush();
 }
 
+/** Bouton « Tester » : le serveur envoie 3 notifications d'appel dans 8 s ; il faut fermer l'app ou verrouiller l'écran. */
+function testerNotificationsAppel() {
+    if (!socket.connected) { alert('Connexion au serveur en cours. Réessayez dans un instant.'); return; }
+    socket.emit('push_test', null, (res) => {
+        if (res && res.ok) alert('Test lancé ✅\n\nFermez maintenant EVAT (ou verrouillez le téléphone). Dans 8 secondes, une notification d’appel va sonner.');
+        else alert((res && res.error) || 'Test impossible. Activez d’abord les notifications.');
+    });
+}
+
 function majNavActive(tabId) {
     document.querySelectorAll('#bottomNav [data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === tabId));
 }
@@ -2238,14 +2391,14 @@ const iaEtat = { actif: null, reqId: null, buf: '', el: null, raf: 0, question: 
 
 // Outils prêts à l'emploi de Mister I (les trois derniers cherchent sur Internet)
 const IA_OUTILS = [
-    { ico: '🧾', nom: 'Devis', q: 'Aide-moi à préparer un devis pour un client de mon métier. Pose-moi une par une les questions nécessaires (prestation, quantités, prix, délai), puis écris le devis prêt à envoyer, en FCFA.' },
+    { ico: '🧾', nom: 'Devis', q: 'Aide-moi à préparer un devis pour un client de mon métier. Pose-moi une par une les questions nécessaires (prestation, quantités, prix, délai), puis écris le devis prêt à envoyer, dans la monnaie locale de mon pays.' },
     { ico: '💰', nom: 'Prix & marge', q: 'Aide-moi à calculer mon prix de vente et ma marge pour une prestation ou un produit de mon métier. Demande-moi mes coûts (matériel, temps, déplacement), puis propose un prix juste et rentable.' },
     { ico: '✅', nom: 'Checklist', q: 'Prépare-moi une checklist complète pour ma journée de travail type dans mon métier (avant, pendant, après), avec les contrôles de sécurité.' },
     { ico: '💬', nom: 'Message client', q: 'Rédige-moi un message court et professionnel (WhatsApp) pour un client de mon métier. Demande-moi d’abord la situation : relance de devis, retard, remerciement, réclamation…' },
-    { ico: '🛠️', nom: 'Matériel', q: 'Quel matériel et quels outils sont indispensables dans mon métier, du débutant au professionnel ? Donne des prix indicatifs en FCFA.' },
+    { ico: '🛠️', nom: 'Matériel', q: 'Quel matériel et quels outils sont indispensables dans mon métier, du débutant au professionnel ? Donne des prix indicatifs dans la monnaie locale de mon pays.' },
     { ico: '📣', nom: 'Plus de clients', q: 'Donne-moi un plan concret et réaliste pour trouver plus de clients dans mon métier cette semaine.' },
-    { ico: '🔎', nom: 'Prix du marché', web: true, q: 'Cherche sur Internet les prix et tarifs actuels pratiqués dans mon métier au Togo (matériel et prestations) et fais-m’en un résumé clair avec les sources.' },
-    { ico: '⚖️', nom: 'Règles à connaître', web: true, q: 'Cherche sur Internet les règles, autorisations et obligations à connaître pour exercer mon métier au Togo, et résume-les avec les sources.' },
+    { ico: '🔎', nom: 'Prix du marché', web: true, q: 'Cherche sur Internet les prix et tarifs actuels pratiqués dans mon métier dans mon pays (matériel et prestations) et fais-m’en un résumé clair avec les sources.' },
+    { ico: '⚖️', nom: 'Règles à connaître', web: true, q: 'Cherche sur Internet les règles, autorisations et obligations à connaître pour exercer mon métier dans mon pays, et résume-les avec les sources.' },
     { ico: '📰', nom: 'Nouveautés', web: true, q: 'Cherche sur Internet les nouveautés, techniques et outils récents qui comptent dans mon métier, et dis-moi ce qui vaut vraiment le coup.' }
 ];
 
@@ -2309,7 +2462,7 @@ function bienvenueIA(mode) {
         ? ['Explique-moi simplement comment fonctionne l’inflation',
            'Aide-moi à écrire un message poli pour réclamer un remboursement',
            'Que cuisiner ce soir avec du riz, des œufs et des tomates ?',
-           'Quel temps fait-il à Lomé cette semaine ?']
+           'Quels sont les jours fériés dans mon pays cette année ?']
         : ['Quelles erreurs courantes éviter dans mon métier ?',
            'Comment fixer mes prix et rester rentable ?',
            'Quels clients dois-je viser en priorité ?'];
@@ -2399,7 +2552,8 @@ function envoyerQuestionIA(mode, texteForce) {
     if (!socket.connected) { iaEchec(mode, 'Vous êtes hors ligne. Reconnectez-vous pour interroger l’IA.', true); return; }
 
     // Le serveur garde lui-même le fil de la conversation : on n'envoie que la question
-    socket.emit('ai_ask', { mode, reqId, texte: question }, (res) => {
+    const tz = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) { return ''; } })();
+    socket.emit('ai_ask', { mode, reqId, texte: question, tz, pays: paysUtilisateur() }, (res) => {
         if (res && res.ok) return;
         iaEchec(mode, (res && res.error) || 'IA indisponible.', true, res && res.code === 'no_key');
     });
@@ -2548,6 +2702,7 @@ function basculerEcouteVocaleIA(mode) {
 }
 
 // ---------- Initialisation ----------
+document.addEventListener('DOMContentLoaded', initialiserSelecteurPays);   // après le chargement complet du script
 document.addEventListener('DOMContentLoaded', () => {
     const welcomeModal = document.getElementById('welcomeModal');
     if (!utilisateur || !utilisateur.nom || !utilisateur.telephone) {

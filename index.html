@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>EVAT | ELAWS Quantum v3.95 Continuum</title>
+    <title>EVAT | Mister ELAWS</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.webmanifest">
     <meta name="description" content="EVAT — messagerie, appels audio/vidéo P2P, GPS et assistant ELAWS">
@@ -28,7 +28,7 @@
                 <div class="earth-globe"></div>
                 <div class="orbit-ring"></div>
             </div>
-            <h2 style="color:var(--accent); font-size:18px; margin-bottom:6px;">EVAT v3.95 Continuum</h2>
+            <h2 style="color:var(--accent); font-size:18px; margin-bottom:6px;">EVAT Continuum</h2>
             <p style="font-size:12px; color:var(--text-secondary); margin-bottom:10px;">
                 Un numéro = un seul compte. Entrez <strong>vos propres informations</strong> (pas d’exemple).
             </p>
@@ -44,16 +44,10 @@
                 <input type="text" id="inputNom" class="input" placeholder="Ex: Afi Mensah" autocomplete="name" value="">
 
                 <label>Pays / Indicatif :</label>
-                <select id="selectPays" class="input" onchange="mettreAJourIndicatif()">
-                    <option value="+228" selected>🇹🇬 Togo (+228)</option>
-                    <option value="+233">🇬🇭 Ghana (+233)</option>
-                    <option value="+225">🇨🇮 Côte d'Ivoire (+225)</option>
-                    <option value="+33">🇫🇷 France (+33)</option>
-                    <option value="+1">🇺🇸 États-Unis (+1)</option>
-                </select>
+                <select id="selectPays" class="input" onchange="mettreAJourIndicatif()" aria-label="Pays"></select>
 
                 <label>Numéro de téléphone (unique) :</label>
-                <input type="tel" id="inputTelProfil" class="input" placeholder="+228XXXXXXXX" autocomplete="tel" value="">
+                <input type="tel" id="inputTelProfil" class="input" placeholder="+indicatif puis numéro" autocomplete="tel" value="" oninput="synchroniserPaysDepuisTel()">
 
                 <label>Métier / Profession :</label>
                 <input type="text" id="inputMetier" class="input" placeholder="Votre métier" value="">
@@ -68,7 +62,7 @@
                     Changement d’appareil ? Même numéro + <strong>code de récupération</strong> reçu à la création.
                 </p>
                 <label>Numéro du compte :</label>
-                <input type="tel" id="inputTelRecover" class="input" placeholder="+228XXXXXXXX" value="">
+                <input type="tel" id="inputTelRecover" class="input" placeholder="+indicatif puis numéro" value="">
 
                 <label>Code de récupération (6 chiffres) :</label>
                 <input type="text" id="inputPinRecover" class="input" placeholder="123456" maxlength="8" inputmode="numeric" value="">
@@ -291,14 +285,14 @@
                         <strong>➕ Enregistrer un contact</strong>
                         <div class="add-contact-form">
                             <input type="text" id="nouveauNomContact" class="input" placeholder="Nom...">
-                            <input type="text" id="nouveauTelContact" class="input" placeholder="Numéro avec indicatif (ex: +228...)">
+                            <input type="text" id="nouveauTelContact" class="input" placeholder="Numéro avec indicatif du pays (ex: +33...)">
                             <button onclick="ajouterNouveauContact()" class="btn-action btn-success">Enregistrer</button>
                         </div>
                     </div>
                     <div class="dialer-box">
                         <strong>📞 Appeler un numéro</strong>
                         <div class="dialer-row">
-                            <input type="tel" id="appelCibleNum" class="input" placeholder="+228XXXXXXXX ou 8 chiffres">
+                            <input type="tel" id="appelCibleNum" class="input" placeholder="+indicatif puis numéro">
                             <button type="button" onclick="lancerAppelDirectPeer('audio')" class="btn-action btn-call-audio" aria-label="Appel audio">📞</button>
                             <button type="button" onclick="lancerAppelDirectPeer('video')" class="btn-action btn-call-video" aria-label="Appel vidéo">📹</button>
                         </div>
@@ -379,12 +373,16 @@
                     
                     <label>Type de Sonnerie :</label>
                     <select id="selectSonnerieType" class="input">
-                        <option value="iphone">📱 Style iPhone (Marimba)</option>
+                        <option value="telephone">📱 Sonnerie de mon téléphone (recommandé)</option>
+                        <option value="iphone">🎵 Style iPhone (Marimba)</option>
                         <option value="motorola">📟 Style Motorola (Électronique)</option>
                         <option value="samsung">🎶 Style Samsung (Over the Horizon)</option>
                         <option value="classique">🔔 Sonnerie Classique</option>
                         <option value="custom">🎵 Fichier MP3 Personnel</option>
                     </select>
+
+                    <p class="hint-box">📱 <strong>Sonnerie de mon téléphone</strong> : EVAT utilise le son de notification de votre téléphone, aussi quand l'application est fermée. Pour choisir <em>votre</em> sonnerie : Réglages du téléphone → Applications → EVAT → Notifications → Son.</p>
+                    <button type="button" onclick="testerNotificationsAppel()" class="btn-action">🔔 Tester un appel app fermée</button>
 
                     <label>Importer un fichier MP3 (Max 1 Mo) :</label>
                     <input type="file" id="inputCustomRingtone" accept="audio/mp3,audio/*" class="input" onchange="chargerSonneriePerso(event)">

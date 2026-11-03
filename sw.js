@@ -1,9 +1,9 @@
-/* EVAT Continuum — Service Worker v4.1
+/* EVAT Continuum — Service Worker v4.4
    - Coquille de l'app précachée (démarrage instantané + hors ligne)
    - Fichiers de l'app : "stale-while-revalidate" (rapide, mis à jour en arrière-plan)
    - Socket.io / API / tuiles de carte : jamais interceptés (aucun risque de casser le temps réel)
    - Bibliothèques CDN : mises en cache à la première utilisation */
-const VERSION = 'evat-continuum-v410';
+const VERSION = 'evat-continuum-v440';
 const SHELL = `${VERSION}-shell`;
 const RUNTIME = `${VERSION}-runtime`;
 
@@ -86,6 +86,7 @@ self.addEventListener('push', (e) => {
         if (fenetres.some(c => c.visibilityState === 'visible')) return;
 
         const appel = d.type === 'call';
+        const sonne = appel || d.type === 'test';          // appel ou test d'appel : vibration longue
         await self.registration.showNotification(d.title || 'EVAT', {
             body: d.body || '',
             tag: d.tag || 'evat',
@@ -93,7 +94,7 @@ self.addEventListener('push', (e) => {
             icon: 'icon-192.png',
             badge: 'icon-192.png',
             requireInteraction: appel,                       // l'appel reste affiché jusqu'à action
-            vibrate: appel ? [600, 250, 600, 250, 600, 250, 600] : [200, 100, 200],
+            vibrate: sonne ? [600, 250, 600, 250, 600, 250, 600] : [200, 100, 200],
             silent: false,
             timestamp: Date.now(),
             data: { type: d.type, from: d.from, callId: d.callId },

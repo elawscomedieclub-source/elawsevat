@@ -42,3 +42,23 @@ Ouvrir l'app (mise à jour) → « Activer » les notifications sur l'accueil �
 
 ## Réglages optionnels
 AI_MODEL_GENERAL / AI_MODEL_METIER (claude-haiku-5-5 = moins cher), AI_DAILY_LIMIT (100 par personne et par jour), AI_GLOBAL_DAILY_LIMIT (2000 par jour pour toute l'app), AI_WEB_SEARCH=off, AI_ENABLED=false (coupe les IA en urgence), ALLOWED_ORIGINS, DATA_DIR (disque persistant).
+
+---
+
+# Nouveautés v4.4
+
+## Tous les pays
+L'inscription propose les 243 pays et territoires (nom en français, drapeau, indicatif). Rien à configurer. Les numéros sont enregistrés au format international (+indicatif…). Mister ELAWS et Mister I s'adaptent au pays et au fuseau horaire de chaque personne (monnaie, réglementation, heure). L'interface reste en français ; les IA répondent dans la langue de la question.
+
+## Appels quand l'application est fermée : ce qu'il faut sur chaque téléphone
+1. Installer EVAT : Android → menu du navigateur → « Installer l'application » ; iPhone → Partager → « Sur l'écran d'accueil » (obligatoire sur iPhone, iOS 16.4 minimum).
+2. Toucher « Activer » les notifications sur l'accueil et accepter.
+3. Android : Réglages → Applications → EVAT → Batterie → « Sans restriction » (sinon Android peut retarder les notifications).
+4. Tester : Paramètres → « Tester un appel app fermée », puis fermer EVAT. 3 notifications d'appel arrivent après 8 secondes.
+Fonctionnement : le serveur renvoie la notification d'appel toutes les 4,5 secondes (6 fois) tant que personne n'a décroché, ce qui fait « sonner » le téléphone. Toucher la notification ouvre l'appel ; « Répondre » décroche directement (Android).
+
+## Sonnerie du téléphone
+Paramètres → « Sonnerie de mon téléphone » (choix par défaut des nouveaux comptes). EVAT utilise alors le son de notification de votre téléphone, application ouverte ou fermée. Pour choisir votre sonnerie : Réglages du téléphone → Applications → EVAT → Notifications → Son.
+
+## Limite à connaître
+Une application web (PWA) ne peut pas lire la vraie sonnerie système en boucle, ni afficher l'écran d'appel plein écran sur téléphone verrouillé : seule une application native Android/iOS (Google Play / App Store) le permet. La solution actuelle est la meilleure possible sans passer par une application native.

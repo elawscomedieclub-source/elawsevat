@@ -1562,3 +1562,10 @@ body.in-chat main { padding-bottom: 0; }
 .ia-sources a { color: #7dd3fc; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ia-sources a:active { text-decoration: underline; }
 .orb-xs.metier { box-shadow: 0 0 8px rgba(52, 211, 153, 0.6), inset -2px -3px 6px rgba(2, 30, 20, 0.5); }
+
+/* ============================================================
+   v4.4 — pays du monde, sonnerie du téléphone
+   ============================================================ */
+#selectPays { text-overflow: ellipsis; }
+.hint-box { font-size: 12px; line-height: 1.45; color: var(--text-secondary); background: rgba(34, 211, 238, 0.06); border: 1px solid var(--border-color); border-radius: 12px; padding: 10px 12px; margin: 10px 0; }
+.hint-box strong { color: var(--text-primary); }
