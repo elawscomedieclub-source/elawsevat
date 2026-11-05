@@ -1569,3 +1569,29 @@ body.in-chat main { padding-bottom: 0; }
 #selectPays { text-overflow: ellipsis; }
 .hint-box { font-size: 12px; line-height: 1.45; color: var(--text-secondary); background: rgba(34, 211, 238, 0.06); border: 1px solid var(--border-color); border-radius: 12px; padding: 10px 12px; margin: 10px 0; }
 .hint-box strong { color: var(--text-primary); }
+
+/* ============================================================
+   v4.5 — Globe terrestre, historique des appels
+   ============================================================ */
+canvas.globe { display: block; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #1d4f8c, #04122e); }
+canvas.globe-halo { box-shadow: 0 0 16px rgba(80, 170, 255, 0.55), 0 0 34px rgba(37, 99, 235, 0.3); }
+.elaws-orb canvas.globe { width: 100%; height: 100%; }
+.elaws-orb { width: 46px; height: 46px; padding: 2px; }
+.ia-top canvas.globe, .ia-card canvas.globe { flex-shrink: 0; }
+.ia-welcome > canvas.globe { margin: 6px auto 16px; }
+.quantum-globe-container { width: 200px; height: 200px; display: flex; align-items: center; justify-content: center; }
+.orb-xs.terre { background: var(--globe-img, radial-gradient(circle at 32% 26%, #bae6fd, #2563eb 60%, #0b1b4a)); background-size: cover; box-shadow: 0 0 8px rgba(80, 170, 255, 0.6); }
+.orb-xs.terre::after { display: none; }
+.appels-filtres { display: flex; align-items: center; gap: 8px; margin: 4px 0 10px; }
+.appels-chip { padding: 7px 16px; border-radius: 20px; font-size: 13px; cursor: pointer; color: var(--text-primary); background: rgba(34, 211, 238, 0.06); border: 1px solid var(--border-color); }
+.appels-chip.active { background: rgba(34, 211, 238, 0.22); border-color: var(--cyan); }
+.appels-filtres .btn-icon { margin-left: auto; }
+.appels-list { display: flex; flex-direction: column; }
+.appel-item { display: flex; align-items: center; gap: 12px; padding: 10px 6px; border-bottom: 1px solid rgba(56, 189, 248, 0.08); }
+.appel-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.appel-body strong { font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.appel-sub { font-size: 12px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.appel-sub .dir { font-style: normal; font-weight: 700; margin-right: 2px; color: #22c55e; }
+.appel-item.manque .appel-body strong, .appel-item.manque .appel-sub, .appel-item.manque .appel-sub .dir { color: #f87171; }
+.appel-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.appel-actions .btn-icon { width: 36px; height: 36px; font-size: 15px; }

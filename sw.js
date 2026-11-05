@@ -1,9 +1,9 @@
-/* EVAT Continuum — Service Worker v4.4
+/* EVAT Continuum — Service Worker v4.6
    - Coquille de l'app précachée (démarrage instantané + hors ligne)
    - Fichiers de l'app : "stale-while-revalidate" (rapide, mis à jour en arrière-plan)
    - Socket.io / API / tuiles de carte : jamais interceptés (aucun risque de casser le temps réel)
    - Bibliothèques CDN : mises en cache à la première utilisation */
-const VERSION = 'evat-continuum-v440';
+const VERSION = 'evat-continuum-v460';
 const SHELL = `${VERSION}-shell`;
 const RUNTIME = `${VERSION}-runtime`;
 
@@ -19,7 +19,7 @@ const ASSETS = [
     './manifest.webmanifest'
 ];
 
-const CDN_OK = ['cdn.socket.io', 'unpkg.com'];
+const CDN_OK = ['cdn.socket.io', 'unpkg.com', 'cdn.jsdelivr.net'];   // + image de la Terre (globe)
 
 self.addEventListener('install', (e) => {
     e.waitUntil(

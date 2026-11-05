@@ -1,5 +1,5 @@
 /* ============================================================
-   EVAT Continuum v4.4 — Client dynamique
+   EVAT Continuum v4.6 — Client dynamique
    ============================================================ */
 
 /* ---------- Persistance optimisée ----------
@@ -1097,6 +1097,7 @@ function switchTab(tabId) {
     majNavActive(tabId);
     if (tabId === 'elaws-ia') rendreIA('general');
     if (tabId === 'ia-metier') rendreIA('metier');
+    if (tabId === 'appels') { rendreJournalAppels(); marquerAppelsVus(); }
     window.scrollTo(0, 0);
     if (tabId === 'map') {
         chargerLeaflet().then(() => setTimeout(() => {
@@ -1545,7 +1546,10 @@ function passerConnecte() {
 
 async function redemarrerIce(force) {
     if (!Call.pc || Call.state === 'idle') return;
-    if (Call.restarts >= 3) { terminerAppel('❌ Connexion perdue.', true); return; }
+    if (Call.restarts >= 3) {
+        terminerAppel(Call.startedAt ? '❌ Connexion perdue.' : '❌ Connexion impossible entre ces deux téléphones (réseau trop fermé). Faites « Tester ma connexion d’appel » dans Paramètres.', true, 'echec');
+        return;
+    }
     // Seul l'appelant relance la négociation (évite les collisions)
     if (!Call.isCaller) {
         if (force) setStatutAppel('⚠️ Connexion perdue, attente de l’appelant…');
@@ -1561,7 +1565,7 @@ async function redemarrerIce(force) {
         clearTimeout(Call.timers.drop);
         Call.timers.drop = setTimeout(() => redemarrerIce(true), 8000);
     } catch (e) {
-        terminerAppel('❌ Connexion perdue.', true);
+        terminerAppel('❌ Connexion perdue.', true, 'echec');
     }
 }
 
@@ -1610,10 +1614,10 @@ async function lancerAppelDirectPeer(type, telOverride) {
         setStatutAppel('📞 Appel de ' + nomPourTel(cible) + '…');
         jouerSonSonnerie('sortant');
         Call.timers.ring = setTimeout(() => {
-            if (Call.state === 'calling') terminerAppel('❌ Pas de réponse.', true);
+            if (Call.state === 'calling') terminerAppel('❌ Pas de réponse.', true, 'sans_reponse');
         }, 35000);
     } catch (e) {
-        if (Call.id === idLocal) terminerAppel(messageErreurMedia(e), true);
+        if (Call.id === idLocal) terminerAppel(messageErreurMedia(e), true, 'echec');
     }
 }
 
@@ -1675,17 +1679,17 @@ async function accepterAppelEntrant() {
         setStatutAppel('🔄 Connexion avec ' + nomPourTel(Call.peer) + '…');
 
         Call.timers.drop = setTimeout(() => {
-            if (Call.state === 'connecting') terminerAppel('❌ Connexion impossible (réseau).', true);
+            if (Call.state === 'connecting') terminerAppel('❌ Connexion impossible (réseau).', true, 'echec');
         }, 20000);
     } catch (e) {
-        if (Call.id === idLocal) terminerAppel(messageErreurMedia(e), true);
+        if (Call.id === idLocal) terminerAppel(messageErreurMedia(e), true, 'echec');
     }
 }
 
 function rejeterAppelEntrant() {
     if (Call.state !== 'ringing') { cacherModalAppelEntrant(); return; }
     signaler('reject');
-    terminerAppel(null, false);
+    terminerAppel(null, false, 'refuse');
 }
 
 function raccrocherAppel() {
@@ -1694,7 +1698,8 @@ function raccrocherAppel() {
 }
 
 /** Termine proprement l'appel. notifier=true → prévient l'autre personne */
-function terminerAppel(message, notifier) {
+function terminerAppel(message, notifier, cause) {
+    journaliserAppel(cause);
     if (notifier && Call.peer && Call.state !== 'idle') signaler('hangup');
 
     arreterSonSonnerie();
@@ -1784,8 +1789,7 @@ socket.on('p2p_signal', async (data) => {
             Call.timers.ring = setTimeout(() => {
                 if (Call.state === 'ringing') {
                     signaler('hangup');
-                    montrerNotification('📵 Appel manqué de ' + nomPourTel(Call.peer));
-                    terminerAppel(null, false);
+                    terminerAppel(null, false, 'manque');
                 }
             }, 35000);
             return;
@@ -1835,28 +1839,25 @@ socket.on('p2p_signal', async (data) => {
                 break;
 
             case 'busy':
-                terminerAppel('📵 ' + nomPourTel(Call.peer) + ' est déjà en ligne.', false);
+                terminerAppel('📵 ' + nomPourTel(Call.peer) + ' est déjà en ligne.', false, 'occupe');
+                break;
+            case 'user_unknown':
+                terminerAppel('❌ Ce numéro n’a pas de compte EVAT (ou il n’est pas encore reconnecté). Vérifiez le numéro.', false, 'echec');
                 break;
             case 'user_offline':
-                terminerAppel('📵 ' + nomPourTel(Call.peer) + ' est hors ligne. Il verra l’appel manqué à sa reconnexion.', false);
+                terminerAppel('📵 ' + nomPourTel(Call.peer) + ' est hors ligne. Il verra l’appel manqué à sa reconnexion.', false, 'hors_ligne');
                 break;
             case 'reject':
-                terminerAppel('❌ Appel refusé.', false);
+                terminerAppel('❌ Appel refusé.', false, 'refuse');
                 break;
             case 'hangup':
-                if (Call.state === 'ringing') montrerNotification('📵 Appel manqué de ' + nomPourTel(Call.peer));
-                terminerAppel('📴 Appel terminé par ' + nomPourTel(Call.peer) + '.', false);
+                // L'appelant a raccroché pendant la sonnerie → appel manqué (notifié par le journal)
+                terminerAppel(Call.state === 'ringing' ? null : '📴 Appel terminé par ' + nomPourTel(Call.peer) + '.', false, Call.state === 'ringing' ? 'manque' : undefined);
                 break;
         }
     } catch (e) {
         console.warn('Signal appel :', e);
     }
-});
-
-socket.on('missed_calls', (liste) => {
-    if (!Array.isArray(liste) || !liste.length) return;
-    const noms = [...new Set(liste.map(c => c.fromName || c.from))].slice(0, 3).join(', ');
-    montrerNotification('📵 ' + liste.length + ' appel(s) manqué(s) : ' + noms);
 });
 
 // Fermeture de l'onglet / de l'app pendant un appel : prévenir l'autre côté
@@ -1927,6 +1928,8 @@ function majBadges() {
     if (b) { b.textContent = total > 99 ? '99+' : String(total); b.hidden = total === 0; }
     const s = document.getElementById('statNonLus');
     if (s) s.textContent = total;
+    const ba = document.getElementById('badgeAppels');
+    if (ba) { const n = appelsManquesNonVus(); ba.textContent = n > 99 ? '99+' : String(n); ba.hidden = n === 0; }
     const sc = document.getElementById('statContacts');
     if (sc && utilisateur) sc.textContent = (utilisateur.contacts || []).length;
     try { if (navigator.setAppBadge) { total ? navigator.setAppBadge(total) : navigator.clearAppBadge(); } } catch (e) {}
@@ -2341,7 +2344,9 @@ let autoDecrocher = 0;   // horodatage : décrocher automatiquement l'appel qui 
 function gererOuvertureNotification(data, action) {
     if (data.type === 'call') {
         if (action === 'accept') autoDecrocher = Date.now();
-    } else if ((data.type === 'message' || data.type === 'missed') && data.from) {
+    } else if (data.type === 'missed') {
+        switchTab('appels');
+    } else if (data.type === 'message' && data.from) {
         ouvrirMessagerie(data.from);
     }
 }
@@ -2371,6 +2376,82 @@ function testerNotificationsAppel() {
         if (res && res.ok) alert('Test lancé ✅\n\nFermez maintenant EVAT (ou verrouillez le téléphone). Dans 8 secondes, une notification d’appel va sonner.');
         else alert((res && res.error) || 'Test impossible. Activez d’abord les notifications.');
     });
+}
+
+/** « Tester ma connexion d'appel » : serveur, notifications, micro, puis essai réel des serveurs de relais (STUN/TURN). */
+function sonderIce(iceServers) {
+    return new Promise((resolve) => {
+        const c = { host: 0, srflx: 0, relay: 0 };
+        let pc, fini = false;
+        const fin = () => { if (fini) return; fini = true; try { pc && pc.close(); } catch (e) {} resolve(c); };
+        try {
+            pc = new RTCPeerConnection({ iceServers });
+            pc.createDataChannel('test');
+            pc.onicecandidate = (e) => {
+                if (!e.candidate) { fin(); return; }
+                const t = e.candidate.type || ((/ typ (\w+)/.exec(e.candidate.candidate || '') || [])[1]);
+                if (c[t] !== undefined) c[t]++;
+            };
+            pc.onicegatheringstatechange = () => { if (pc.iceGatheringState === 'complete') fin(); };
+            pc.createOffer().then(o => pc.setLocalDescription(o)).catch(fin);
+        } catch (e) { fin(); }
+        setTimeout(fin, 9000);
+    });
+}
+
+async function testerConnexionAppel() {
+    const box = document.getElementById('resultatTestAppel');
+    if (!box) return;
+    const lignes = [];
+    const afficher = () => { box.style.display = 'block'; box.innerHTML = lignes.map(l => '<div style="margin:5px 0">' + l + '</div>').join(''); };
+    const ok = t => { lignes.push('✅ ' + escapeHtml(t)); afficher(); };
+    const ko = t => { lignes.push('❌ ' + escapeHtml(t)); afficher(); };
+    const av = t => { lignes.push('⚠️ ' + escapeHtml(t)); afficher(); };
+    lignes.push('⏳ Test en cours (10 secondes)…'); afficher(); lignes.length = 0; lignes.push('⏳ Test en cours (10 secondes)…'); afficher();
+    let n = 0;
+
+    // 1) serveur
+    if (socket.connected) ok('Serveur EVAT joint.');
+    else { ko('Serveur injoignable. Il dort peut-être : patientez 1 minute et réessayez.'); n++; }
+
+    // 2) notifications (appels application fermée)
+    if (!pushSupporte()) av('Ce navigateur ne gère pas les notifications : sur iPhone, ajoutez EVAT à l’écran d’accueil.');
+    else if (Notification.permission !== 'granted') { ko('Notifications refusées ou non demandées : les appels ne sonneront pas app fermée. Touchez « Activer » sur l’accueil.'); n++; }
+    else if (!socket.connected) av('Notifications autorisées (état serveur inconnu : serveur injoignable).');
+    else {
+        const st = await new Promise(r => { socket.emit('push_status', null, r); setTimeout(() => r(null), 4000); });
+        if (!st) av('Le serveur ne répond pas sur l’état des notifications.');
+        else if (!st.serveurPush) { ko('Le serveur n’a pas les notifications activées (clé VAPID).'); n++; }
+        else if (!st.abonne) { ko('Ce téléphone n’est PAS enregistré pour les appels app fermée. Fermez puis rouvrez EVAT, touchez « Activer » sur l’accueil.'); n++; }
+        else ok('Notifications : ce téléphone est enregistré, les appels app fermée sont possibles.');
+        if (st && st.sauvegarde === false) { ko('Le serveur n’arrive pas à sauvegarder les comptes (Upstash).'); n++; }
+    }
+
+    // 3) micro
+    try {
+        const flux = await navigator.mediaDevices.getUserMedia({ audio: true });
+        flux.getTracks().forEach(t => t.stop());
+        ok('Micro accessible.');
+    } catch (e) { ko('Micro refusé ou absent : autorisez le micro pour EVAT dans les réglages du navigateur.'); n++; }
+
+    // 4) réseau d'appel : STUN (connexion directe) et TURN (relais pour la 3G/4G)
+    if (!window.RTCPeerConnection) { ko('Les appels ne sont pas gérés par ce navigateur.'); n++; }
+    else {
+        const ice = await chargerIce();
+        const urls = ice.flatMap(x => [].concat(x.urls || []));
+        const turnConfigure = urls.some(u => /^turns?:/.test(u));
+        const r = await sonderIce(ice);
+        if (r.relay > 0) ok('Relais TURN opérationnel : les appels marcheront aussi en 3G/4G et sur les réseaux fermés.');
+        else if (turnConfigure) { ko('Relais TURN configuré mais INUTILISABLE (identifiants incorrects ou réseau qui le bloque). Les appels entre réseaux mobiles échoueront : vérifiez TURN_USERNAME / TURN_CREDENTIAL sur le serveur.'); n++; }
+        else { av('Aucun relais TURN configuré sur le serveur : les appels entre deux réseaux mobiles échoueront souvent.'); n++; }
+        if (r.srflx > 0) ok('Votre réseau permet la connexion directe (STUN).');
+        else av('Connexion directe non confirmée (STUN sans réponse) : l’appel dépendra du relais TURN.');
+    }
+
+    lignes.shift();
+    lignes.push(n === 0 ? '<strong>Tout est prêt pour les appels 👍</strong>' : '<strong>' + n + ' problème' + (n > 1 ? 's' : '') + ' à corriger (en rouge).</strong>');
+    lignes.push('<span style="opacity:.7">Application v4.6</span>');
+    afficher();
 }
 
 function majNavActive(tabId) {
@@ -2452,7 +2533,7 @@ function sourcesVersHtml(sources) {
 /* ---------- Affichage ---------- */
 function bulleIA(mode, role, html, extraClass) {
     if (role === 'user') return `<div class="ia-msg me"><div class="ia-body">${html}</div></div>`;
-    return `<div class="ia-msg ai ${extraClass || ''}"><span class="orb orb-xs ${mode === 'metier' ? 'metier' : ''}"></span><div class="ia-body">${html}</div></div>`;
+    return `<div class="ia-msg ai ${extraClass || ''}"><span class="orb orb-xs ${mode === 'metier' ? 'metier' : 'terre'}"></span><div class="ia-body">${html}</div></div>`;
 }
 
 function bienvenueIA(mode) {
@@ -2468,9 +2549,9 @@ function bienvenueIA(mode) {
            'Quels clients dois-je viser en priorité ?'];
     const intro = mode === 'general'
         ? `Bonjour${p ? ' ' + escapeHtml(p) : ''} ! Je suis <strong>Mister ELAWS</strong>. Posez-moi n’importe quelle question : je réfléchis avec vous, je peux même chercher sur Internet.`
-        : `Je suis <strong>Mister I</strong>, votre assistant ${escapeHtml(metier || 'métier')}. Je réponds uniquement aux questions de votre métier, avec des outils prêts à l’emploi ci-dessous. Pour tout le reste, demandez à <strong>Mister ELAWS</strong> : touchez la sphère <span class="orb orb-xs inline"></span> en haut.`;
+        : `Je suis <strong>Mister I</strong>, votre assistant ${escapeHtml(metier || 'métier')}. Je réponds uniquement aux questions de votre métier, avec des outils prêts à l’emploi ci-dessous. Pour tout le reste, demandez à <strong>Mister ELAWS</strong> : touchez la sphère <span class="orb orb-xs inline terre"></span> en haut.`;
     return `<div class="ia-welcome">
-        <span class="orb ${mode === 'general' ? 'orb-lg' : 'orb-lg metier'}"></span>
+        ${mode === 'general' ? '<canvas class="globe globe-halo" data-size="92" aria-label="Terre"></canvas>' : '<span class="orb orb-lg metier"></span>'}
         <p>${intro}</p>
         <div class="ia-chips">${chips.map(c => `<button type="button" class="ia-chip" data-ia="${mode}" data-q="${escapeHtml(c)}">${escapeHtml(c)}</button>`).join('')}</div>
     </div>`;
@@ -2490,7 +2571,7 @@ function rendreIA(mode) {
     if (!box) return;
     if (mode === 'metier') rendreOutilsMetier();
     const hist = iaHist(mode);
-    if (!hist.length) { box.innerHTML = bienvenueIA(mode); majTitresIA(); return; }
+    if (!hist.length) { box.innerHTML = bienvenueIA(mode); majTitresIA(); if (typeof initialiserGlobes === 'function') initialiserGlobes(); return; }
     box.innerHTML = hist.map(m => m.role === 'user'
         ? bulleIA(mode, 'user', escapeHtml(m.content).replace(/\n/g, '<br>'))
         : bulleIA(mode, 'ai', mdVersHtml(m.content) + sourcesVersHtml(m.sources))).join('');
@@ -2700,6 +2781,412 @@ function basculerEcouteVocaleIA(mode) {
     rec.onerror = rec.onend = () => { if (statusEl) statusEl.textContent = ''; };
     rec.start();
 }
+
+// ---------- Historique des appels & appels manqués (v4.5) ----------
+const JOURNAL_MAX = 200;
+let filtreAppels = 'tous';
+
+const LIBELLES_APPEL = {
+    manque: 'Appel manqué', repondu: 'Répondu', refuse: 'Refusé', occupe: 'Occupé',
+    hors_ligne: 'Hors ligne', sans_reponse: 'Sans réponse', annule: 'Annulé', echec: 'Échec'
+};
+
+function journal() {
+    utilisateur.journalAppels = utilisateur.journalAppels || [];
+    return utilisateur.journalAppels;
+}
+
+function appelsManquesNonVus() {
+    return utilisateur ? journal().filter(e => e.statut === 'manque' && !e.vu).length : 0;
+}
+
+function ajouterAuJournal(e) {
+    if (!utilisateur) return;
+    const j = journal();
+    j.unshift(e);
+    if (j.length > JOURNAL_MAX) j.length = JOURNAL_MAX;
+    // si on est déjà sur l'écran des appels, un appel manqué est « vu » tout de suite
+    const tab = document.getElementById('tab-appels');
+    if (tab && tab.style.display !== 'none' && !document.hidden) e.vu = true;
+    sauverProfil();
+    majBadges();
+    if (tab && tab.style.display !== 'none') rendreJournalAppels();
+}
+
+/** Enregistre l'appel qui se termine (à appeler AVANT de remettre Call à zéro). */
+function journaliserAppel(cause) {
+    if (!utilisateur || !Call.peer || Call.state === 'idle') return;
+    const sortant = !!Call.isCaller;
+    let statut;
+    if (Call.state === 'connected') statut = 'repondu';
+    else if (sortant) statut = cause || 'annule';
+    else statut = cause || (Call.state === 'ringing' ? 'manque' : 'echec');
+    const duree = (statut === 'repondu' && Call.startedAt) ? Math.round((Date.now() - Call.startedAt) / 1000) : 0;
+    ajouterAuJournal({
+        id: Call.id || ('l' + Date.now()), peer: Call.peer, nom: nomPourTel(Call.peer),
+        dir: sortant ? 'out' : 'in', type: Call.type || 'audio', statut, ts: Date.now(), duree,
+        vu: statut !== 'manque'
+    });
+    if (!sortant && statut === 'manque') notifierAppelManque(Call.peer);
+}
+
+/** Appel manqué : bandeau dans l'app et, si l'app est cachée, notification du téléphone */
+async function notifierAppelManque(tel) {
+    const nom = nomPourTel(tel);
+    montrerNotification('📵 Appel manqué de ' + nom, () => switchTab('appels'));
+    try {
+        if (document.hidden && notificationsPretes()) {
+            const reg = await navigator.serviceWorker.ready;
+            reg.showNotification('📵 Appel manqué', {
+                body: nom + ' a essayé de vous joindre', tag: 'evat-missed', renotify: true,
+                icon: 'icon-192.png', badge: 'icon-192.png', vibrate: [200, 100, 200],
+                data: { type: 'missed', from: tel }
+            }).catch(() => {});
+        }
+    } catch (e) {}
+}
+
+// Appels manqués pendant que le téléphone était éteint / l'app fermée (envoyés par le serveur à la reconnexion)
+socket.on('missed_calls', (liste) => {
+    if (!Array.isArray(liste) || !utilisateur) return;
+    let ajoutes = 0;
+    liste.forEach(c => {
+        const id = c.callId || ('srv' + c.at);
+        if (journal().some(e => e.id === id)) return;
+        ajouterAuJournal({
+            id, peer: c.from, nom: c.fromName || nomPourTel(c.from), dir: 'in',
+            type: c.callType === 'video' ? 'video' : 'audio', statut: 'manque', ts: c.at || Date.now(), duree: 0, vu: false
+        });
+        ajoutes++;
+    });
+    if (ajoutes) montrerNotification('📵 ' + ajoutes + ' appel' + (ajoutes > 1 ? 's' : '') + ' manqué' + (ajoutes > 1 ? 's' : ''), () => switchTab('appels'));
+});
+
+function marquerAppelsVus() {
+    if (!utilisateur) return;
+    let change = false;
+    journal().forEach(e => { if (!e.vu) { e.vu = true; change = true; } });
+    if (change) { sauverProfil(); majBadges(); }
+    fermerNotificationsManquees();
+}
+
+async function fermerNotificationsManquees() {
+    try {
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (reg) (await reg.getNotifications({ tag: 'evat-missed' })).forEach(n => n.close());
+    } catch (e) {}
+}
+
+function dureeTexte(s) {
+    if (!s) return '';
+    if (s < 60) return s + ' s';
+    return Math.floor(s / 60) + ' min ' + String(s % 60).padStart(2, '0') + ' s';
+}
+
+function filtrerAppels(f) {
+    filtreAppels = f;
+    document.querySelectorAll('.appels-filtres [data-filtre]').forEach(b => b.classList.toggle('active', b.dataset.filtre === f));
+    rendreJournalAppels();
+}
+
+function rendreJournalAppels() {
+    const box = document.getElementById('listeAppels');
+    if (!box || !utilisateur) return;
+    let liste = journal();
+    if (filtreAppels === 'manques') liste = liste.filter(e => e.statut === 'manque');
+    if (!liste.length) {
+        box.innerHTML = `<div class="empty-state"><div class="empty-ico">📞</div><p>${filtreAppels === 'manques' ? 'Aucun appel manqué.' : 'Aucun appel pour le moment.<br>Appelez un contact depuis l’onglet Contacts.'}</p></div>`;
+        return;
+    }
+    let jour = '', html = '';
+    liste.forEach(e => {
+        const j = libelleJour(e.ts);
+        if (j !== jour) { jour = j; html += `<div class="conv-section">${escapeHtml(j)}</div>`; }
+        const manque = e.statut === 'manque';
+        const nom = (utilisateur.contacts || []).find(c => c.telephone === e.peer);
+        const affiche = nom ? nom.nom : (e.nom || e.peer);
+        const fleche = e.dir === 'in' ? '↙' : '↗';
+        const sous = [LIBELLES_APPEL[e.statut] || '', e.type === 'video' ? '📹 Vidéo' : '', heureCourte(e.ts), dureeTexte(e.duree)].filter(Boolean).join(' · ');
+        html += `<div class="appel-item ${manque ? 'manque' : ''}">
+            <span class="avatar sm">${escapeHtml(initialesDe(affiche))}</span>
+            <div class="appel-body"><strong>${escapeHtml(affiche)}</strong>
+              <span class="appel-sub"><i class="dir">${fleche}</i> ${escapeHtml(sous)}</span></div>
+            <div class="appel-actions">
+              <button type="button" class="btn-icon" data-rappel="audio" data-tel="${escapeHtml(e.peer)}" aria-label="Rappeler">📞</button>
+              <button type="button" class="btn-icon" data-rappel="video" data-tel="${escapeHtml(e.peer)}" aria-label="Appel vidéo">📹</button>
+            </div></div>`;
+    });
+    box.innerHTML = html;
+}
+
+function viderJournalAppels() {
+    if (!utilisateur || !journal().length) return;
+    if (!confirm('Effacer tout l’historique des appels ?')) return;
+    utilisateur.journalAppels = [];
+    sauverProfil();
+    majBadges();
+    rendreJournalAppels();
+}
+
+document.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('#listeAppels [data-rappel]');
+    if (b) lancerAppelDirectPeer(b.dataset.rappel === 'video' ? 'video' : 'audio', b.dataset.tel);
+});
+
+
+// ---------- Globe terrestre réel (v4.5) ----------
+/*  La sphère de Mister ELAWS est la Terre : vraie image satellite (NASA Blue Marble, domaine public) chargée une fois
+    depuis un CDN public puis gardée en cache. Pendant le chargement (ou hors ligne), un globe dessiné localement
+    prend le relais. Rendu en canvas 2D : rotation, éclairage du soleil, relief des océans, atmosphère bleue.
+    Une seule boucle d'animation pour tous les globes, en pause quand l'application est cachée.                  */
+
+const GLOBE_URLS = [
+    'https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-blue-marble.jpg',
+    'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg'
+];
+const GLOBE = {
+    TW: 1024, TH: 512, tex: null, eau: null, reel: false,
+    instances: [], raf: 0, dernier: 0, spin: 0.62, statique: false
+};
+
+/* ---------- Texture de secours : continents simplifiés [lon, lat] ---------- */
+const TERRES = [
+    // Amérique du Nord
+    [[-168,66],[-162,70],[-156,71.5],[-141,70],[-128,70],[-115,68],[-95,72],[-86,70],[-82,67],[-88,64],[-94,60],[-93,57],[-85,55],[-80,52],[-78,57],[-77,62],[-70,60],[-65,60],[-62,57],[-56,52],[-60,47],[-66,45],[-70,43],[-70,41.5],[-74,40],[-76,37],[-76,35],[-81,31],[-80,26],[-82,26],[-83,29.5],[-89,30],[-94,29.5],[-97,26],[-97.5,22],[-95,18.5],[-91,18.5],[-90,21],[-87,21.5],[-88,16],[-84,15.5],[-83,11],[-81,9],[-77.5,8.5],[-78,7],[-80,7.5],[-83.5,8.5],[-86,11],[-87.5,13],[-92,14.5],[-95,16],[-98,16],[-103,18.5],[-105.5,20.5],[-105,23],[-109,25.5],[-112,29.5],[-115,29.5],[-114,31.5],[-112,28],[-110,23],[-112,24.5],[-115,28],[-117,32.5],[-120.5,34.5],[-122.5,37.5],[-124,40.5],[-124.5,46],[-123,48.5],[-125,50],[-130,54.5],[-135,58.5],[-140,60],[-148,60.5],[-152,58.5],[-158,56.5],[-164,54.5],[-160,58.5],[-165,61],[-165,64.5]],
+    // Groenland, grandes îles arctiques
+    [[-73,78.5],[-60,82],[-30,83.5],[-18,81.5],[-20,75],[-22,70],[-30,68],[-40,65],[-43,60],[-48,61],[-53,66],[-55,70],[-60,76]],
+    [[-80,73],[-68,70],[-62,66.5],[-65,63],[-72,64.5],[-78,64],[-73,68]],
+    [[-118,72],[-105,73],[-102,69.5],[-114,69]],
+    [[-90,77],[-75,79],[-62,82],[-80,83],[-92,81]],
+    // Amérique du Sud
+    [[-77.5,8.5],[-72,12],[-64,10.5],[-60,8.5],[-52,5],[-50,0],[-44,-2.5],[-35,-5.5],[-35,-9],[-39,-14],[-39,-18],[-41,-22],[-48,-25.5],[-48.5,-28.5],[-53,-34],[-58,-34.5],[-57,-38],[-62,-39],[-65,-41],[-64.5,-45],[-67.5,-46.5],[-66,-48.5],[-69,-51],[-68.5,-52.5],[-72,-53.5],[-75,-50],[-73.5,-42],[-73.5,-37],[-71.5,-30],[-70.5,-20],[-70.3,-18],[-76,-14],[-79,-8],[-81,-5],[-80,-1],[-80,1.5],[-78.5,2.5],[-77.5,7]],
+    // Afrique + Madagascar
+    [[-17,21],[-16.5,24],[-13,27.5],[-9.5,30],[-9.5,32.5],[-6,35.8],[-2,35.2],[3,36.8],[10,37.2],[11,33.5],[15,32.3],[19.5,30.5],[20,32.5],[25,32],[32,31.2],[34,27.5],[36,22],[37.5,18],[39.5,15.5],[43,12.5],[45,10.5],[51.2,11.8],[50.5,9],[48,5],[44,1.5],[41,-2],[39.5,-6],[40.5,-10.5],[40.5,-15],[35,-20],[35.5,-24.5],[32.8,-26],[31,-30],[27,-33.5],[22,-34],[18.5,-34.2],[17.5,-30.5],[14.5,-23],[11.8,-17],[13.5,-10],[12,-5],[9.5,-1],[9.5,3.5],[6,4.5],[2,6],[-4,5],[-8,4.4],[-12,7.5],[-15,10.5],[-17,14.5]],
+    [[49.5,-12],[50.5,-15.5],[47.5,-25],[44.5,-25],[43.5,-21],[44.5,-16]],
+    // Eurasie
+    [[-9,37],[-9.5,43],[-1.8,43.5],[-1.2,46],[-4.5,48.3],[-1.5,48.8],[1.5,50.5],[4.5,52.5],[8.5,54],[8.5,57.2],[10.5,57.6],[10.5,54.8],[14,54],[19,54.5],[21,56.5],[24,57.5],[24,59.5],[29,60],[22,60.2],[21.5,63],[25,65.2],[22,65.7],[17.5,62.5],[19,60.5],[16.5,56.5],[12.8,55.8],[11,59],[8,58],[5.5,59.5],[5,62],[10,64.5],[14,67.5],[19,70],[26,71],[31,70],[40,67.5],[41,66],[33,66.3],[34.5,64.5],[40.5,64.5],[44,66.5],[48,68],[54,68.5],[60,69.5],[68,69],[69,72],[72,73],[80,73.5],[87,75],[100,77],[106,77.5],[113,74],[125,73.5],[130,71],[140,72.5],[150,71.5],[160,70],[170,69.8],[180,68.8],[180,64.8],[177,62.5],[170,60],[163,59.5],[163,57],[156,51],[155.5,57],[150,59.2],[142,59],[136,54.5],[140.5,53],[141,48.5],[137,45],[132,43],[129.5,41],[129,37],[126.5,34.8],[126.5,37.5],[124.5,39.5],[121.5,39],[122,37.5],[119,37],[120.5,35],[122,31.5],[121,28],[119,25],[115,22.5],[110.5,21],[108,21.5],[106,19],[108.5,15.5],[109,11.5],[105,8.7],[104.5,10.5],[100.5,13.2],[99.5,9.5],[100.5,6.5],[103.5,1.5],[101.2,2.8],[98.5,8.5],[98.5,13.5],[97.5,16.5],[94.5,16],[94,19],[92,21.5],[89,22],[86.5,20.5],[82,16.5],[80.2,14],[79.8,10.2],[77.5,8],[76,10.5],[73.5,16.5],[72.8,21],[70,21],[68.5,23.5],[66.5,25.2],[61.5,25.2],[57,25.8],[56.2,27],[51.5,28],[50,30],[48.5,30],[48,29],[50.5,26.5],[51.5,24.5],[54,24],[56,25.5],[56.8,24.2],[59.5,22.5],[57.5,19],[55,17],[52,16],[48.5,14],[44,12.7],[43.2,13.5],[42.5,16.5],[39,21.5],[35.5,28],[34.8,29.5],[34.3,31],[35,33.5],[36,36],[32,36.3],[28,36.6],[26.5,38.5],[26.5,40],[29,41],[31,41.2],[36,41.7],[41,41],[41.5,42.5],[38,44.5],[36.5,45.5],[33,45.5],[33.5,46.2],[31,46.5],[29.8,45.3],[28.5,43.5],[28,41.8],[26,40.8],[23,40.5],[24,38],[22.8,36.5],[21.5,37.5],[19.5,40],[19.5,42],[16,43.5],[13.5,45.2],[12.3,44.5],[14,42],[16.5,41],[18.5,40],[16.5,38.2],[15.8,38],[16,40],[12.5,41.5],[10.5,43.5],[8.5,44.4],[6.5,43.2],[3.2,43.2],[3,41.8],[0.5,40.5],[-0.5,38.5],[-1,37],[-2,36.7],[-5,36.2],[-5.8,36],[-6.5,37],[-8.8,37]],
+    // Îles : Royaume-Uni, Irlande, Islande, Japon, Hokkaido, Sri Lanka, Cuba, Hispaniola
+    [[-5.5,50],[1.5,51],[1.7,53],[-0.5,54.5],[-2,56],[-2,57.7],[-3,58.6],[-5,58.5],[-6,57],[-5,55],[-3,54.8],[-3,53.4],[-4.5,52],[-5,51.7]],
+    [[-10,51.8],[-6,52],[-6,54.5],[-8,55.2],[-10,54]],
+    [[-24,65.5],[-18,66.5],[-14,65],[-18,63.5],[-22,63.8]],
+    [[130,31],[132,33.5],[135,34],[137,34.5],[140,35],[141,38],[142,40],[141.5,41.5],[140,41],[139.5,40],[139,38],[137,36.8],[135,35.5],[132,35.5],[130,34]],
+    [[140,42],[143,42],[145.5,43.5],[142,45.5],[140,43]],
+    [[79.8,9.5],[81.8,7.5],[80.5,6],[79.8,7.5]],
+    [[-85,22],[-80,23],[-74,20],[-77.5,19.8],[-82,22.5]],
+    [[-74.5,19.8],[-69,19.5],[-68.5,18.3],[-72,18]],
+    [[52,71],[57,70.7],[69,76.5],[60,76.3]],
+    // Asie du Sud-Est
+    [[95.5,5.5],[98,4],[104,-1],[106,-3.5],[104,-5.5],[101,-3],[97,2]],
+    [[109,1.5],[111,2],[114,4.5],[117,7],[119,5],[118,1],[116,-4],[112,-3.5],[110,-3],[109,0]],
+    [[105.5,-6.5],[108,-6.5],[114,-7.5],[114.5,-8.5],[106,-7.5]],
+    [[119,-5],[120,-1],[121,1],[125,1.5],[123,-1],[122,-4],[121,-5],[119,-5.5]],
+    [[131,-1],[134,-3],[138,-1.5],[141,-2.5],[145,-4.5],[148,-6],[150.5,-10.5],[147,-10],[143,-9],[141,-9],[138,-8.5],[137,-5.5],[133,-4]],
+    [[120,18.5],[122,18.5],[122,14.5],[124,13],[121,13.5],[120,16]],
+    [[122,8],[125,9.5],[126.5,7],[125.5,5.8],[123,7.5]],
+    // Océanie
+    [[114,-22],[114,-26],[115,-34],[119,-35],[124,-33.5],[131,-31.5],[135,-35],[138,-35.5],[140,-38],[144,-38.5],[147,-39],[150,-37],[153,-31],[153,-26],[149,-20],[146,-18.5],[145.5,-14.5],[142.5,-10.8],[141,-16.5],[136.5,-15.5],[137,-12],[132,-11.5],[129,-14.8],[126,-14],[122,-17.5],[119,-20]],
+    [[145,-41],[148,-41],[147.5,-43.5],[146,-43.5]],
+    [[173,-35],[176,-37.5],[178,-37.8],[175,-41.5],[174.5,-39.5]],
+    [[172.5,-40.5],[174,-41.5],[171,-44.5],[169,-46.5],[166.5,-46],[168,-44],[171,-41.5]],
+    // Antarctique
+    [[-180,-78],[-150,-77],[-120,-74],[-100,-73],[-75,-72.5],[-65,-68],[-62,-65],[-57,-64.2],[-62,-68],[-65,-75],[-45,-78],[-30,-76],[-15,-71],[0,-70],[30,-69],[50,-67],[70,-68],[90,-66],[110,-66.5],[140,-66.5],[150,-70.5],[165,-72],[170,-77],[180,-78],[180,-90],[-180,-90]]
+];
+const DESERTS = [
+    [[-16,17],[-10,26],[0,30],[10,31],[25,30],[34,27],[33,17],[24,15],[15,13],[0,15]],
+    [[37,28],[48,30],[56,25],[52,17],[44,16],[40,21]],
+    [[124,-20],[134,-23],[142,-26],[140,-30],[128,-31],[122,-26]],
+    [[95,41],[110,44],[117,41],[105,38],[96,38]],
+    [[14,-18],[20,-27],[16,-30],[12,-22]]
+];
+const FORETS = [
+    [[-75,5],[-50,5],[-48,-8],[-60,-12],[-74,-8]],           // Amazonie
+    [[8,6],[28,5],[30,-6],[14,-5],[9,0]],                    // Afrique centrale
+    [[95,22],[108,22],[108,8],[100,2],[95,15]],              // Asie du Sud-Est
+    [[95,-2],[118,5],[118,-4],[100,-4]]                      // Insulinde
+];
+const GLACES = [
+    [[-60,60],[-18,60],[-18,84],[-73,84],[-73,76]],          // Groenland
+    [[-180,72],[180,72],[180,90],[-180,90]]                  // Arctique
+];
+
+function polygone(ctx, pts, W, H, continuer) {
+    if (!continuer) ctx.beginPath();
+    pts.forEach(([lon, lat], i) => {
+        const x = (lon + 180) / 360 * W, y = (90 - lat) / 180 * H;
+        i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    });
+    ctx.closePath();
+}
+
+function construireTextureSecours() {
+    const W = GLOBE.TW, H = GLOBE.TH;
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const ctx = c.getContext('2d', { willReadFrequently: true });
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#2a5f9a'); g.addColorStop(0.2, '#14508f'); g.addColorStop(0.5, '#0d4a8e'); g.addColorStop(0.8, '#14508f'); g.addColorStop(1, '#2a5f9a');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    // eaux peu profondes autour des côtes
+    ctx.save(); ctx.shadowColor = 'rgba(90,190,230,0.9)'; ctx.shadowBlur = 9; ctx.fillStyle = '#3f8f4a';
+    TERRES.forEach(p => { polygone(ctx, p, W, H); ctx.fill(); });
+    ctx.restore();
+    // terres : vert, puis déserts, forêts, glaces
+    ctx.fillStyle = '#4b9a4e'; TERRES.forEach(p => { polygone(ctx, p, W, H); ctx.fill(); });
+    ctx.save();
+    ctx.beginPath(); TERRES.forEach(p => polygone(ctx, p, W, H, true)); ctx.clip();      // un seul chemin = union des continents
+    ctx.fillStyle = '#7fa656';
+    ctx.fillRect(0, H * (90 - 62) / 180, W, H * 14 / 180);                // taïga / toundra
+    ctx.fillStyle = '#d2bf8a'; DESERTS.forEach(p => { polygone(ctx, p, W, H); ctx.fill(); });
+    ctx.fillStyle = '#2c7a3d'; FORETS.forEach(p => { polygone(ctx, p, W, H); ctx.fill(); });
+    ctx.fillStyle = '#eef3f8'; GLACES.forEach(p => { polygone(ctx, p, W, H); ctx.fill(); });
+    ctx.fillRect(0, H * (90 - 72) / 180, W, H * 0.001);
+    ctx.fillRect(0, H * 156.5 / 180, W, H);                                // banquise antarctique
+    ctx.restore();
+    const img = ctx.getImageData(0, 0, W, H), d = img.data;
+    for (let i = 0; i < d.length; i += 4) {                               // grain naturel
+        const n = (Math.random() - 0.5) * 12;
+        d[i] += n; d[i + 1] += n; d[i + 2] += n;
+    }
+    definirTexture(d);
+}
+
+function definirTexture(rgba) {
+    const W = GLOBE.TW, H = GLOBE.TH, eau = new Uint8Array(W * H);
+    for (let i = 0, k = 0; i < rgba.length; i += 4, k++) {
+        const r = rgba[i], g = rgba[i + 1], b = rgba[i + 2];
+        eau[k] = (b > r + 22 && b >= g - 4) ? 1 : 0;                      // océans et lacs → reflet du soleil
+    }
+    GLOBE.tex = rgba;
+    GLOBE.eau = eau;
+}
+
+/* ---------- Vraie image satellite (NASA Blue Marble) ---------- */
+function chargerImage(url) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.decoding = 'async';
+        const t = setTimeout(() => { img.src = ''; reject(new Error('délai dépassé')); }, 25000);
+        img.onload = () => { clearTimeout(t); resolve(img); };
+        img.onerror = () => { clearTimeout(t); reject(new Error('échec')); };
+        img.src = url;
+    });
+}
+
+async function chargerTextureTerre() {
+    try {
+        const c = navigator.connection;
+        if (c && (c.saveData || /(^|-)2g$/.test(c.effectiveType || ''))) return;   // économise les données
+    } catch (e) {}
+    for (const url of GLOBE_URLS) {
+        try {
+            const img = await chargerImage(url);
+            const cv = document.createElement('canvas'); cv.width = GLOBE.TW; cv.height = GLOBE.TH;
+            const ctx = cv.getContext('2d', { willReadFrequently: true });
+            ctx.drawImage(img, 0, 0, GLOBE.TW, GLOBE.TH);
+            definirTexture(ctx.getImageData(0, 0, GLOBE.TW, GLOBE.TH).data);   // lève une erreur si l'image est « tainted »
+            GLOBE.reel = true;
+            fabriquerVignette();
+            return;
+        } catch (e) { /* source suivante */ }
+    }
+}
+
+/* ---------- Un globe dessiné sur un <canvas> ---------- */
+const LUMIERE = (() => { const l = [-0.55, 0.5, 0.68], n = Math.hypot(...l); return l.map(v => v / n); })();
+
+function preparerGlobe(canvas) {
+    const taille = parseInt(canvas.dataset.size, 10) || canvas.clientWidth || 44;
+    const dpr = Math.min(window.devicePixelRatio || 1, taille > 120 ? 1.25 : 2);
+    const n = Math.max(24, Math.round(taille * dpr));
+    canvas.width = canvas.height = n;
+    canvas.style.width = canvas.style.height = taille + 'px';
+    const ctx = canvas.getContext('2d');
+    const img = ctx.createImageData(n, n);
+    const incl = 0.4, cT = Math.cos(incl), sT = Math.sin(incl);
+    const pix = [], rowv = [], u0 = [], lum = [], rim = [], spec = [], alpha = [];
+    for (let y = 0; y < n; y++) {
+        for (let x = 0; x < n; x++) {
+            const nx = (x + 0.5) / n * 2 - 1, ny = 1 - (y + 0.5) / n * 2, r2 = nx * nx + ny * ny;
+            if (r2 >= 1.0) continue;
+            const nz = Math.sqrt(1 - r2);
+            const y1 = ny * cT + nz * sT, z1 = -ny * sT + nz * cT;           // inclinaison de l'axe
+            const lat = Math.asin(Math.max(-1, Math.min(1, y1)));
+            const lon = Math.atan2(nx, z1);
+            rowv.push(Math.min(GLOBE.TH - 1, Math.max(0, ((0.5 - lat / Math.PI) * GLOBE.TH) | 0)));
+            u0.push(lon / (2 * Math.PI) + 0.5);
+            const dif = nx * LUMIERE[0] + ny * LUMIERE[1] + nz * LUMIERE[2];
+            lum.push(0.2 + 0.95 * Math.max(0, dif));
+            // reflet du soleil sur l'eau
+            const rx = 2 * dif * nx - LUMIERE[0], ry = 2 * dif * ny - LUMIERE[1], rz = 2 * dif * nz - LUMIERE[2];
+            spec.push(Math.pow(Math.max(0, rz), 22) * 0.55 * (dif > 0 ? 1 : 0));
+            rim.push(Math.pow(1 - nz, 2.6) * (0.35 + 0.65 * Math.max(0, dif + 0.3)));
+            alpha.push(Math.max(0, Math.min(1, (1 - Math.sqrt(r2)) * n * 0.55)));
+            pix.push((y * n + x) * 4);
+        }
+    }
+    canvas.__g = { ctx, img, n, pix: Int32Array.from(pix), rowv: Uint16Array.from(rowv), u0: Float32Array.from(u0),
+                   lum: Float32Array.from(lum), rim: Float32Array.from(rim), spec: Float32Array.from(spec), alpha: Float32Array.from(alpha) };
+}
+
+function dessinerGlobe(canvas, rotation) {
+    const G = canvas.__g, T = GLOBE.tex, E = GLOBE.eau;
+    if (!G || !T) return;
+    const d = G.img.data, TW = GLOBE.TW, m = G.pix.length;
+    for (let k = 0; k < m; k++) {
+        let xi = ((G.u0[k] - rotation) * TW) | 0;
+        xi = ((xi % TW) + TW) % TW;
+        const ti = G.rowv[k] * TW + xi, t = ti * 4;
+        const l = G.lum[k], rm = G.rim[k], sp = E[ti] ? G.spec[k] * 255 : 0;
+        let r = T[t] * l + sp + rm * 90, g = T[t + 1] * l + sp + rm * 165, b = T[t + 2] * l + sp + rm * 255;
+        const p = G.pix[k];
+        d[p] = r > 255 ? 255 : r; d[p + 1] = g > 255 ? 255 : g; d[p + 2] = b > 255 ? 255 : b;
+        d[p + 3] = G.alpha[k] * 255;
+    }
+    G.ctx.putImageData(G.img, 0, 0);
+}
+
+/** Petite image fixe du globe : sert d'icône dans les bulles de discussion */
+function fabriquerVignette() {
+    try {
+        const c = document.createElement('canvas'); c.dataset.size = '72';
+        preparerGlobe(c); dessinerGlobe(c, 0.52);
+        document.documentElement.style.setProperty('--globe-img', 'url(' + c.toDataURL('image/png') + ')');
+    } catch (e) {}
+}
+
+function initialiserGlobes() {
+    document.querySelectorAll('canvas.globe').forEach(c => {
+        if (c.__g) return;
+        if (!GLOBE.tex) construireTextureSecours();
+        preparerGlobe(c);
+        GLOBE.instances.push(c);
+        dessinerGlobe(c, GLOBE.spin);
+    });
+    GLOBE.instances = GLOBE.instances.filter(c => c.isConnected);
+    if (!GLOBE.raf && !GLOBE.statique && GLOBE.instances.length) GLOBE.raf = requestAnimationFrame(boucleGlobes);
+}
+
+function boucleGlobes(t) {
+    GLOBE.raf = requestAnimationFrame(boucleGlobes);
+    if (document.hidden) return;
+    if (t - GLOBE.dernier < 55) return;                                    // ~18 images/s : fluide et économe
+    GLOBE.dernier = t;
+    GLOBE.spin = (t / 1000) * 0.012;                                       // un tour en ~83 s
+    GLOBE.instances = GLOBE.instances.filter(c => c.isConnected);
+    GLOBE.instances.forEach(c => { if (c.offsetParent !== null) dessinerGlobe(c, GLOBE.spin); });
+}
+
+(function demarrerGlobes() {
+    try { GLOBE.statique = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+    const go = () => {
+        initialiserGlobes();
+        fabriquerVignette();
+        // la vraie image est chargée un peu plus tard, sans gêner le démarrage
+        (window.requestIdleCallback || (f => setTimeout(f, 2500)))(() => setTimeout(chargerTextureTerre, 1200));
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go();
+})();
+
 
 // ---------- Initialisation ----------
 document.addEventListener('DOMContentLoaded', initialiserSelecteurPays);   // après le chargement complet du script
