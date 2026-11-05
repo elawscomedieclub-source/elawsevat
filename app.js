@@ -1,5 +1,5 @@
 /* ============================================================
-   EVAT Continuum v4.6 — Client dynamique
+   EVAT Continuum v4.7 — Client dynamique
    ============================================================ */
 
 /* ---------- Persistance optimisée ----------
@@ -272,15 +272,21 @@ socket.on('connect', () => {
         statusEl.innerHTML = "🟢 Connecté";
         statusEl.style.color = "var(--success)";
     }
-    if (utilisateur && utilisateur.telephone && utilisateur.recoveryPin) {
+    // IMPORTANT : on se signale au serveur même sans code de récupération (anciens comptes) : le serveur répond alors
+    // « needsNew » et l'application recrée le compte toute seule. Avant, ces comptes restaient invisibles et injoignables.
+    if (utilisateur && utilisateur.telephone) {
         socket.emit('register_user', {
             nom: utilisateur.nom,
             telephone: utilisateur.telephone,
             metier: utilisateur.metier,
-            recoveryPin: utilisateur.recoveryPin
+            recoveryPin: utilisateur.recoveryPin || undefined
         }, (res) => {
             if (res && res.ok === false) {
+                // Serveur redémarré qui ne connaît plus ce compte : on le recrée tout seul (nouveau code de récupération)
+                if (res.needsNew && utilisateur) { reinscrireCompte(); return; }
                 // PIN invalide ou compte pris → forcer la récupération
+                const st = document.getElementById('serverConnectionStatus');
+                if (st) { st.textContent = '🟠 Compte non reconnu — Menu → Refaire l’enregistrement'; st.style.color = 'var(--warning, #f59e0b)'; }
                 montrerNotification(res.error || 'Session non reconnue. Récupérez votre compte.');
                 return;
             }
@@ -2282,11 +2288,14 @@ function majCartePush() {
 }
 
 async function activerPush() {
-    if (!pushSupporte() || !utilisateur || !socket.connected) return false;
-    if (Notification.permission !== 'granted') return false;
+    window.__pushErreur = '';
+    if (!pushSupporte()) { window.__pushErreur = 'Ce navigateur ne gère pas les notifications push.'; return false; }
+    if (!utilisateur) return false;
+    if (!socket.connected) { window.__pushErreur = 'Serveur injoignable.'; return false; }
+    if (Notification.permission !== 'granted') { window.__pushErreur = 'Notifications non autorisées.'; return false; }
     try {
-        const { publicKey } = await new Promise(res => socket.emit('get_vapid', null, res));
-        if (!publicKey) return false;                  // serveur sans web-push
+        const { publicKey } = await new Promise(res => socket.emit('get_vapid', null, r => res(r || {})));
+        if (!publicKey) { window.__pushErreur = 'Le serveur n’a pas de clé de notification (VAPID).'; return false; }
         const reg = await navigator.serviceWorker.ready;
         let sub = await reg.pushManager.getSubscription();
         const cle = urlBase64ToUint8Array(publicKey);
@@ -2298,7 +2307,15 @@ async function activerPush() {
         if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: cle });
         const res = await new Promise(r => socket.emit('push_subscribe', sub.toJSON(), r));
         if (res && res.ok) { localStorage.setItem('evat_push_ok', '1'); majCartePush(); return true; }
-    } catch (e) { console.warn('Push :', e); }
+        window.__pushErreur = 'Le serveur n’a pas enregistré ce téléphone (compte non reconnu ?).';
+    } catch (e) {
+        const n = (e && e.name) || 'Erreur';
+        window.__pushErreur = (n === 'AbortError' || /push service/i.test(e.message || ''))
+            ? 'Le service de notifications du navigateur est inaccessible (réseau, VPN, économiseur de données, ou navigateur sans services Google). Essayez avec Chrome.'
+            : n + ' : ' + (e && e.message ? e.message : '');
+        console.warn('Push :', e);
+    }
+    localStorage.removeItem('evat_push_ok');
     return false;
 }
 
@@ -2378,6 +2395,27 @@ function testerNotificationsAppel() {
     });
 }
 
+let _reinscription = false;
+/** Le serveur a oublié ce compte (Render gratuit redémarre) : on le recrée avec les mêmes nom / numéro / métier. */
+function reinscrireCompte() {
+    if (_reinscription || !utilisateur || !socket.connected) return;
+    _reinscription = true;
+    socket.emit('register_new', { nom: utilisateur.nom, telephone: utilisateur.telephone, metier: utilisateur.metier }, (res) => {
+        _reinscription = false;
+        const st = document.getElementById('serverConnectionStatus');
+        if (res && res.ok) {
+            utilisateur.recoveryPin = res.recoveryPin;
+            sauverProfil();
+            if (st) { st.textContent = '🟢 Connexion active'; st.style.color = ''; }
+            verifierEtSynchroniserContacts(); chargerHistorique(); activerPush();
+            alert('Votre compte a été reconnecté au serveur ✅\n\nNouveau code de récupération : ' + res.recoveryPin + '\n\nNotez-le : il remplace l’ancien.');
+        } else {
+            if (st) { st.textContent = '🟠 Compte non reconnu — Menu → Refaire l’enregistrement'; st.style.color = 'var(--warning, #f59e0b)'; }
+            montrerNotification((res && res.error) || 'Impossible de reconnecter le compte. Menu → Refaire l’enregistrement.');
+        }
+    });
+}
+
 /** « Tester ma connexion d'appel » : serveur, notifications, micro, puis essai réel des serveurs de relais (STUN/TURN). */
 function sonderIce(iceServers) {
     return new Promise((resolve) => {
@@ -2421,10 +2459,18 @@ async function testerConnexionAppel() {
     else {
         const st = await new Promise(r => { socket.emit('push_status', null, r); setTimeout(() => r(null), 4000); });
         if (!st) av('Le serveur ne répond pas sur l’état des notifications.');
+        else if (!st.liee) {
+            ko('Votre compte n’est pas reconnu par le serveur (il a été réinitialisé) : ni appels ni notifications. Reconnexion automatique lancée : refaites le test dans 10 secondes.');
+            n++; reinscrireCompte();
+        }
         else if (!st.serveurPush) { ko('Le serveur n’a pas les notifications activées (clé VAPID).'); n++; }
-        else if (!st.abonne) { ko('Ce téléphone n’est PAS enregistré pour les appels app fermée. Fermez puis rouvrez EVAT, touchez « Activer » sur l’accueil.'); n++; }
+        else if (!st.abonne) {
+            const enregistre = await activerPush();
+            if (enregistre) ok('Notifications : ce téléphone vient d’être enregistré, les appels app fermée sont possibles.');
+            else { ko('Impossible d’enregistrer ce téléphone pour les appels app fermée. Cause : ' + (window.__pushErreur || 'inconnue')); n++; }
+        }
         else ok('Notifications : ce téléphone est enregistré, les appels app fermée sont possibles.');
-        if (st && st.sauvegarde === false) { ko('Le serveur n’arrive pas à sauvegarder les comptes (Upstash).'); n++; }
+        if (st && st.sauvegarde === false) { av('Le serveur ne sauvegarde pas les comptes (Upstash mal configuré) : après un redémarrage de Render, il faudra se reconnecter.'); }
     }
 
     // 3) micro
@@ -2450,7 +2496,7 @@ async function testerConnexionAppel() {
 
     lignes.shift();
     lignes.push(n === 0 ? '<strong>Tout est prêt pour les appels 👍</strong>' : '<strong>' + n + ' problème' + (n > 1 ? 's' : '') + ' à corriger (en rouge).</strong>');
-    lignes.push('<span style="opacity:.7">Application v4.6</span>');
+    lignes.push('<span style="opacity:.7">Application v4.7</span>');
     afficher();
 }
 
