@@ -1,5 +1,5 @@
 /* ============================================================
-   EVAT Continuum v4.8 — Client dynamique
+   EVAT Continuum v4.9 — Client dynamique
    ============================================================ */
 
 /* ---------- Persistance optimisée ----------
@@ -2438,12 +2438,13 @@ function reinscrireCompte() {
 /** « Tester ma connexion d'appel » : serveur, notifications, micro, puis essai réel des serveurs de relais (STUN/TURN). */
 function sonderIce(iceServers) {
     return new Promise((resolve) => {
-        const c = { host: 0, srflx: 0, relay: 0 };
+        const c = { host: 0, srflx: 0, relay: 0, erreurs: [] };
         let pc, fini = false;
         const fin = () => { if (fini) return; fini = true; try { pc && pc.close(); } catch (e) {} resolve(c); };
         try {
             pc = new RTCPeerConnection({ iceServers });
             pc.createDataChannel('test');
+            pc.onicecandidateerror = (e) => { c.erreurs.push({ url: e.url || '', code: e.errorCode, texte: e.errorText || '' }); };
             pc.onicecandidate = (e) => {
                 if (!e.candidate) { fin(); return; }
                 const t = e.candidate.type || ((/ typ (\w+)/.exec(e.candidate.candidate || '') || [])[1]);
@@ -2507,7 +2508,15 @@ async function testerConnexionAppel() {
         const turnConfigure = urls.some(u => /^turns?:/.test(u));
         const r = await sonderIce(ice);
         if (r.relay > 0) ok('Relais TURN opérationnel : les appels marcheront aussi en 3G/4G et sur les réseaux fermés.');
-        else if (turnConfigure) { ko('Relais TURN configuré mais INUTILISABLE (identifiants incorrects ou réseau qui le bloque). Les appels entre réseaux mobiles échoueront : vérifiez TURN_USERNAME / TURN_CREDENTIAL sur le serveur.'); n++; }
+        else if (turnConfigure) {
+            const turnErr = r.erreurs.filter(x => /^turns?:/.test(x.url));
+            const refus = turnErr.find(x => x.code === 401 || x.code === 403 || x.code === 438);
+            const exemple = turnErr[0] ? ' (' + turnErr[0].url.replace(/^turns?:/, '') + ' : code ' + turnErr[0].code + ')' : '';
+            if (refus) ko('Le relais REFUSE vos identifiants (code ' + refus.code + '). Vérifiez TURN_USERNAME et TURN_CREDENTIAL sur le serveur.');
+            else if (turnErr.length) ko('Le relais est INJOIGNABLE depuis ce téléphone' + exemple + ' : ce réseau mobile le bloque. Réessayez en Wi-Fi ; sur ce réseau, les appels vers un autre réseau mobile échoueront.');
+            else ko('Aucun relais obtenu en 9 secondes et aucune erreur : réseau très lent ou coupé. Réessayez en Wi-Fi.');
+            n++;
+        }
         else { av('Aucun relais TURN configuré sur le serveur : les appels entre deux réseaux mobiles échoueront souvent.'); n++; }
         if (r.srflx > 0) ok('Votre réseau permet la connexion directe (STUN).');
         else av('Connexion directe non confirmée (STUN sans réponse) : l’appel dépendra du relais TURN.');
@@ -2515,7 +2524,7 @@ async function testerConnexionAppel() {
 
     lignes.shift();
     lignes.push(n === 0 ? '<strong>Tout est prêt pour les appels 👍</strong>' : '<strong>' + n + ' problème' + (n > 1 ? 's' : '') + ' à corriger (en rouge).</strong>');
-    lignes.push('<span style="opacity:.7">Application v4.8</span>');
+    lignes.push('<span style="opacity:.7">Application v4.9</span>');
     afficher();
 }
 
