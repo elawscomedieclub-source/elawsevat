@@ -1413,12 +1413,74 @@ body.in-chat main { padding-bottom: 0; }
     .bottom-nav { max-width: 760px; left: 50%; transform: translateX(-50%); border-radius: 18px 18px 0 0; }
 }
 
-/* contacts : 5 boutons d'action compacts */
-.contact-actions { display: flex; flex-wrap: nowrap; gap: 4px; flex-shrink: 0; }
+/* contacts : actions + fiche enrichie */
+.contact-actions { display: flex; flex-wrap: wrap; gap: 4px; flex-shrink: 0; max-width: 120px; justify-content: flex-end; }
 .contact-actions .btn-mini { width: 30px; height: 30px; padding: 0; font-size: 13px; display: flex; align-items: center; justify-content: center; }
-.contact-info { min-width: 0; }
+.contact-actions .btn-mini:disabled { cursor: not-allowed; }
+.contact-info { min-width: 0; flex: 1; }
 .contact-info strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .contact-meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.contact-name-btn {
+    display: block; width: 100%; text-align: left;
+    background: transparent; border: 0; padding: 0; margin: 0;
+    color: inherit; cursor: pointer; font: inherit;
+}
+.contact-name-btn strong {
+    display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    color: var(--accent); font-size: 12.5px;
+}
+.contact-hint {
+    display: block; font-size: 10.5px; color: var(--text-secondary);
+    margin-top: 2px; font-weight: 500;
+}
+.contact-details { margin-top: 6px; animation: fadeIn 0.2s ease; }
+.contact-details[hidden] { display: none !important; }
+.contact-tel {
+    font-size: 12.5px; color: var(--text-primary); font-weight: 600;
+    word-break: break-all; white-space: normal; overflow: visible; text-overflow: unset;
+}
+.contact-email, .contact-entreprise {
+    font-size: 11.5px; color: var(--text-secondary);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.contact-metier {
+    font-size: 11px; color: var(--text-secondary);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.contact-notes {
+    font-size: 11px; color: var(--text-secondary); font-style: italic;
+    margin-top: 4px; white-space: pre-wrap; word-break: break-word;
+}
+.contact-badge-evat {
+    display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: 0.3px;
+    padding: 1px 6px; border-radius: 8px; margin-left: 4px; vertical-align: middle;
+    background: rgba(34, 211, 238, 0.18); color: #67e8f9; border: 1px solid rgba(34, 211, 238, 0.35);
+}
+.contact-sync-box {
+    background: var(--bg-color);
+    border: 1px solid rgba(34, 211, 238, 0.35);
+    border-radius: 14px;
+    padding: 12px;
+    margin-bottom: 12px;
+}
+.contact-sync-box > strong { font-size: 13px; color: var(--accent); display: block; }
+.contact-sync-actions { display: flex; gap: 8px; align-items: stretch; }
+.contact-sync-actions .btn-action { flex: 1; }
+.contact-import-status { font-size: 12px; color: var(--text-secondary); margin: 8px 0 0; min-height: 1em; }
+.contacts-toolbar { display: flex; align-items: center; gap: 8px; margin: 4px 0 10px; }
+.contacts-toolbar .conv-search { flex: 1; margin: 0; }
+.contact-count { font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
+.profil-id-box {
+    background: rgba(34, 211, 238, 0.08);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+}
+.profil-id-label { display: block; font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; }
+.profil-id-box strong { display: block; font-size: 16px; color: var(--accent); letter-spacing: 0.3px; }
+.profil-id-box small { display: block; margin-top: 6px; font-size: 11px; color: var(--text-secondary); line-height: 1.4; }
+#notificationText { white-space: pre-line; line-height: 1.35; }
 
 /* ============================================================
    v4.2 — Les deux IA : sphère ELAWS (généraliste) + assistant métier
@@ -1571,27 +1633,395 @@ body.in-chat main { padding-bottom: 0; }
 .hint-box strong { color: var(--text-primary); }
 
 /* ============================================================
-   v4.5 — Globe terrestre, historique des appels
+   v4.10 — Présence compacte + contacts minimalistes
    ============================================================ */
-canvas.globe { display: block; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #1d4f8c, #04122e); }
-canvas.globe-halo { box-shadow: 0 0 16px rgba(80, 170, 255, 0.55), 0 0 34px rgba(37, 99, 235, 0.3); }
-.elaws-orb canvas.globe { width: 100%; height: 100%; }
-.elaws-orb { width: 46px; height: 46px; padding: 2px; }
-.ia-top canvas.globe, .ia-card canvas.globe { flex-shrink: 0; }
-.ia-welcome > canvas.globe { margin: 6px auto 16px; }
-.quantum-globe-container { width: 200px; height: 200px; display: flex; align-items: center; justify-content: center; }
-.orb-xs.terre { background: var(--globe-img, radial-gradient(circle at 32% 26%, #bae6fd, #2563eb 60%, #0b1b4a)); background-size: cover; box-shadow: 0 0 8px rgba(80, 170, 255, 0.6); }
-.orb-xs.terre::after { display: none; }
-.appels-filtres { display: flex; align-items: center; gap: 8px; margin: 4px 0 10px; }
-.appels-chip { padding: 7px 16px; border-radius: 20px; font-size: 13px; cursor: pointer; color: var(--text-primary); background: rgba(34, 211, 238, 0.06); border: 1px solid var(--border-color); }
-.appels-chip.active { background: rgba(34, 211, 238, 0.22); border-color: var(--cyan); }
-.appels-filtres .btn-icon { margin-left: auto; }
-.appels-list { display: flex; flex-direction: column; }
-.appel-item { display: flex; align-items: center; gap: 12px; padding: 10px 6px; border-bottom: 1px solid rgba(56, 189, 248, 0.08); }
-.appel-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.appel-body strong { font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.appel-sub { font-size: 12px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.appel-sub .dir { font-style: normal; font-weight: 700; margin-right: 2px; color: #22c55e; }
-.appel-item.manque .appel-body strong, .appel-item.manque .appel-sub, .appel-item.manque .appel-sub .dir { color: #f87171; }
-.appel-actions { display: flex; gap: 6px; flex-shrink: 0; }
-.appel-actions .btn-icon { width: 36px; height: 36px; font-size: 15px; }
+.presence-bar {
+    display: flex; align-items: center; gap: 10px;
+    margin: 0 0 12px; padding: 0 2px;
+}
+.presence-cycle {
+    display: inline-flex; align-items: center; gap: 8px;
+    border: 1px solid var(--border-color);
+    background: rgba(15, 23, 42, 0.9);
+    color: var(--text-primary);
+    border-radius: 999px;
+    padding: 7px 14px;
+    font-size: 12.5px; font-weight: 700;
+    cursor: pointer;
+}
+.presence-cycle:active { transform: scale(0.97); }
+.presence-cycle.statut-disponible { border-color: rgba(16,185,129,0.5); }
+.presence-cycle.statut-occupe { border-color: rgba(245,158,11,0.5); }
+.presence-cycle.statut-deplacement { border-color: rgba(59,130,246,0.5); }
+.presence-cycle.statut-focus { border-color: rgba(168,85,247,0.5); }
+.presence-cycle.statut-invisible { border-color: rgba(100,116,139,0.5); opacity: 0.85; }
+.presence-hint { font-size: 10.5px; color: var(--text-secondary); }
+.boost-card { border-color: rgba(34, 211, 238, 0.4); }
+.boost-list { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; gap: 8px; }
+.boost-list li {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: 12px;
+    background: rgba(8, 17, 38, 0.8); border: 1px solid var(--border-color);
+    font-size: 13px;
+}
+.boost-list li.done { opacity: 0.55; text-decoration: line-through; }
+.boost-list .boost-act {
+    margin-left: auto; border: 0; border-radius: 10px;
+    padding: 6px 10px; font-size: 12px; cursor: pointer;
+    background: var(--accent); color: #fff; font-weight: 600;
+}
+.contact-statut {
+    display: inline-block; font-size: 10px; font-weight: 700;
+    padding: 1px 7px; border-radius: 8px; margin-left: 4px; vertical-align: middle;
+}
+.contact-statut.disponible { background: rgba(16,185,129,0.2); color: #6ee7b7; }
+.contact-statut.occupe { background: rgba(245,158,11,0.2); color: #fcd34d; }
+.contact-statut.deplacement { background: rgba(59,130,246,0.2); color: #93c5fd; }
+.contact-statut.focus { background: rgba(168,85,247,0.2); color: #d8b4fe; }
+.contact-statut.invisible, .contact-statut.hors_ligne { background: rgba(100,116,139,0.25); color: #94a3b8; }
+.contact-lastseen { font-size: 10.5px; color: var(--text-secondary); margin-top: 2px; }
+
+/* Contacts : nom seul, outils derrière le clic */
+.contact-card-compact {
+    display: block;
+    padding: 0;
+    overflow: hidden;
+}
+.contact-card-compact .contact-name-btn {
+    display: flex; align-items: center; justify-content: space-between;
+    width: 100%; text-align: left;
+    padding: 12px 12px;
+    background: transparent; border: 0; color: inherit; cursor: pointer; font: inherit;
+}
+.contact-name-row {
+    display: flex; align-items: center; gap: 8px; min-width: 0;
+}
+.contact-name-row strong {
+    color: var(--accent); font-size: 14px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.contact-chevron {
+    color: var(--text-secondary); font-size: 18px; line-height: 1;
+    flex-shrink: 0;
+}
+.contact-card-compact.open .contact-chevron { color: var(--accent); }
+.contact-card-compact .contact-details {
+    padding: 0 12px 12px; border-top: 1px solid rgba(56, 189, 248, 0.12);
+}
+.contact-actions-expand {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    margin-top: 10px; max-width: none; justify-content: flex-start;
+}
+.contact-actions-expand .btn-mini {
+    width: 36px; height: 36px; font-size: 15px;
+}
+.contact-sync-footer {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    margin-top: 14px; padding-top: 10px;
+    border-top: 1px dashed var(--border-color);
+}
+.btn-sync-sm {
+    border: 1px solid var(--border-color);
+    background: rgba(34, 211, 238, 0.08);
+    color: var(--text-secondary);
+    border-radius: 10px;
+    padding: 6px 10px;
+    font-size: 11.5px;
+    cursor: pointer;
+}
+.btn-sync-sm:active { background: rgba(34, 211, 238, 0.18); color: var(--accent); }
+.contact-sync-footer .contact-import-status {
+    flex: 1; min-width: 120px; margin: 0; font-size: 11px;
+}
+
+
+/* ============================================================
+   Fiche contact plein écran — style Truecaller / contacts natifs
+   ============================================================ */
+body.fiche-contact-ouverte { overflow: hidden; }
+
+.contact-fiche {
+    position: fixed;
+    inset: 0;
+    z-index: 9000;
+    background: #050b1a;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    animation: ficheIn 0.22s ease;
+}
+.contact-fiche[hidden] { display: none !important; }
+@keyframes ficheIn {
+    from { transform: translateX(12%); opacity: 0.6; }
+    to { transform: translateX(0); opacity: 1; }
+}
+.contact-fiche-inner { max-width: 520px; margin: 0 auto; min-height: 100%; padding-bottom: 40px; }
+
+.contact-fiche-top {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 12px; position: sticky; top: 0; z-index: 2;
+    background: linear-gradient(180deg, #0a1628 0%, rgba(10,22,40,0.85) 70%, transparent 100%);
+}
+.contact-fiche-back {
+    width: 40px; height: 40px; border-radius: 50%;
+    border: 0; background: rgba(255,255,255,0.08);
+    color: #eaf4ff; font-size: 28px; line-height: 1; cursor: pointer;
+}
+.contact-fiche-top-actions { display: flex; gap: 8px; }
+.contact-fiche-icon-btn {
+    width: 40px; height: 40px; border-radius: 50%;
+    border: 0; background: rgba(255,255,255,0.08);
+    font-size: 16px; cursor: pointer;
+}
+
+.contact-fiche-hero {
+    text-align: center; padding: 8px 20px 20px;
+}
+.contact-fiche-avatar {
+    width: 96px; height: 96px; border-radius: 50%;
+    margin: 0 auto 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 34px; font-weight: 800; color: #fff;
+    background: linear-gradient(145deg, #1d4ed8, #06b6d4);
+    box-shadow: 0 0 0 4px rgba(34,211,238,0.2), 0 12px 32px rgba(0,0,0,0.35);
+}
+.contact-fiche-nom {
+    margin: 0 0 6px; font-size: 24px; font-weight: 800;
+    color: #f0f9ff; letter-spacing: 0.2px;
+}
+.contact-fiche-statut {
+    margin: 0 0 4px; font-size: 13px; font-weight: 600;
+    color: #94a3b8;
+}
+.contact-fiche-statut.disponible { color: #6ee7b7; }
+.contact-fiche-statut.occupe { color: #fcd34d; }
+.contact-fiche-statut.deplacement { color: #93c5fd; }
+.contact-fiche-statut.focus { color: #d8b4fe; }
+.contact-fiche-metier {
+    margin: 0; font-size: 13px; color: #9fb4d3;
+}
+
+.contact-fiche-primary {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    padding: 4px 18px 18px;
+}
+.cf-primary {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    border: 0; cursor: pointer;
+    background: transparent; color: #eaf4ff;
+    padding: 0;
+}
+.cf-primary .cf-ico {
+    width: 54px; height: 54px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    background: linear-gradient(145deg, rgba(29,78,216,0.9), rgba(6,182,212,0.75));
+    box-shadow: 0 6px 18px rgba(6,182,212,0.25);
+}
+.cf-primary small { font-size: 11px; color: #9fb4d3; font-weight: 600; }
+.cf-primary:active .cf-ico { transform: scale(0.94); }
+
+.contact-fiche-body { padding: 0 14px 20px; }
+.cf-block {
+    background: rgba(15, 23, 42, 0.92);
+    border: 1px solid rgba(56, 189, 248, 0.15);
+    border-radius: 16px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+}
+.cf-label {
+    display: block; font-size: 11px; color: #67e8f9;
+    text-transform: uppercase; letter-spacing: 0.4px;
+    margin-bottom: 4px; font-weight: 700;
+}
+.cf-value {
+    font-size: 15px; color: #eaf4ff; word-break: break-word;
+}
+.cf-value-btn {
+    display: block; width: 100%; text-align: left;
+    background: transparent; border: 0; padding: 0;
+    font-size: 16px; font-weight: 600; color: #38bdf8;
+    cursor: pointer; word-break: break-all;
+}
+.cf-notes { white-space: pre-wrap; font-size: 14px; color: #cbd5e1; }
+.cf-row-actions { margin-top: 8px; }
+.cf-mini {
+    border: 1px solid rgba(56,189,248,0.25);
+    background: rgba(34,211,238,0.08);
+    color: #9fb4d3; border-radius: 10px;
+    padding: 6px 10px; font-size: 12px; cursor: pointer;
+}
+.cf-danger-zone { background: transparent; border-style: dashed; border-color: rgba(239,68,68,0.35); }
+.cf-danger {
+    width: 100%; border: 0; background: transparent;
+    color: #fca5a5; font-size: 14px; padding: 8px; cursor: pointer;
+}
+
+/* Liste contacts — lignes type téléphone */
+.contact-row {
+    display: flex; align-items: center; gap: 12px;
+    width: 100%; text-align: left;
+    padding: 11px 10px;
+    border: 0; border-bottom: 1px solid rgba(56,189,248,0.1);
+    background: transparent; color: inherit; cursor: pointer; font: inherit;
+}
+.contact-row:active { background: rgba(34,211,238,0.08); }
+.contact-row-avatar {
+    width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 800; color: #fff;
+    background: linear-gradient(145deg, #1e3a8a, #0e7490);
+}
+.contact-row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.contact-row-name {
+    font-size: 14.5px; color: var(--accent);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.contact-row-sub {
+    font-size: 11.5px; color: var(--text-secondary);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.contacts-list { padding: 0; }
+
+
+/* Fiche contact — multi numéros / e-mails / historique */
+.cf-list { display: flex; flex-direction: column; gap: 6px; }
+.cf-line {
+    display: flex; align-items: center; gap: 6px;
+}
+.cf-line .cf-value-btn { flex: 1; }
+.cf-ico-btn {
+    width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+    border: 1px solid rgba(56,189,248,0.2);
+    background: rgba(34,211,238,0.08);
+    color: #eaf4ff; font-size: 14px; cursor: pointer;
+}
+.cf-tag {
+    display: inline-block; font-size: 10px; font-weight: 700;
+    padding: 1px 6px; border-radius: 8px; margin-left: 6px;
+    background: rgba(34,211,238,0.15); color: #67e8f9;
+    vertical-align: middle;
+}
+.cf-empty {
+    font-size: 12.5px; color: var(--text-secondary); padding: 4px 0;
+}
+.cf-histo-head {
+    display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;
+}
+.cf-histo-filtres { display: flex; flex-wrap: wrap; gap: 6px; }
+.cf-chip {
+    border: 1px solid rgba(56,189,248,0.25);
+    background: rgba(15,23,42,0.8);
+    color: #9fb4d3; border-radius: 16px;
+    padding: 5px 10px; font-size: 11px; cursor: pointer;
+}
+.cf-chip.active {
+    border-color: #22d3ee; color: #67e8f9;
+    background: rgba(34,211,238,0.12); font-weight: 700;
+}
+.cf-histo-list { display: flex; flex-direction: column; gap: 6px; max-height: 280px; overflow-y: auto; }
+.cf-histo-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 6px; border-radius: 12px;
+    background: rgba(8,17,38,0.6);
+}
+.cf-histo-item.manque { background: rgba(127,29,29,0.25); }
+.cf-histo-dir {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(34,211,238,0.12); font-size: 14px; flex-shrink: 0;
+}
+.cf-histo-item.out .cf-histo-dir { color: #6ee7b7; }
+.cf-histo-item.in .cf-histo-dir { color: #93c5fd; }
+.cf-histo-item.manque .cf-histo-dir { color: #fca5a5; }
+.cf-histo-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.cf-histo-body strong { font-size: 13px; color: #eaf4ff; }
+.cf-histo-body span { font-size: 11px; color: #9fb4d3; }
+
+
+/* Continuum 2300 */
+.badge-continuum {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 10.5px; font-weight: 800; letter-spacing: 0.3px;
+    padding: 4px 10px; border-radius: 999px;
+    background: linear-gradient(135deg, rgba(99,102,241,0.35), rgba(34,211,238,0.25));
+    border: 1px solid rgba(34,211,238,0.45);
+    color: #a5f3fc;
+    margin-left: auto;
+}
+.badge-continuum[hidden] { display: none !important; }
+.param-row.continuum-param { margin: 12px 0; }
+.param-check {
+    display: flex; align-items: flex-start; gap: 10px;
+    font-size: 13px; color: var(--text-secondary); cursor: pointer;
+}
+.param-check input { margin-top: 3px; }
+body.low-data .globe,
+body.low-data canvas.globe { display: none !important; }
+body.low-data .orb { animation: none !important; box-shadow: none !important; }
+body.low-data .hero-card,
+body.low-data .ia-card { backdrop-filter: none !important; }
+
+
+/* Photos chat + groupes */
+.chat-toolbar { display: flex; align-items: flex-end; gap: 6px; }
+.chat-image-preview {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px; margin: 0 8px 6px;
+    background: rgba(15,23,42,0.95);
+    border: 1px solid rgba(34,211,238,0.3);
+    border-radius: 14px;
+}
+.chat-image-preview[hidden] { display: none !important; }
+.chat-image-preview img {
+    max-height: 72px; max-width: 120px;
+    border-radius: 10px; object-fit: cover;
+}
+.msg-image { margin: 4px 0 6px; }
+.msg-image img {
+    max-width: min(240px, 70vw); max-height: 280px;
+    border-radius: 12px; display: block; cursor: zoom-in;
+}
+.image-lightbox {
+    position: fixed; inset: 0; z-index: 10000;
+    background: rgba(0,0,0,0.92);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+}
+.image-lightbox[hidden] { display: none !important; }
+.image-lightbox img { max-width: 100%; max-height: 90vh; border-radius: 8px; }
+.image-lightbox-close {
+    position: absolute; top: 12px; right: 12px;
+    width: 40px; height: 40px; border-radius: 50%;
+    border: 0; background: rgba(255,255,255,0.15);
+    color: #fff; font-size: 18px; cursor: pointer;
+}
+.avatar.grp { background: linear-gradient(145deg, #4c1d95, #0e7490); }
+.conv-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.modal-groupe {
+    position: fixed; inset: 0; z-index: 9500;
+    background: rgba(0,0,0,0.75);
+    display: flex; align-items: flex-end; justify-content: center;
+    padding: 16px;
+}
+.modal-groupe[hidden] { display: none !important; }
+.modal-groupe-card {
+    width: 100%; max-width: 440px; max-height: 85vh; overflow-y: auto;
+    background: #0b1630; border: 1px solid rgba(34,211,238,0.35);
+    border-radius: 18px 18px 12px 12px; padding: 16px;
+}
+.modal-groupe-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px;
+}
+.groupe-membres-list { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 14px; max-height: 40vh; overflow-y: auto; }
+.groupe-membre-row {
+    display: grid; grid-template-columns: auto 1fr; gap: 4px 10px;
+    align-items: center; padding: 8px 10px;
+    border-radius: 12px; background: rgba(8,17,38,0.8);
+    border: 1px solid rgba(56,189,248,0.12); cursor: pointer;
+}
+.groupe-membre-row input { grid-row: span 2; }
+.groupe-membre-row span { font-size: 13px; color: #eaf4ff; }
+.groupe-membre-row small { grid-column: 2; font-size: 11px; color: #9fb4d3; }

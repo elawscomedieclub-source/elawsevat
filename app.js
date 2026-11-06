@@ -308,7 +308,7 @@ socket.on('connect', () => {
             signalerVisibilite();
             activerPush();
             majStatsAccueil();
-            while (_outbox.length) { const m = _outbox.shift(); envoyerMessage(m.to, m.texte, m.cid); }
+            while (_outbox.length) { const m = _outbox.shift(); envoyerMessage(m.to, m.texte, m.cid, m.image); }
         });
         if (window._heartbeatInterval) clearInterval(window._heartbeatInterval);
         window._heartbeatInterval = setInterval(() => socket.emit('heartbeat'), 25000);
@@ -382,8 +382,10 @@ socket.on('contact_registered', (data) => {
         if (match) {
             match.metier = data.metier;
             match.online = true;
+            match.surEVAT = true;
             sauverProfil();
             afficherContacts();
+            majCompteurContactsEnLigne();
             montrerNotification(`🚨 ${match.nom} (${data.telephone}) vient de s'inscrire ! Métier : ${data.metier}`);
         }
     }
@@ -395,18 +397,159 @@ socket.on('presence', (info) => {
     const c = utilisateur.contacts.find(x => x.telephone === info.telephone);
     if (!c) return;
     c.online = !!info.online;
+    c.surEVAT = true;
+    c.statut = info.statut || (info.online ? 'disponible' : 'hors_ligne');
+    c.lastSeen = info.lastSeen || c.lastSeen || 0;
     if (info.metier) c.metier = info.metier;
     sauverProfil();
     afficherContacts();
+    majCompteurContactsEnLigne();
     if (convoOuverte) majEntetePeer();
     const tm = document.getElementById('tab-messagerie');
     if (!convoOuverte && tm && tm.style.display !== 'none') afficherMessagesLocaux();
 });
 
-socket.on('online_count', (n) => {
-    onlineTotal = n | 0;
+socket.on('online_count', () => { /* no-op : pas de total réseau visible */ });
+
+function compterContactsEnLigne() {
+    if (!utilisateur || !Array.isArray(utilisateur.contacts)) return 0;
+    return utilisateur.contacts.filter(c => c && c.online).length;
+}
+
+function majCompteurContactsEnLigne() {
+    const n = compterContactsEnLigne();
+    onlineTotal = n;
     const el = document.getElementById('onlineCount');
-    if (el) el.textContent = onlineTotal;
+    if (el) el.textContent = String(n);
+}
+
+const STATUT_LABELS = {
+    disponible: 'Disponible',
+    occupe: 'Occupé',
+    deplacement: 'En route',
+    focus: 'Focus',
+    invisible: 'Invisible',
+    hors_ligne: 'Hors ligne'
+};
+
+function labelStatut(s) {
+    return STATUT_LABELS[s] || STATUT_LABELS.hors_ligne;
+}
+
+function formaterVuLe(ts) {
+    if (!ts) return '';
+    const d = Date.now() - Number(ts);
+    if (d < 60000 * 2) return 'vu à l’instant';
+    if (d < 3600000) return 'vu il y a ' + Math.max(1, Math.round(d / 60000)) + ' min';
+    if (d < 86400000) return 'vu il y a ' + Math.max(1, Math.round(d / 3600000)) + ' h';
+    return 'vu le ' + new Date(ts).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
+}
+
+const STATUT_ORDRE = ['disponible', 'occupe', 'deplacement', 'focus', 'invisible'];
+const STATUT_ICONES = {
+    disponible: '🟢', occupe: '🟠', deplacement: '🔵', focus: '🟣', invisible: '⚫', hors_ligne: '⚪'
+};
+
+function majPresenceCycleUI(statut) {
+    const s = statut || 'disponible';
+    const ico = document.getElementById('presenceCycleIcon');
+    const lab = document.getElementById('presenceCycleLabel');
+    const btn = document.getElementById('btnPresenceCycle');
+    const hint = document.getElementById('presenceHint');
+    if (ico) ico.textContent = STATUT_ICONES[s] || '🟢';
+    if (lab) lab.textContent = labelStatut(s);
+    if (btn) {
+        btn.dataset.statut = s;
+        btn.className = 'presence-cycle statut-' + s;
+    }
+    if (hint) {
+        hint.textContent = s === 'invisible'
+            ? 'invisible pour vos contacts'
+            : 'vos contacts seulement';
+    }
+}
+
+function changerStatutPresence(statut) {
+    if (!utilisateur) return;
+    utilisateur.statutPresence = statut;
+    sauverProfil();
+    majPresenceCycleUI(statut);
+    if (socket.connected) {
+        socket.emit('set_statut', { statut }, (res) => {
+            if (res && res.ok === false) montrerNotification(res.error || 'Statut non synchronisé');
+        });
+    }
+    majBoostOnboarding();
+}
+
+function cyclerStatutPresence() {
+    const cur = (utilisateur && utilisateur.statutPresence) || 'disponible';
+    const i = STATUT_ORDRE.indexOf(cur);
+    const next = STATUT_ORDRE[(i < 0 ? 0 : i + 1) % STATUT_ORDRE.length];
+    changerStatutPresence(next);
+}
+
+function appliquerStatutPresenceUI() {
+    const s = (utilisateur && utilisateur.statutPresence) || 'disponible';
+    majPresenceCycleUI(s);
+    if (socket.connected) socket.emit('set_statut', { statut: s });
+}
+
+function majBoostOnboarding() {
+    const box = document.getElementById('boostOnboarding');
+    const list = document.getElementById('boostList');
+    if (!box || !list || !utilisateur) return;
+
+    const notifOk = (typeof pushSupporte === 'function' && pushSupporte()
+        && typeof Notification !== 'undefined' && Notification.permission === 'granted'
+        && localStorage.getItem('evat_push_ok') === '1');
+    const contactsOk = (utilisateur.contacts || []).length > 0;
+    const profilOk = !!(utilisateur.metier && utilisateur.metier !== 'Opérateur') || !!(utilisateur.email || utilisateur.ville);
+    const statutOk = !!(utilisateur.statutPresence && utilisateur.statutPresence !== 'disponible') || localStorage.getItem('evat_boost_statut') === '1';
+
+    // Marquer statut comme « exploré » si changé une fois
+    if (utilisateur.statutPresence && utilisateur.statutPresence !== 'disponible') {
+        localStorage.setItem('evat_boost_statut', '1');
+    }
+
+    const steps = [
+        {
+            id: 'notif', ok: notifOk, label: 'Activer les notifications (appels app fermée)',
+            act: 'Activer', fn: 'activerNotificationsPush()'
+        },
+        {
+            id: 'contacts', ok: contactsOk, label: 'Ajouter ou importer au moins 1 contact',
+            act: 'Contacts', fn: "switchTab('contacts')"
+        },
+        {
+            id: 'profil', ok: profilOk, label: 'Compléter le profil (métier / e-mail / ville)',
+            act: 'Profil', fn: "switchTab('profil')"
+        }
+    ];
+    const done = steps.filter(s => s.ok).length;
+    if (done >= steps.length) {
+        box.style.display = 'none';
+        localStorage.setItem('evat_boost_done', '1');
+        return;
+    }
+    if (localStorage.getItem('evat_boost_done') === '1' && done >= 2) {
+        box.style.display = 'none';
+        return;
+    }
+    box.style.display = 'block';
+    list.innerHTML = steps.map(s => `
+        <li class="${s.ok ? 'done' : ''}">
+            <span>${s.ok ? '✅' : '○'} ${s.label}</span>
+            ${s.ok ? '' : `<button type="button" class="boost-act" onclick="${s.fn}">${s.act}</button>`}
+        </li>`).join('');
+}
+
+socket.on('admin_message', (data) => {
+    const titre = (data && data.title) || 'Message EVAT';
+    const corps = (data && data.body) || '';
+    const texte = corps ? (titre + '\n' + corps) : titre;
+    montrerNotification('🛡️ ' + texte);
+    try { alert('🛡️ ' + titre + (corps ? ('\n\n' + corps) : '')); } catch (e) {}
 });
 
 // Position partagée
@@ -439,7 +582,8 @@ function montrerNotification(texte, onClick) {
         banner.style.display = 'block';
         banner.classList.add('notif-in');
         clearTimeout(window._notifTimer);
-        window._notifTimer = setTimeout(() => fermerNotification(), 9000);
+        const duree = (texte && texte.length > 80) ? 14000 : 9000;
+        window._notifTimer = setTimeout(() => fermerNotification(), duree);
     }
 }
 
@@ -494,18 +638,82 @@ function creerProfilLocal(nom, tel, metier, recoveryPin) {
         metier: metier || 'Opérateur',
         recoveryPin: recoveryPin || null,
         pays: isoDepuisTel(tel),
+        email: '',
+        entreprise: '',
+        ville: '',
+        bio: '',
         qubits: 365,
         notes: [],
         messagesLocaux: [],
         contacts: [],
         historiqueElaws: [],
         parametres: {
-            sonnerieType: 'telephone',      // sonnerie du téléphone (notification) par défaut
+            sonnerieType: 'telephone',
             customRingtoneBase64: null,
             vibration: true
         },
         photo: null
     };
+}
+
+function normaliserContact(raw) {
+    const c = raw || {};
+    const telPrincipal = normaliserTel(c.telephone || c.tel || '');
+    let telephones = [];
+    if (Array.isArray(c.telephones)) {
+        telephones = c.telephones.map(t => normaliserTel(t)).filter(telEstValideClient);
+    }
+    if (telPrincipal && telEstValideClient(telPrincipal) && !telephones.includes(telPrincipal)) {
+        telephones.unshift(telPrincipal);
+    }
+    telephones = [...new Set(telephones)].slice(0, 5);
+
+    let emails = [];
+    if (Array.isArray(c.emails)) {
+        emails = c.emails.map(e => String(e || '').trim().slice(0, 120)).filter(e => e && e.includes('@'));
+    }
+    const emailPrincipal = String(c.email || '').trim().slice(0, 120);
+    if (emailPrincipal && emailPrincipal.includes('@') && !emails.includes(emailPrincipal)) {
+        emails.unshift(emailPrincipal);
+    }
+    emails = [...new Set(emails)].slice(0, 5);
+
+    return {
+        nom: String(c.nom || c.name || 'Sans nom').trim().slice(0, 80) || 'Sans nom',
+        telephone: telephones[0] || telPrincipal,
+        telephones,
+        email: emails[0] || '',
+        emails,
+        metier: String(c.metier || c.job || '').trim().slice(0, 80),
+        entreprise: String(c.entreprise || c.organization || '').trim().slice(0, 80),
+        adresse: String(c.adresse || c.address || '').trim().slice(0, 160),
+        notes: String(c.notes || '').trim().slice(0, 400),
+        online: !!c.online,
+        surEVAT: !!c.surEVAT,
+        statut: c.statut || '',
+        lastSeen: c.lastSeen || 0,
+        source: c.source || 'manual'
+    };
+}
+
+function telephonesDuContact(c) {
+    if (!c) return [];
+    const list = Array.isArray(c.telephones) ? c.telephones.slice() : [];
+    if (c.telephone && !list.includes(c.telephone)) list.unshift(c.telephone);
+    return [...new Set(list.map(t => normaliserTel(t)).filter(telEstValideClient))];
+}
+
+function emailsDuContact(c) {
+    if (!c) return [];
+    const list = Array.isArray(c.emails) ? c.emails.slice() : [];
+    if (c.email && !list.includes(c.email)) list.unshift(c.email);
+    return [...new Set(list.map(e => String(e || '').trim()).filter(e => e && e.includes('@')))];
+}
+
+function historiqueAppelsContact(c) {
+    if (!c || !utilisateur) return [];
+    const nums = new Set(telephonesDuContact(c));
+    return journal().filter(e => e && e.peer && nums.has(normaliserTel(e.peer)));
 }
 
 function sauvegarderProfilBase() {
@@ -558,6 +766,7 @@ function sauvegarderProfilBase() {
         appliquerInfosProfil();
         verifierEtSynchroniserContacts();
         montrerNotification(`Bienvenue ${utilisateur.nom} ! Notez votre code de récupération.`);
+        setTimeout(() => { proposerImportContactsApresInscription(); majBoostOnboarding(); proposerRestaurationCloud(); }, 1200);
     });
 }
 
@@ -613,6 +822,7 @@ function recupererCompteExistant() {
         appliquerInfosProfil();
         verifierEtSynchroniserContacts();
         montrerNotification(`Compte récupéré : ${utilisateur.nom} — notez le nouveau code`);
+        setTimeout(() => { proposerImportContactsApresInscription(); majBoostOnboarding(); proposerRestaurationCloud(); }, 1200);
     });
 }
 
@@ -620,7 +830,11 @@ function sauvegarderProfilBaseDesdeProfil() {
     if (!utilisateur) return;
     const nom = document.getElementById('inputNomProfil').value.trim();
     const tel = normaliserTel(document.getElementById('inputTelProfil2').value, paysUtilisateur());
-    const metier = document.getElementById('inputMetierProfil').value.trim();
+    const metier = ((document.getElementById('inputMetierProfil') || {}).value || '').trim();
+    const email = ((document.getElementById('inputEmailProfil') || {}).value || '').trim();
+    const entreprise = ((document.getElementById('inputEntrepriseProfil') || {}).value || '').trim();
+    const ville = ((document.getElementById('inputVilleProfil') || {}).value || '').trim();
+    const bio = ((document.getElementById('inputBioProfil') || {}).value || '').trim();
 
     if (!nom || !tel) {
         alert('Le nom et le téléphone sont obligatoires.');
@@ -630,8 +844,10 @@ function sauvegarderProfilBaseDesdeProfil() {
         alert('Nom invalide ou réservé. Entrez votre vrai nom.');
         return;
     }
-
-    // Le numéro ne peut PAS être changé librement (1 numéro = 1 compte)
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        alert('E-mail invalide.');
+        return;
+    }
     if (tel !== utilisateur.telephone) {
         alert('Le numéro de compte ne peut pas être modifié ici.\nPour un nouveau numéro, créez un nouveau compte.\nPour changer d’appareil, utilisez « Récupérer mon compte » avec votre code.');
         document.getElementById('inputTelProfil2').value = utilisateur.telephone;
@@ -640,9 +856,12 @@ function sauvegarderProfilBaseDesdeProfil() {
 
     utilisateur.nom = nom;
     utilisateur.metier = metier;
+    utilisateur.email = email.slice(0, 120);
+    utilisateur.entreprise = entreprise.slice(0, 80);
+    utilisateur.ville = ville.slice(0, 80);
+    utilisateur.bio = bio.slice(0, 400);
     sauverProfil();
 
-    // Re-lier avec le PIN pour prouver l'identité
     socket.emit('register_user', {
         nom: utilisateur.nom,
         telephone: utilisateur.telephone,
@@ -699,15 +918,15 @@ function deconnecterUtilisateur() {
 
 function appliquerInfosProfil() {
     if (!utilisateur) return;
-    if (!utilisateur.contacts) {
-        utilisateur.contacts = [
-            { nom: "Directeur Cabinet", telephone: "+22898231401", metier: "Cosmétiques & Management", online: false },
-            { nom: "Support Technique", telephone: "+22898231402", metier: "Ingénierie Continuum", online: false }
-        ];
-    }
+    if (!Array.isArray(utilisateur.contacts)) utilisateur.contacts = [];
+    utilisateur.contacts = utilisateur.contacts.map(c => normaliserContact(c)).filter(c => telEstValideClient(c.telephone));
     if (!utilisateur.parametres) {
-        utilisateur.parametres = { sonnerieType: 'iphone', customRingtoneBase64: null };
+        utilisateur.parametres = { sonnerieType: 'telephone', customRingtoneBase64: null };
     }
+    if (utilisateur.email == null) utilisateur.email = '';
+    if (utilisateur.entreprise == null) utilisateur.entreprise = '';
+    if (utilisateur.ville == null) utilisateur.ville = '';
+    if (utilisateur.bio == null) utilisateur.bio = '';
 
     const setVal = (id, val) => {
         const el = document.getElementById(id);
@@ -719,11 +938,21 @@ function appliquerInfosProfil() {
     setVal('inputTelProfil2', utilisateur.telephone);
     setVal('inputMetier', utilisateur.metier);
     setVal('inputMetierProfil', utilisateur.metier);
+    setVal('inputEmailProfil', utilisateur.email);
+    setVal('inputEntrepriseProfil', utilisateur.entreprise);
+    setVal('inputVilleProfil', utilisateur.ville);
+    setVal('inputBioProfil', utilisateur.bio);
+
+    const idTel = document.getElementById('profilIdTel');
+    if (idTel) idTel.textContent = utilisateur.telephone || '—';
 
     if (document.getElementById('sidebarUserName')) document.getElementById('sidebarUserName').innerText = utilisateur.nom;
     if (document.getElementById('sidebarUserRole')) document.getElementById('sidebarUserRole').innerText = utilisateur.metier;
     if (document.getElementById('dashUserName')) document.getElementById('dashUserName').innerText = utilisateur.nom.toUpperCase();
-    if (document.getElementById('dashUserMetier')) document.getElementById('dashUserMetier').innerText = utilisateur.metier;
+    if (document.getElementById('dashUserMetier')) {
+        const extra = [utilisateur.metier, utilisateur.entreprise, utilisateur.ville].filter(Boolean).join(' · ');
+        document.getElementById('dashUserMetier').innerText = extra || 'Profil';
+    }
     if (document.getElementById('voipStatusDisplay')) document.getElementById('voipStatusDisplay').innerText = "ID : " + utilisateur.telephone;
 
     const selectSon = document.getElementById('selectSonnerieType');
@@ -740,15 +969,20 @@ function verifierEtSynchroniserContacts() {
     if (!utilisateur || !utilisateur.contacts) return;
     socket.emit('query_contacts', utilisateur.contacts.map(c => c.telephone), (reponses) => {
         if (reponses && Array.isArray(reponses)) {
+            utilisateur.contacts.forEach(c => { c.surEVAT = false; });
             reponses.forEach(info => {
                 const contact = utilisateur.contacts.find(c => c.telephone === info.telephone);
                 if (contact) {
                     if (info.metier) contact.metier = info.metier;
                     contact.online = !!info.online;
+                    contact.surEVAT = true;
+                    contact.statut = info.statut || (info.online ? 'disponible' : 'hors_ligne');
+                    contact.lastSeen = info.lastSeen || contact.lastSeen || 0;
                 }
             });
             sauverProfil();
             afficherContacts();
+            majCompteurContactsEnLigne();
         }
     });
 }
@@ -764,66 +998,398 @@ function rendreContacts() {
     const container = document.getElementById('listeContactsContainer');
     if (!container || !utilisateur || !utilisateur.contacts) return;
 
+    const q = ((document.getElementById('contactSearch') || {}).value || '').trim().toLowerCase();
+    let liste = utilisateur.contacts.map((c, index) => ({ c, index }));
+    if (q) {
+        liste = liste.filter(({ c }) => {
+            const blob = [c.nom, c.telephone, c.email, c.metier, c.entreprise, c.notes].join(' ').toLowerCase();
+            return blob.includes(q);
+        });
+    }
+
+    const countEl = document.getElementById('contactCount');
+    if (countEl) {
+        countEl.textContent = liste.length
+            ? (liste.length + ' contact' + (liste.length > 1 ? 's' : ''))
+            : '';
+    }
+
     if (utilisateur.contacts.length === 0) {
-        container.innerHTML = `<p style="color:var(--text-secondary); font-size:11.5px;">Aucun contact.</p>`;
+        container.innerHTML = `<p style="color:var(--text-secondary); font-size:12px; text-align:center; padding:18px 8px;">
+            Aucun contact pour l’instant.<br>
+            <span style="font-size:11px;">Importez ceux de votre téléphone ou ajoutez-en manuellement.</span>
+        </p>`;
+        return;
+    }
+    if (liste.length === 0) {
+        container.innerHTML = `<p style="color:var(--text-secondary); font-size:12px;">Aucun résultat pour « ${escapeHtml(q)} ».</p>`;
         return;
     }
 
-    container.innerHTML = utilisateur.contacts.map((c, index) => {
+    container.innerHTML = liste.map(({ c, index }) => {
+        const st = c.online ? (c.statut || 'disponible') : 'hors_ligne';
         const statusDot = c.online
-            ? `<span class="online-dot" title="En ligne"></span>`
+            ? `<span class="online-dot" title="${escapeHtml(labelStatut(st))}"></span>`
             : `<span class="offline-dot" title="Hors ligne"></span>`;
+        const sous = c.metier || c.entreprise || '';
         return `
-        <div class="contact-card">
-            <div class="contact-info">
-                <strong>👤 ${escapeHtml(c.nom)} ${statusDot}</strong>
-                <div class="contact-meta">📞 ${escapeHtml(c.telephone)} • <i>${escapeHtml(c.metier || 'Sync...')}</i></div>
+        <button type="button" class="contact-row" data-act="open-fiche" data-i="${index}">
+            <span class="contact-row-avatar">${escapeHtml((c.nom || '?').trim().charAt(0).toUpperCase())}</span>
+            <span class="contact-row-text">
+                <strong class="contact-row-name">${escapeHtml(c.nom)}</strong>
+                ${sous ? `<span class="contact-row-sub">${escapeHtml(sous)}</span>` : ''}
+            </span>
+            ${statusDot}
+            <span class="contact-chevron">›</span>
+        </button>`;
+    }).join('');
+}
+
+let _ficheContactIndex = -1;
+
+function initialesContact(nom) {
+    const p = String(nom || '').trim().split(/\s+/).filter(Boolean);
+    if (!p.length) return '?';
+    if (p.length === 1) return p[0].slice(0, 2).toUpperCase();
+    return (p[0][0] + p[p.length - 1][0]).toUpperCase();
+}
+
+let _ficheHistoFiltre = 'tous';
+
+function ouvrirFicheContact(index) {
+    if (!utilisateur || !utilisateur.contacts) return;
+    const c = utilisateur.contacts[index];
+    if (!c) return;
+    // Normaliser en place pour emails[] / telephones[]
+    utilisateur.contacts[index] = normaliserContact(c);
+    const contact = utilisateur.contacts[index];
+    _ficheContactIndex = index;
+    _ficheHistoFiltre = 'tous';
+    const fiche = document.getElementById('contactFiche');
+    if (!fiche) return;
+
+    const st = contact.online ? (contact.statut || 'disponible') : 'hors_ligne';
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val || ''; };
+    const showBlock = (id, on) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (on) el.removeAttribute('hidden'); else el.setAttribute('hidden', '');
+    };
+
+    set('contactFicheNom', contact.nom);
+    const av = document.getElementById('contactFicheAvatar');
+    if (av) av.textContent = initialesContact(contact.nom);
+
+    const statutEl = document.getElementById('contactFicheStatut');
+    if (statutEl) {
+        if (contact.surEVAT || contact.online) {
+            statutEl.textContent = (contact.online ? '● ' : '') + labelStatut(st) + (contact.surEVAT ? ' · EVAT' : '');
+            statutEl.className = 'contact-fiche-statut ' + st;
+        } else if (contact.lastSeen) {
+            statutEl.textContent = formaterVuLe(contact.lastSeen);
+            statutEl.className = 'contact-fiche-statut hors_ligne';
+        } else {
+            statutEl.textContent = 'Contact téléphone';
+            statutEl.className = 'contact-fiche-statut hors_ligne';
+        }
+    }
+
+    set('contactFicheMetier', [contact.metier, contact.entreprise].filter(Boolean).join(' · '));
+    showBlock('contactFicheEntrepriseBlock', !!contact.entreprise);
+    set('contactFicheEntreprise', contact.entreprise || '');
+    showBlock('contactFicheAdresseBlock', !!contact.adresse);
+    set('contactFicheAdresse', contact.adresse || '');
+    showBlock('contactFicheNotesBlock', !!contact.notes);
+    set('contactFicheNotes', contact.notes || '');
+
+    rendreFicheTelephones(contact);
+    rendreFicheEmails(contact);
+    rendreFicheHistorique(contact);
+
+    document.querySelectorAll('.cf-histo-filtres .cf-chip').forEach(ch => {
+        ch.classList.toggle('active', ch.getAttribute('data-hf') === 'tous');
+    });
+
+    fiche.removeAttribute('hidden');
+    fiche.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('fiche-contact-ouverte');
+}
+
+function rendreFicheTelephones(c) {
+    const box = document.getElementById('contactFicheTels');
+    if (!box) return;
+    const tels = telephonesDuContact(c);
+    if (!tels.length) {
+        box.innerHTML = '<div class="cf-empty">Aucun numéro</div>';
+        return;
+    }
+    box.innerHTML = tels.map((t, i) => `
+        <div class="cf-line">
+            <button type="button" class="cf-value-btn" data-call-tel="${escapeHtml(t)}">${escapeHtml(t)}${i === 0 ? ' <span class="cf-tag">principal</span>' : ''}</button>
+            <button type="button" class="cf-ico-btn" data-copy-tel="${escapeHtml(t)}" title="Copier">📋</button>
+            ${tels.length > 1 ? `<button type="button" class="cf-ico-btn" data-del-tel="${escapeHtml(t)}" title="Retirer">✕</button>` : ''}
+        </div>`).join('');
+}
+
+function rendreFicheEmails(c) {
+    const box = document.getElementById('contactFicheEmails');
+    if (!box) return;
+    const mails = emailsDuContact(c);
+    if (!mails.length) {
+        box.innerHTML = '<div class="cf-empty">Aucun e-mail — ajoutez-en un ci-dessous</div>';
+        return;
+    }
+    box.innerHTML = mails.map((m, i) => `
+        <div class="cf-line">
+            <button type="button" class="cf-value-btn" data-mail="${escapeHtml(m)}">${escapeHtml(m)}${i === 0 ? ' <span class="cf-tag">principal</span>' : ''}</button>
+            <button type="button" class="cf-ico-btn" data-del-mail="${escapeHtml(m)}" title="Retirer">✕</button>
+        </div>`).join('');
+}
+
+function dureeTexteSafe(s) {
+    if (typeof dureeTexte === 'function') return dureeTexte(s);
+    s = Number(s) || 0;
+    if (s < 60) return s + 's';
+    return Math.floor(s / 60) + ' min';
+}
+
+function heureCourteSafe(ts) {
+    if (typeof heureCourte === 'function') return heureCourte(ts);
+    try { return new Date(ts).toLocaleString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }); }
+    catch (e) { return ''; }
+}
+
+function rendreFicheHistorique(c) {
+    const box = document.getElementById('contactFicheHisto');
+    if (!box) return;
+    let liste = historiqueAppelsContact(c);
+    const f = _ficheHistoFiltre || 'tous';
+    if (f === 'in') liste = liste.filter(e => e.dir === 'in');
+    else if (f === 'out') liste = liste.filter(e => e.dir === 'out');
+    else if (f === 'manque') liste = liste.filter(e => e.statut === 'manque');
+
+    if (!liste.length) {
+        box.innerHTML = '<div class="cf-empty">Aucun appel avec ce contact pour le moment.</div>';
+        return;
+    }
+    box.innerHTML = liste.slice(0, 40).map(e => {
+        const manque = e.statut === 'manque';
+        const fleche = e.dir === 'out' ? '↗' : '↘';
+        const lib = (typeof LIBELLES_APPEL !== 'undefined' && LIBELLES_APPEL[e.statut]) ? LIBELLES_APPEL[e.statut] : (e.statut || '');
+        const sous = [lib, e.type === 'video' ? 'Vidéo' : 'Audio', heureCourteSafe(e.ts), e.duree ? dureeTexteSafe(e.duree) : ''].filter(Boolean).join(' · ');
+        return `<div class="cf-histo-item ${manque ? 'manque' : ''} ${e.dir}">
+            <span class="cf-histo-dir">${fleche}</span>
+            <div class="cf-histo-body">
+                <strong>${e.dir === 'out' ? 'Sortant' : 'Reçu'}${manque ? ' · manqué' : ''}</strong>
+                <span>${escapeHtml(sous)}</span>
             </div>
-            <div class="contact-actions">
-                <button data-act="call" data-i="${index}" class="btn-mini success" title="Appel audio">📞</button>
-                <button data-act="vcall" data-i="${index}" class="btn-mini success" title="Appel vidéo">📹</button>
-                <button data-act="write" data-i="${index}" class="btn-mini accent" title="Écrire">💬</button>
-                <button data-act="edit" data-i="${index}" class="btn-mini blue" title="Modifier">✏️</button>
-                <button data-act="del" data-i="${index}" class="btn-mini danger" title="Supprimer">🗑️</button>
-            </div>
+            <button type="button" class="cf-ico-btn" data-rappel="${escapeHtml(e.peer)}" title="Rappeler">📞</button>
         </div>`;
     }).join('');
 }
 
-// Un seul écouteur pour tous les boutons de contacts (plus de onclick avec des noms injectés dans le HTML)
+function sauverContactFicheCourant(patch) {
+    if (_ficheContactIndex < 0 || !utilisateur) return null;
+    const cur = utilisateur.contacts[_ficheContactIndex];
+    if (!cur) return null;
+    utilisateur.contacts[_ficheContactIndex] = normaliserContact(Object.assign({}, cur, patch || {}));
+    sauverProfil();
+    return utilisateur.contacts[_ficheContactIndex];
+}
+
+function ajouterNumeroContactFiche() {
+    const c = ficheContactCourant();
+    if (!c) return;
+    const brut = prompt('Nouveau numéro (avec indicatif, ex. +228…) :', '');
+    if (brut === null) return;
+    const tel = normaliserTel(brut);
+    if (!telEstValideClient(tel)) { alert('Numéro invalide.'); return; }
+    const tels = telephonesDuContact(c);
+    if (tels.includes(tel)) { alert('Ce numéro est déjà sur la fiche.'); return; }
+    tels.push(tel);
+    const updated = sauverContactFicheCourant({ telephones: tels, telephone: tels[0] });
+    if (updated) { rendreFicheTelephones(updated); afficherContacts(); }
+}
+
+function ajouterEmailContactFiche() {
+    const c = ficheContactCourant();
+    if (!c) return;
+    const brut = prompt('Adresse e-mail :', '');
+    if (brut === null) return;
+    const mail = String(brut || '').trim();
+    if (!mail || !mail.includes('@')) { alert('E-mail invalide.'); return; }
+    const mails = emailsDuContact(c);
+    if (mails.includes(mail)) { alert('Cet e-mail est déjà sur la fiche.'); return; }
+    mails.push(mail);
+    const updated = sauverContactFicheCourant({ emails: mails, email: mails[0] });
+    if (updated) { rendreFicheEmails(updated); }
+}
+
+function retirerEmailContactFiche(mail) {
+    const c = ficheContactCourant();
+    if (!c) return;
+    const mails = emailsDuContact(c).filter(m => m !== mail);
+    const updated = sauverContactFicheCourant({ emails: mails, email: mails[0] || '' });
+    if (updated) rendreFicheEmails(updated);
+}
+
+function retirerTelContactFiche(tel) {
+    const c = ficheContactCourant();
+    if (!c) return;
+    const tels = telephonesDuContact(c).filter(t => t !== tel);
+    if (!tels.length) { alert('Il faut garder au moins un numéro.'); return; }
+    const updated = sauverContactFicheCourant({ telephones: tels, telephone: tels[0] });
+    if (updated) { rendreFicheTelephones(updated); afficherContacts(); }
+}
+
+function fermerFicheContact() {
+    const fiche = document.getElementById('contactFiche');
+    if (fiche) {
+        fiche.setAttribute('hidden', '');
+        fiche.setAttribute('aria-hidden', 'true');
+    }
+    document.body.classList.remove('fiche-contact-ouverte');
+    _ficheContactIndex = -1;
+}
+
+function ficheContactCourant() {
+    if (_ficheContactIndex < 0 || !utilisateur || !utilisateur.contacts) return null;
+    return utilisateur.contacts[_ficheContactIndex] || null;
+}
+
+function initFicheContactUI() {
+    const back = document.getElementById('contactFicheBack');
+    if (back) back.onclick = () => fermerFicheContact();
+    const call = document.getElementById('contactFicheCall');
+    if (call) call.onclick = () => { const c = ficheContactCourant(); if (c) lancerAppelDirectPeer('audio', c.telephone); };
+    const vcall = document.getElementById('contactFicheVCall');
+    if (vcall) vcall.onclick = () => { const c = ficheContactCourant(); if (c) lancerAppelDirectPeer('video', c.telephone); };
+    const msg = document.getElementById('contactFicheMsg');
+    if (msg) msg.onclick = () => { const c = ficheContactCourant(); if (c) { fermerFicheContact(); ouvrirMessagerie(c.telephone); } };
+    const sms = document.getElementById('contactFicheSms');
+    if (sms) sms.onclick = () => { const c = ficheContactCourant(); if (c) { try { window.location.href = 'sms:' + encodeURIComponent(c.telephone); } catch (e) {} } };
+    const copy = document.getElementById('contactFicheCopy');
+    if (copy) copy.onclick = () => { const c = ficheContactCourant(); if (c) copierTexteContact(c.telephone, 'Numéro copié'); };
+    const addTel = document.getElementById('contactFicheAddTel');
+    if (addTel) addTel.onclick = () => ajouterNumeroContactFiche();
+    const addEmail = document.getElementById('contactFicheAddEmail');
+    if (addEmail) addEmail.onclick = () => ajouterEmailContactFiche();
+    const share = document.getElementById('contactFicheShare');
+    if (share) share.onclick = () => { const c = ficheContactCourant(); if (c) partagerContact(c); };
+    const edit = document.getElementById('contactFicheEdit');
+    if (edit) edit.onclick = () => {
+        if (_ficheContactIndex < 0) return;
+        modifierContact(_ficheContactIndex);
+        if (_ficheContactIndex >= 0) ouvrirFicheContact(_ficheContactIndex);
+    };
+    const del = document.getElementById('contactFicheDel');
+    if (del) del.onclick = () => {
+        if (_ficheContactIndex < 0) return;
+        const i = _ficheContactIndex;
+        fermerFicheContact();
+        supprimerContact(i);
+    };
+
+    // Délégation : numéros, mails, historique, filtres
+    const fiche = document.getElementById('contactFiche');
+    if (fiche && !fiche._bound) {
+        fiche._bound = true;
+        fiche.addEventListener('click', (e) => {
+            const t = e.target.closest('[data-call-tel],[data-copy-tel],[data-del-tel],[data-mail],[data-del-mail],[data-rappel],[data-hf]');
+            if (!t) return;
+            if (t.hasAttribute('data-call-tel')) {
+                lancerAppelDirectPeer('audio', t.getAttribute('data-call-tel'));
+            } else if (t.hasAttribute('data-copy-tel')) {
+                copierTexteContact(t.getAttribute('data-copy-tel'), 'Numéro copié');
+            } else if (t.hasAttribute('data-del-tel')) {
+                retirerTelContactFiche(t.getAttribute('data-del-tel'));
+            } else if (t.hasAttribute('data-mail')) {
+                try { window.location.href = 'mailto:' + encodeURIComponent(t.getAttribute('data-mail')); } catch (err) {}
+            } else if (t.hasAttribute('data-del-mail')) {
+                retirerEmailContactFiche(t.getAttribute('data-del-mail'));
+            } else if (t.hasAttribute('data-rappel')) {
+                lancerAppelDirectPeer('audio', t.getAttribute('data-rappel'));
+            } else if (t.hasAttribute('data-hf')) {
+                _ficheHistoFiltre = t.getAttribute('data-hf') || 'tous';
+                fiche.querySelectorAll('.cf-histo-filtres .cf-chip').forEach(ch => {
+                    ch.classList.toggle('active', ch.getAttribute('data-hf') === _ficheHistoFiltre);
+                });
+                const c = ficheContactCourant();
+                if (c) rendreFicheHistorique(c);
+            }
+        });
+    }
+}
+
+
 document.addEventListener('click', (e) => {
     const b = e.target.closest && e.target.closest('#listeContactsContainer [data-act]');
     if (!b || !utilisateur) return;
-    const c = utilisateur.contacts[Number(b.dataset.i)];
+    const index = Number(b.dataset.i);
+    const c = utilisateur.contacts[index];
     if (!c) return;
-    const act = b.dataset.act;
-    if (act === 'call') lancerAppelDirectPeer('audio', c.telephone);
-    else if (act === 'vcall') lancerAppelDirectPeer('video', c.telephone);
-    else if (act === 'write') ouvrirMessagerie(c.telephone);
-    else if (act === 'edit') modifierContact(Number(b.dataset.i));
-    else if (act === 'del') supprimerContact(Number(b.dataset.i));
+    if (b.dataset.act === 'open-fiche') ouvrirFicheContact(index);
 });
 
+// Init fiche + fermer avec touche Retour navigateur
+document.addEventListener('DOMContentLoaded', () => {
+    initFicheContactUI();
+});
+if (document.readyState !== 'loading') {
+    try { initFicheContactUI(); } catch (e) {}
+}
+window.addEventListener('popstate', () => {
+    if (document.body.classList.contains('fiche-contact-ouverte')) {
+        fermerFicheContact();
+    }
+});
+
+function copierTexteContact(texte, okMsg) {
+    const t = String(texte || '');
+    if (!t) return;
+    const fin = () => montrerNotification(okMsg || 'Copié');
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(t).then(fin).catch(() => {
+            try {
+                const ta = document.createElement('textarea');
+                ta.value = t; document.body.appendChild(ta); ta.select();
+                document.execCommand('copy'); ta.remove(); fin();
+            } catch (e) { alert(t); }
+        });
+    } else {
+        try {
+            const ta = document.createElement('textarea');
+            ta.value = t; document.body.appendChild(ta); ta.select();
+            document.execCommand('copy'); ta.remove(); fin();
+        } catch (e) { alert(t); }
+    }
+}
+
+async function partagerContact(c) {
+    const lignes = [c.nom, c.telephone, c.email ? 'E-mail : ' + c.email : '', c.entreprise ? 'Entreprise : ' + c.entreprise : '', c.metier ? 'Métier : ' + c.metier : ''].filter(Boolean).join('\\n');
+    try {
+        if (navigator.share) { await navigator.share({ title: c.nom, text: lignes }); return; }
+    } catch (e) { if (e && e.name === 'AbortError') return; }
+    copierTexteContact(lignes, 'Fiche contact copiée');
+}
+
 function ajouterNouveauContact() {
-    const nom = document.getElementById('nouveauNomContact').value.trim();
+    if (!utilisateur) { alert('Connectez-vous d’abord.'); return; }
+    const nom = (document.getElementById('nouveauNomContact').value || '').trim();
     const tel = normaliserTel(document.getElementById('nouveauTelContact').value);
-    if (!nom || !tel) {
-        alert("Nom et numéro obligatoires.");
-        return;
-    }
-    if (!telEstValideClient(tel)) {
-        alert("Numéro invalide. Entrez l’indicatif du pays puis le numéro (ex : +228 90 12 34 56).");
-        return;
-    }
+    const email = ((document.getElementById('nouveauEmailContact') || {}).value || '').trim();
+    const entreprise = ((document.getElementById('nouveauEntrepriseContact') || {}).value || '').trim();
+    const metier = ((document.getElementById('nouveauMetierContact') || {}).value || '').trim();
+    const notes = ((document.getElementById('nouveauNotesContact') || {}).value || '').trim();
+    if (!nom || !tel) { alert('Nom et numéro obligatoires.'); return; }
+    if (!telEstValideClient(tel)) { alert('Numéro invalide. Entrez l’indicatif du pays puis le numéro (ex : +228 90 12 34 56).'); return; }
+    if (email && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) { alert('E-mail invalide.'); return; }
     if (!utilisateur.contacts) utilisateur.contacts = [];
-    if (utilisateur.contacts.some(c => c.telephone === tel)) {
-        alert("Ce numéro est déjà dans vos contacts.");
-        return;
-    }
-    utilisateur.contacts.push({ nom, telephone: tel, metier: "Recherche...", online: false });
+    if (utilisateur.contacts.some(c => c.telephone === tel)) { alert('Ce numéro est déjà dans vos contacts.'); return; }
+    utilisateur.contacts.push(normaliserContact({ nom, telephone: tel, email, entreprise, metier, notes, source: 'manual' }));
     sauverProfil();
-    document.getElementById('nouveauNomContact').value = '';
-    document.getElementById('nouveauTelContact').value = '';
+    ['nouveauNomContact', 'nouveauTelContact', 'nouveauEmailContact', 'nouveauEntrepriseContact', 'nouveauMetierContact', 'nouveauNotesContact']
+        .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     afficherContacts();
     verifierEtSynchroniserContacts();
     montrerNotification(`✅ Contact ${nom} enregistré`);
@@ -831,28 +1397,128 @@ function ajouterNouveauContact() {
 
 function modifierContact(index) {
     const c = utilisateur.contacts[index];
-    const nouveauNom = prompt("Modifier le nom :", c.nom);
-    if (nouveauNom === null) return;
-    const nouveauTelBrut = prompt("Modifier le numéro :", c.telephone);
-    if (nouveauTelBrut === null) return;
+    if (!c) return;
+    const nouveauNom = prompt('Nom :', c.nom); if (nouveauNom === null) return;
+    const nouveauTelBrut = prompt('Numéro :', c.telephone); if (nouveauTelBrut === null) return;
     const nouveauTel = normaliserTel(nouveauTelBrut);
-    if (!telEstValideClient(nouveauTel)) { alert("Numéro invalide."); return; }
-    utilisateur.contacts[index].nom = nouveauNom.trim() || c.nom;
-    utilisateur.contacts[index].telephone = nouveauTel;
+    if (!telEstValideClient(nouveauTel)) { alert('Numéro invalide.'); return; }
+    const email = prompt('E-mail :', c.email || ''); if (email === null) return;
+    const entreprise = prompt('Entreprise :', c.entreprise || ''); if (entreprise === null) return;
+    const metier = prompt('Métier / fonction :', c.metier || ''); if (metier === null) return;
+    const notes = prompt('Notes :', c.notes || ''); if (notes === null) return;
+    utilisateur.contacts[index] = normaliserContact({
+        ...c, nom: nouveauNom.trim() || c.nom, telephone: nouveauTel,
+        email: email.trim(), entreprise: entreprise.trim(), metier: metier.trim(), notes: notes.trim(),
+        source: c.source || 'manual'
+    });
     sauverProfil();
     afficherContacts();
     verifierEtSynchroniserContacts();
 }
 
 function supprimerContact(index) {
-    if (confirm("Supprimer ce contact ?")) {
+    if (confirm('Supprimer ce contact ?')) {
         utilisateur.contacts.splice(index, 1);
         sauverProfil();
         afficherContacts();
+        majCompteurContactsEnLigne();
     }
 }
 
 function ecrireAuContact(nom, tel) { ouvrirMessagerie(tel); }
+
+function contactsPickerDispo() {
+    return !!(navigator.contacts && typeof navigator.contacts.select === 'function');
+}
+
+function proposerRestaurationCloud() {
+    if (!utilisateur || !socket.connected) return;
+    if ((utilisateur.contacts || []).length > 0) return;
+    socket.emit('contacts_restore', null, (res) => {
+        if (!res || !res.ok || !Array.isArray(res.contacts) || !res.contacts.length) return;
+        if (confirm('Des contacts sauvegardés (' + res.contacts.length + ') existent pour ce numéro.\nLes restaurer maintenant ?')) {
+            restaurerContactsCloud();
+        }
+    });
+}
+
+function proposerImportContactsApresInscription() {
+    if (!utilisateur) return;
+    if (localStorage.getItem('evat_contacts_import_ok') === '1') return;
+    if (contactsPickerDispo()) {
+        if (confirm('Voulez-vous importer des contacts de votre téléphone dans EVAT ?\\n\\nVous choisirez lesquels synchroniser (nom, numéro, e-mail).')) {
+            importerContactsTelephone();
+        } else {
+            localStorage.setItem('evat_contacts_import_ok', '1');
+        }
+    }
+}
+
+async function importerContactsTelephone() {
+    const status = document.getElementById('contactImportStatus');
+    const setStatus = (t) => { if (status) status.textContent = t || ''; };
+    if (!utilisateur) { alert('Connectez-vous d’abord.'); return; }
+    if (!contactsPickerDispo()) {
+        setStatus('Import auto non supporté sur ce navigateur. Utilisez Chrome Android, ou ajoutez manuellement.');
+        alert('L’import des contacts du téléphone n’est pas disponible ici.\\n\\nSur Android : ouvrez EVAT dans Chrome, puis réessayez.');
+        return;
+    }
+    try {
+        setStatus('Ouverture de vos contacts…');
+        const props = ['name', 'tel'];
+        try {
+            const supported = await navigator.contacts.getProperties();
+            if (supported.includes('email')) props.push('email');
+            if (supported.includes('address')) props.push('address');
+        } catch (e) { props.push('email'); }
+        const picked = await navigator.contacts.select(props, { multiple: true });
+        if (!picked || !picked.length) { setStatus('Aucun contact sélectionné.'); return; }
+        if (!utilisateur.contacts) utilisateur.contacts = [];
+        let ajoutes = 0, ignores = 0, maj = 0;
+        picked.forEach(p => {
+            const noms = (p.name && (Array.isArray(p.name) ? p.name[0] : p.name)) || '';
+            const tels = [].concat(p.tel || []).map(t => normaliserTel(t)).filter(telEstValideClient);
+            const emails = [].concat(p.email || []).map(e => String(e || '').trim()).filter(e => e && e.includes('@'));
+            const addr = [].concat(p.address || []).map(a => {
+                if (typeof a === 'string') return a;
+                return [a.addressLine, a.city, a.country].flat().filter(Boolean).join(', ');
+            }).filter(Boolean);
+            if (!tels.length) { ignores++; return; }
+            tels.forEach(tel => {
+                if (tel === utilisateur.telephone) { ignores++; return; }
+                const exist = utilisateur.contacts.find(c => c.telephone === tel);
+                const data = normaliserContact({
+                    nom: String(noms).trim() || tel, telephone: tel,
+                    telephones: exist ? telephonesDuContact(exist).concat([tel]) : [tel],
+                    email: emails[0] || (exist && exist.email) || '',
+                    emails: emails.length ? emails : (exist ? emailsDuContact(exist) : []),
+                    adresse: addr[0] || (exist && exist.adresse) || '',
+                    metier: (exist && exist.metier) || '', entreprise: (exist && exist.entreprise) || '',
+                    notes: (exist && exist.notes) || '', source: 'phone',
+                    online: exist && exist.online, surEVAT: exist && exist.surEVAT
+                });
+                if (exist) { Object.assign(exist, data); maj++; }
+                else { utilisateur.contacts.push(data); ajoutes++; }
+            });
+        });
+        sauverProfil();
+        afficherContacts();
+        verifierEtSynchroniserContacts();
+        localStorage.setItem('evat_contacts_import_ok', '1');
+        const resume = `✅ Import terminé : ${ajoutes} ajouté(s), ${maj} mis à jour, ${ignores} ignoré(s).`;
+        setStatus(resume);
+        montrerNotification(resume);
+    } catch (e) {
+        if (e && e.name === 'AbortError') { setStatus('Import annulé.'); return; }
+        setStatus('Import impossible : ' + ((e && e.message) || 'erreur'));
+        alert('Impossible d’importer les contacts. Autorisez l’accès aux contacts pour Chrome/EVAT.');
+    }
+}
+
+function syncContactsEVAT() {
+    verifierEtSynchroniserContacts();
+    montrerNotification('🔄 Statut des contacts EVAT actualisé');
+}
 
 // ---------- IA : voir module « Deux IA » plus bas ----------
 
@@ -869,7 +1535,7 @@ function genererReponseElaws(question) {
             replies: [
                 `Bonjour ${nom} ! En tant qu'expert en ${metier}, je suis pleinement opérationnel. Que puis-je analyser pour vous ?`,
                 `Salut ${nom} 👋. Système Continuum synchronisé. Comment puis-je vous assister aujourd'hui ?`,
-                `Bonjour ! ${onlineCount} opérateurs sont actuellement en ligne sur le réseau. Que souhaitez-vous ?`
+                `Bonjour ! ${onlineCount} de vos contacts sont en ligne. Que souhaitez-vous ?`
             ]
         },
         {
@@ -883,7 +1549,7 @@ function genererReponseElaws(question) {
         {
             test: /(contact|annuaire|qui est|numero)/,
             replies: [
-                `Votre annuaire contient ${utilisateur.contacts ? utilisateur.contacts.length : 0} contacts. ${onlineCount} sont en ligne en ce moment. Allez dans l'onglet Contacts pour les gérer.`,
+                `Votre annuaire contient ${utilisateur.contacts ? utilisateur.contacts.length : 0} contacts. ${onlineCount} de vos contacts sont en ligne. Allez dans l'onglet Contacts pour les gérer.`,
                 `Pour appeler ou écrire, ouvrez l'Annuaire. Votre propre ID VoIP est ${utilisateur.telephone}.`
             ]
         },
@@ -917,8 +1583,8 @@ function genererReponseElaws(question) {
         {
             test: /(en ligne|online|connecte|presence)/,
             replies: [
-                `Actuellement ${onlineCount} opérateur${onlineCount > 1 ? 's' : ''} en ligne sur le continuum.`,
-                `Le réseau compte ${onlineCount} présence(s) active(s). Votre statut est visible pour vos contacts.`
+                `Actuellement ${onlineCount} de vos contacts ${onlineCount > 1 ? 'sont' : 'est'} en ligne.`,
+                `Parmi vos contacts, ${onlineCount} présence(s) active(s). Seuls vos contacts voient votre statut.`
             ]
         },
         {
@@ -1470,26 +2136,57 @@ socket.on('connect', () => { Call.iceAt = 0; setTimeout(() => chargerIce(), 800)
 
 /* ---------- Médias ---------- */
 async function obtenirMedia(type) {
-    const audio = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
-    const video = type === 'video'
-        ? { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 24, max: 30 }, facingMode: 'user' }
-        : false;
-    try {
-        return await navigator.mediaDevices.getUserMedia({ audio, video });
-    } catch (e) {
-        if (type === 'video' && e && e.name !== 'NotAllowedError') {
-            // pas de caméra : on bascule en audio
-            Call.type = 'audio';
-            return await navigator.mediaDevices.getUserMedia({ audio, video: false });
-        }
-        throw e;
+    if (!window.isSecureContext) {
+        const err = new Error('Contexte non sécurisé');
+        err.name = 'SecurityError';
+        throw err;
     }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        const err = new Error('getUserMedia indisponible');
+        err.name = 'NotSupportedError';
+        throw err;
+    }
+    const essais = [];
+    if (type === 'video') {
+        essais.push({
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+            video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 24, max: 30 }, facingMode: 'user' }
+        });
+        essais.push({ audio: true, video: { facingMode: 'user' } });
+        essais.push({ audio: true, video: true });
+    }
+    essais.push({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        video: false
+    });
+    essais.push({ audio: true, video: false });
+
+    let derniere = null;
+    for (let i = 0; i < essais.length; i++) {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia(essais[i]);
+            if (type === 'video' && !stream.getVideoTracks().length) Call.type = 'audio';
+            return stream;
+        } catch (e) {
+            derniere = e;
+            if (e && e.name === 'NotAllowedError') throw e;
+        }
+    }
+    throw derniere || new Error('Impossible d’activer le micro/caméra');
 }
 
 function messageErreurMedia(e) {
-    if (e && e.name === 'NotAllowedError') return '❌ Micro/caméra refusés. Autorisez-les dans les réglages du navigateur.';
-    if (e && e.name === 'NotFoundError') return '❌ Aucun micro détecté.';
-    return '❌ Impossible d’activer le micro/caméra.';
+    const nom = (e && e.name) || '';
+    if (nom === 'NotAllowedError' || nom === 'PermissionDeniedError') {
+        return '❌ Micro/caméra refusés.\n\nSur Android : Réglages → Applications → Chrome (ou EVAT) → Autorisations → Micro (et Caméra) → Autoriser.\nPuis rouvrez l’app et réessayez.';
+    }
+    if (nom === 'NotFoundError' || nom === 'DevicesNotFoundError') return '❌ Aucun micro ou caméra détecté sur cet appareil.';
+    if (nom === 'NotReadableError' || nom === 'TrackStartError') return '❌ Micro/caméra déjà utilisés par une autre application. Fermez WhatsApp, Camera, etc., puis réessayez.';
+    if (nom === 'OverconstrainedError' || nom === 'ConstraintNotSatisfiedError') return '❌ Votre appareil ne prend pas en charge ces réglages. Réessayez en appel audio.';
+    if (nom === 'SecurityError') return '❌ Accès micro/caméra bloqué : ouvrez EVAT en HTTPS (ou via l’icône installée), pas en HTTP.';
+    if (nom === 'NotSupportedError') return '❌ Ce navigateur ne permet pas les appels audio/vidéo. Utilisez Chrome ou Edge à jour.';
+    if (nom === 'AbortError') return '❌ Activation interrompue. Réessayez.';
+    return '❌ Impossible d’activer le micro/caméra.\n\nVérifiez les autorisations (Micro + Caméra) pour Chrome/EVAT dans les réglages du téléphone.';
 }
 
 function attacherLocal() {
@@ -1642,7 +2339,13 @@ async function lancerAppelDirectPeer(type, telOverride) {
             if (Call.state === 'calling') terminerAppel('❌ Pas de réponse.', true, 'sans_reponse');
         }, 35000);
     } catch (e) {
-        if (Call.id === idLocal) terminerAppel(messageErreurMedia(e), true, 'echec');
+        if (Call.id === idLocal) {
+            const msg = messageErreurMedia(e);
+            terminerAppel(msg, true, 'echec');
+            if (e && (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError' || e.name === 'SecurityError')) {
+                try { alert(msg); } catch (err) {}
+            }
+        }
     }
 }
 
@@ -1707,7 +2410,13 @@ async function accepterAppelEntrant() {
             if (Call.state === 'connecting') terminerAppel('❌ Connexion impossible (réseau).', true, 'echec');
         }, 20000);
     } catch (e) {
-        if (Call.id === idLocal) terminerAppel(messageErreurMedia(e), true, 'echec');
+        if (Call.id === idLocal) {
+            const msg = messageErreurMedia(e);
+            terminerAppel(msg, true, 'echec');
+            if (e && (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError' || e.name === 'SecurityError')) {
+                try { alert(msg); } catch (err) {}
+            }
+        }
     }
 }
 
@@ -1905,14 +2614,33 @@ const MAX_MESSAGES_LOCAUX = 400;
 function nouvelIdMsg() { return 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 
 function cleConvo(m) {
+    if (m.groupId) return 'group:' + m.groupId;
+    if (m.to && String(m.to).startsWith('group:')) return m.to;
     if (!m.to) return 'general';
     if (m.fromMe) return m.to;
     if (m.from) return m.from;
-    const c = (utilisateur.contacts || []).find(x => x.nom === m.expediteur);   // anciens messages sans numéro
+    const c = (utilisateur.contacts || []).find(x => x.nom === m.expediteur);
     return c ? c.telephone : 'general';
 }
 
-function nomConvo(k) { return k === 'general' ? 'Réseau EVAT' : nomPourTel(k); }
+function estCleGroupe(k) { return typeof k === 'string' && k.startsWith('group:'); }
+function idGroupeDeCle(k) { return estCleGroupe(k) ? k.slice(6) : null; }
+
+function groupesLocaux() {
+    if (!utilisateur) return [];
+    if (!Array.isArray(utilisateur.groupes)) utilisateur.groupes = [];
+    return utilisateur.groupes;
+}
+
+function nomConvo(k) {
+    if (k === 'general') return 'Réseau EVAT';
+    if (estCleGroupe(k)) {
+        const id = idGroupeDeCle(k);
+        const g = groupesLocaux().find(x => x.id === id);
+        return (g && g.nom) || 'Groupe';
+    }
+    return nomPourTel(k);
+}
 
 function initialesDe(nom) {
     const p = String(nom || '?').trim().split(/\s+/).slice(0, 2);
@@ -1984,10 +2712,17 @@ socket.on('new_message', (msg) => {
 
     const m = {
         id: msg.id, cid: msg.cid || null,
-        expediteur: msg.fromName || msg.from, from: msg.from, texte: msg.texte, heure: msg.heure,
-        fromMe, to: msg.to || null, ts: msg.timestamp,
+        expediteur: msg.fromName || msg.from, from: msg.from, texte: msg.texte, image: msg.image || null, groupId: msg.groupId || null, groupName: msg.groupName || null, heure: msg.heure,
+        fromMe, to: msg.groupId ? ('group:' + msg.groupId) : (msg.to || null), ts: msg.timestamp,
         etat: fromMe ? (msg.read ? 'read' : (msg.delivered ? 'delivered' : 'sent')) : null
     };
+    if (msg.groupId) {
+        const gl = groupesLocaux();
+        if (!gl.some(g => g.id === msg.groupId)) {
+            gl.unshift({ id: msg.groupId, nom: msg.groupName || 'Groupe', membres: [] });
+            sauverGroupesLocaux(gl);
+        }
+    }
     utilisateur.messagesLocaux.push(m);
     if (utilisateur.messagesLocaux.length > MAX_MESSAGES_LOCAUX) {
         utilisateur.messagesLocaux = utilisateur.messagesLocaux.slice(-MAX_MESSAGES_LOCAUX);
@@ -1998,11 +2733,12 @@ socket.on('new_message', (msg) => {
         const tabVisible = document.getElementById('tab-messagerie') && document.getElementById('tab-messagerie').style.display !== 'none';
         const lue = tabVisible && convoOuverte === cle && !document.hidden;
         if (lue) {
-            if (cle !== 'general') socket.emit('mark_read', { peer: cle });
+            if (cle !== 'general' && !estCleGroupe(cle)) socket.emit('mark_read', { peer: cle });
         } else {
             utilisateur.nonLus = utilisateur.nonLus || {};
             utilisateur.nonLus[cle] = (utilisateur.nonLus[cle] || 0) + 1;
-            const apercu = `💬 ${m.expediteur} : ${msg.texte.slice(0, 40)}${msg.texte.length > 40 ? '…' : ''}`;
+            const apercuTxt = msg.image ? '📷 Photo' : (msg.texte || '');
+            const apercu = `💬 ${m.expediteur} : ${apercuTxt.slice(0, 40)}${apercuTxt.length > 40 ? '…' : ''}`;
             montrerNotification(apercu, () => ouvrirMessagerie(cle));
         }
     }
@@ -2040,43 +2776,226 @@ socket.on('typing', (d) => {
 });
 
 /* ---------- Envoi ---------- */
-function envoyerMessage(to, texte, cidExistant) {
+function envoyerMessage(to, texte, cidExistant, imageData) {
+    if (!utilisateur) return;
     const cid = cidExistant || nouvelIdMsg();
-    const maintenant = Date.now();
-    if (!cidExistant) {
-        // affichage immédiat (comme WhatsApp) ; remplacé par la version du serveur dès l'écho
-        (utilisateur.messagesLocaux = utilisateur.messagesLocaux || []).push({
-            id: cid, cid, expediteur: utilisateur.nom, from: utilisateur.telephone, texte,
-            heure: heureCourte(maintenant), fromMe: true, to: to || null, ts: maintenant,
-            etat: to ? 'pending' : null
-        });
-        sauverProfil();
-        afficherMessagesLocaux();
+    const isGroup = estCleGroupe(to);
+    const groupId = isGroup ? idGroupeDeCle(to) : null;
+    const peer = (!isGroup && to && to !== 'general') ? to : null;
+    const texteFinal = (texte || '').trim() || (imageData ? '📷 Photo' : '');
+    if (!texteFinal && !imageData) return;
+
+    (utilisateur.messagesLocaux = utilisateur.messagesLocaux || []).push({
+        id: cid, cid,
+        expediteur: utilisateur.nom,
+        from: utilisateur.telephone,
+        texte: texteFinal,
+        image: imageData || null,
+        groupId: groupId || null,
+        heure: heureCourte(Date.now()),
+        ts: Date.now(),
+        fromMe: true,
+        to: isGroup ? ('group:' + groupId) : (peer || null),
+        etat: 'pending'
+    });
+    if (utilisateur.messagesLocaux.length > MAX_MESSAGES_LOCAUX) {
+        utilisateur.messagesLocaux = utilisateur.messagesLocaux.slice(-MAX_MESSAGES_LOCAUX);
     }
+    sauverProfil();
+    afficherMessagesLocaux(true);
+
     if (!socket.connected) {
-        if (!_outbox.some(x => x.cid === cid)) _outbox.push({ to, texte, cid });
+        if (!_outbox.some(x => x.cid === cid)) _outbox.push({ to, texte: texteFinal, cid, image: imageData || null });
         return;
     }
-    socket.emit('send_message', { to: to || null, texte, cid }, (res) => {
-        if (res && res.ok === false) {
-            const m = (utilisateur.messagesLocaux || []).find(x => x.cid === cid || x.id === cid);
-            if (m) m.etat = 'failed';
-            montrerNotification(res.error || 'Message non envoyé');
-            afficherMessagesLocaux();
+    const payload = { to: peer, texte: texteFinal, cid };
+    if (groupId) payload.groupId = groupId;
+    if (imageData) payload.image = imageData;
+    socket.emit('send_message', payload, (res) => {
+        const m = (utilisateur.messagesLocaux || []).find(x => x.cid === cid || x.id === cid);
+        if (!m) return;
+        if (res && res.ok) {
+            m.id = res.id || m.id;
+            m.etat = res.delivered ? 'delivered' : 'sent';
+        } else {
+            m.etat = 'failed';
+            if (res && res.error) montrerNotification(res.error);
         }
+        sauverProfil();
+        afficherMessagesLocaux();
     });
 }
 
 function envoyerMessageChatLocal() {
     const input = document.getElementById('chatLocalInput');
-    const texte = input.value.trim();
-    if (!texte || !utilisateur || !convoOuverte) return;
-    envoyerMessage(convoOuverte === 'general' ? null : convoOuverte, texte);
-    input.value = '';
-    input.style.height = '42px';
+    const texte = input ? input.value.trim() : '';
+    const img = window._chatImageData || null;
+    if (!texte && !img) return;
+    if (!convoOuverte) return;
+    if (input) { input.value = ''; autoResize(input); }
+    annulerImageChat();
+    const to = convoOuverte === 'general' ? null : convoOuverte;
+    envoyerMessage(to, texte, null, img);
     arreterEcriture();
-    input.focus();
 }
+
+/* ---------- Photos compressées dans le chat ---------- */
+window._chatImageData = null;
+
+function annulerImageChat() {
+    window._chatImageData = null;
+    const box = document.getElementById('chatImagePreview');
+    const img = document.getElementById('chatImagePreviewImg');
+    const input = document.getElementById('chatImageInput');
+    if (box) box.setAttribute('hidden', '');
+    if (img) img.removeAttribute('src');
+    if (input) input.value = '';
+}
+
+function onChatImageChoisie(ev) {
+    const file = ev.target && ev.target.files && ev.target.files[0];
+    if (!file) return;
+    compresserImageChat(file).then(dataUrl => {
+        if (!dataUrl) { alert('Impossible de préparer cette image.'); return; }
+        window._chatImageData = dataUrl;
+        const box = document.getElementById('chatImagePreview');
+        const img = document.getElementById('chatImagePreviewImg');
+        if (img) img.src = dataUrl;
+        if (box) box.removeAttribute('hidden');
+    }).catch(() => alert('Image trop lourde ou format non supporté.'));
+}
+
+function compresserImageChat(file) {
+    return new Promise((resolve, reject) => {
+        if (!file || !file.type || !file.type.startsWith('image/')) return reject(new Error('type'));
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('read'));
+        reader.onload = () => {
+            const im = new Image();
+            im.onload = () => {
+                const maxW = 1280, maxH = 1280;
+                let w = im.width, h = im.height;
+                const ratio = Math.min(1, maxW / w, maxH / h);
+                w = Math.round(w * ratio); h = Math.round(h * ratio);
+                const canvas = document.createElement('canvas');
+                canvas.width = w; canvas.height = h;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(im, 0, 0, w, h);
+                let quality = 0.72;
+                let dataUrl = canvas.toDataURL('image/jpeg', quality);
+                // viser < ~220 Ko base64
+                while (dataUrl.length > 220000 && quality > 0.4) {
+                    quality -= 0.08;
+                    dataUrl = canvas.toDataURL('image/jpeg', quality);
+                }
+                if (dataUrl.length > 280000) {
+                    // second pass plus petit
+                    canvas.width = Math.round(w * 0.7); canvas.height = Math.round(h * 0.7);
+                    ctx.drawImage(im, 0, 0, canvas.width, canvas.height);
+                    dataUrl = canvas.toDataURL('image/jpeg', 0.55);
+                }
+                resolve(dataUrl.length > 280000 ? null : dataUrl);
+            };
+            im.onerror = () => reject(new Error('img'));
+            im.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+function ouvrirLightboxImage(src) {
+    if (!src) return;
+    let lb = document.getElementById('imageLightbox');
+    if (!lb) {
+        lb = document.createElement('div');
+        lb.id = 'imageLightbox';
+        lb.className = 'image-lightbox';
+        lb.innerHTML = '<button type="button" class="image-lightbox-close" aria-label="Fermer">✕</button><img alt="Photo">';
+        lb.addEventListener('click', (e) => {
+            if (e.target === lb || e.target.classList.contains('image-lightbox-close')) lb.setAttribute('hidden', '');
+        });
+        document.body.appendChild(lb);
+    }
+    const im = lb.querySelector('img');
+    if (im) im.src = src;
+    lb.removeAttribute('hidden');
+}
+
+/* ---------- Groupes légers ---------- */
+function sauverGroupesLocaux(list) {
+    if (!utilisateur) return;
+    utilisateur.groupes = list || [];
+    sauverProfil();
+}
+
+function ouvrirCreationGroupe() {
+    if (!utilisateur) return;
+    const box = document.getElementById('groupeMembresList');
+    const modal = document.getElementById('modalGroupe');
+    if (!box || !modal) return;
+    const contacts = (utilisateur.contacts || []).filter(c => c.surEVAT || c.online);
+    const all = (utilisateur.contacts || []);
+    const liste = contacts.length ? contacts : all;
+    box.innerHTML = liste.length ? liste.map(c => `
+        <label class="groupe-membre-row">
+            <input type="checkbox" value="${escapeHtml(c.telephone)}">
+            <span>${escapeHtml(c.nom)}</span>
+            <small>${escapeHtml(c.telephone)}${c.surEVAT ? ' · EVAT' : ''}</small>
+        </label>`).join('') : '<p class="subtitle">Ajoutez d’abord des contacts EVAT.</p>';
+    const nom = document.getElementById('groupeNom');
+    if (nom) nom.value = '';
+    modal.removeAttribute('hidden');
+}
+
+function fermerCreationGroupe() {
+    const modal = document.getElementById('modalGroupe');
+    if (modal) modal.setAttribute('hidden', '');
+}
+
+function creerGroupeEVAT() {
+    if (!socket.connected) { alert('Serveur injoignable.'); return; }
+    const nom = ((document.getElementById('groupeNom') || {}).value || '').trim();
+    if (!nom) { alert('Donnez un nom au groupe.'); return; }
+    const membres = [...document.querySelectorAll('#groupeMembresList input:checked')].map(i => i.value);
+    if (!membres.length) { alert('Cochez au moins un contact.'); return; }
+    socket.emit('group_create', { nom, membres }, (res) => {
+        if (!res || !res.ok) { alert((res && res.error) || 'Création impossible'); return; }
+        const g = res.group;
+        const list = groupesLocaux().filter(x => x.id !== g.id);
+        list.unshift(g);
+        sauverGroupesLocaux(list);
+        fermerCreationGroupe();
+        montrerNotification('👥 Groupe « ' + g.nom + ' » créé');
+        ouvrirConversation('group:' + g.id);
+    });
+}
+
+function chargerGroupesServeur() {
+    if (!socket.connected || !utilisateur) return;
+    socket.emit('group_list', null, (res) => {
+        if (!res || !res.ok || !Array.isArray(res.groups)) return;
+        sauverGroupesLocaux(res.groups);
+        if (!convoOuverte) afficherMessagesLocaux();
+    });
+}
+
+socket.on('group_update', (data) => {
+    if (!utilisateur || !data || !data.group) return;
+    let list = groupesLocaux();
+    if (data.action === 'leave' && data.who === utilisateur.telephone) {
+        list = list.filter(g => g.id !== data.group.id);
+    } else {
+        list = list.filter(g => g.id !== data.group.id);
+        if (data.group.membres && data.group.membres.includes(utilisateur.telephone)) {
+            list.unshift(data.group);
+        }
+    }
+    sauverGroupesLocaux(list);
+    if (!convoOuverte) afficherMessagesLocaux();
+});
+
+// Intégrer les groupes dans la liste des conversations
+
 
 function signalerEcriture() {
     if (!convoOuverte || convoOuverte === 'general' || !socket.connected) return;
@@ -2107,9 +3026,11 @@ function ouvrirConversation(cle) {
     document.getElementById('convListView').style.display = 'none';
     document.getElementById('chatView').style.display = 'flex';
     document.getElementById('chatPeerName').textContent = nomConvo(cle);
-    document.getElementById('chatPeerAvatar').textContent = cle === 'general' ? '🌐' : initialesDe(nomConvo(cle));
-    const prive = cle !== 'general';
+    document.getElementById('chatPeerAvatar').textContent = cle === 'general' ? '🌐' : (estCleGroupe(cle) ? '👥' : initialesDe(nomConvo(cle)));
+    const prive = cle !== 'general' && !estCleGroupe(cle);
     ['btnChatAudio', 'btnChatVideo'].forEach(id => { const b = document.getElementById(id); if (b) b.style.display = prive ? '' : 'none'; });
+    const br = document.getElementById('btnChatResume');
+    if (br) br.style.display = (cle === 'general') ? 'none' : '';
     majEntetePeer();
     majNavChat();
     rendreMessagesLocaux(true);
@@ -2133,8 +3054,14 @@ function majEntetePeer() {
     el.classList.remove('typing');
     if (convoOuverte === 'general') { el.textContent = 'Diffusion à tous les opérateurs'; return; }
     const c = (utilisateur.contacts || []).find(x => x.telephone === convoOuverte);
-    if (c && c.online) { el.textContent = '● en ligne'; el.classList.add('online'); }
-    else { el.textContent = c ? 'hors ligne' : convoOuverte; el.classList.remove('online'); }
+    if (c && c.online) {
+        const st = c.statut || 'disponible';
+        el.textContent = '● ' + labelStatut(st);
+        el.classList.add('online');
+    } else {
+        el.textContent = c ? (c.lastSeen ? formaterVuLe(c.lastSeen) : 'hors ligne') : convoOuverte;
+        el.classList.remove('online');
+    }
 }
 
 function majNavChat() {
@@ -2177,8 +3104,15 @@ function rendreFil(forcerBas) {
             if (j !== jour) { jour = j; html += `<div class="day-sep"><span>${escapeHtml(j)}</span></div>`; }
         }
         const moi = !!m.fromMe;
-        const auteur = (!moi && convoOuverte === 'general') ? `<div class="msg-author">${escapeHtml(m.expediteur)}</div>` : '';
-        html += `<div class="msg-bubble ${moi ? 'me' : 'other'}">${auteur}<p>${escapeHtml(m.texte)}</p>` +
+        const showAuthor = !moi && (convoOuverte === 'general' || estCleGroupe(convoOuverte));
+        const auteur = showAuthor ? `<div class="msg-author">${escapeHtml(m.expediteur)}</div>` : '';
+        const imgHtml = m.image
+            ? `<div class="msg-image"><img src="${m.image.replace(/"/g, '')}" alt="Photo" loading="lazy" onclick="ouvrirLightboxImage(this.src)"></div>`
+            : '';
+        const txtHtml = (m.texte && m.texte !== '📷 Photo')
+            ? `<p>${escapeHtml(m.texte)}</p>`
+            : (m.image ? '' : `<p>${escapeHtml(m.texte || '')}</p>`);
+        html += `<div class="msg-bubble ${moi ? 'me' : 'other'}">${auteur}${imgHtml}${txtHtml}` +
                 `<div class="msg-meta"><span class="msg-time">${escapeHtml(m.ts ? heureCourte(m.ts) : (m.heure || ''))}</span>${coches(m)}</div></div>`;
     });
     container.innerHTML = html;
@@ -2198,6 +3132,11 @@ function rendreListeConversations() {
     });
     const nonLus = utilisateur.nonLus || {};
     if (!fils.general) fils.general = null;
+    // Groupes connus même sans message
+    groupesLocaux().forEach(g => {
+        const k = 'group:' + g.id;
+        if (!fils[k]) fils[k] = null;
+    });
 
     const lignes = Object.keys(fils).map(k => ({ k, m: fils[k] }))
         .filter(x => !filtre || nomConvo(x.k).toLowerCase().includes(filtre))
@@ -2207,9 +3146,10 @@ function rendreListeConversations() {
         const nom = nomConvo(k);
         const c = k !== 'general' ? (utilisateur.contacts || []).find(x => x.telephone === k) : null;
         const n = nonLus[k] || 0;
-        const apercu = m ? ((m.fromMe ? 'Vous : ' : (k === 'general' ? m.expediteur + ' : ' : '')) + m.texte) : 'Aucun message';
+        const apercu = m ? ((m.fromMe ? 'Vous : ' : ((k === 'general' || estCleGroupe(k)) ? m.expediteur + ' : ' : '')) + (m.image && (!m.texte || m.texte === '📷 Photo') ? '📷 Photo' : (m.texte || ''))) : 'Aucun message';
+        const avatar = k === 'general' ? '🌐' : (estCleGroupe(k) ? '👥' : escapeHtml(initialesDe(nom)));
         return `<button type="button" class="conv-item ${n ? 'unread' : ''}" data-conv="${escapeHtml(k)}">
-            <span class="avatar ${k === 'general' ? 'net' : ''}">${k === 'general' ? '🌐' : escapeHtml(initialesDe(nom))}${c && c.online ? '<i class="dot-on"></i>' : ''}</span>
+            <span class="avatar ${k === 'general' ? 'net' : ''} ${estCleGroupe(k) ? 'grp' : ''}">${avatar}${c && c.online ? '<i class="dot-on"></i>' : ''}</span>
             <span class="conv-body"><span class="conv-top"><strong>${escapeHtml(nom)}</strong><time>${m && m.ts ? escapeHtml(heureCourte(m.ts)) : ''}</time></span>
             <span class="conv-last">${m && m.fromMe ? coches(m) + ' ' : ''}${escapeHtml(apercu.slice(0, 70))}</span></span>
             ${n ? `<b class="badge">${n > 99 ? '99+' : n}</b>` : ''}
@@ -2351,6 +3291,7 @@ async function activerNotificationsPush() {
         montrerNotification('🔕 Notifications refusées. Autorisez-les dans les réglages du navigateur.');
     }
     majCartePush();
+    if (typeof majBoostOnboarding === 'function') majBoostOnboarding();
 }
 
 // Le serveur doit savoir si l'écran est visible (sinon il double l'appel avec une notification)
@@ -2399,10 +3340,170 @@ function gererOuvertureNotification(data, action) {
 })();
 
 /* ---------- Accueil : cartes de statistiques ---------- */
+
+/* ---------- Continuum 2300 : badge, données faibles, résumé, cloud contacts ---------- */
+function profilContinuumComplet() {
+    if (!utilisateur) return false;
+    const okMetier = !!(utilisateur.metier && utilisateur.metier !== 'Opérateur');
+    const okContact = (utilisateur.contacts || []).length > 0;
+    const okNotif = typeof Notification !== 'undefined' && Notification.permission === 'granted' && localStorage.getItem('evat_push_ok') === '1';
+    const okIdentite = !!(utilisateur.email || utilisateur.ville || utilisateur.entreprise || utilisateur.bio);
+    return okMetier && okContact && (okNotif || okIdentite);
+}
+
+function majBadgeContinuum() {
+    const el = document.getElementById('badgeContinuum');
+    if (!el) return;
+    const ok = profilContinuumComplet();
+    if (ok) el.removeAttribute('hidden'); else el.setAttribute('hidden', '');
+}
+
+function basculerModeDonneesFaibles(on) {
+    const actif = !!on;
+    localStorage.setItem('evat_low_data', actif ? '1' : '0');
+    document.body.classList.toggle('low-data', actif);
+    if (utilisateur) {
+        utilisateur.parametres = utilisateur.parametres || {};
+        utilisateur.parametres.lowData = actif;
+        sauverProfil();
+    }
+    montrerNotification(actif ? 'Mode données faibles activé' : 'Mode données faibles désactivé');
+}
+
+function appliquerModeDonneesFaibles() {
+    const on = localStorage.getItem('evat_low_data') === '1'
+        || (utilisateur && utilisateur.parametres && utilisateur.parametres.lowData);
+    document.body.classList.toggle('low-data', !!on);
+    const cb = document.getElementById('modeDonneesFaibles');
+    if (cb) cb.checked = !!on;
+}
+
+function resumerConversationIA() {
+    if (!convoOuverte || convoOuverte === 'general') {
+        montrerNotification('Ouvrez une conversation privée pour la résumer.');
+        return;
+    }
+    const msgs = messagesDe(convoOuverte).slice(-40);
+    if (!msgs.length) {
+        montrerNotification('Aucun message à résumer.');
+        return;
+    }
+    const nom = nomConvo(convoOuverte);
+    const lignes = msgs.map(m => {
+        const qui = m.from === (utilisateur && utilisateur.telephone) ? 'Moi' : (m.fromName || nom);
+        return qui + ' : ' + String(m.texte || '').slice(0, 200);
+    }).join('\n');
+    const prompt = 'Résume cette conversation EVAT de façon claire et actionnable (décisions, prochaines étapes, ton). Conversation avec ' + nom + ' :\n\n' + lignes;
+    // Ouvre Mister ELAWS et envoie
+    if (typeof ouvrirIA === 'function') ouvrirIA('general');
+    setTimeout(() => {
+        const input = document.getElementById('elawsInput');
+        if (input) {
+            input.value = prompt;
+            if (typeof actionEnvoiIA === 'function') actionEnvoiIA('general');
+            else if (typeof envoyerQuestionIA === 'function') envoyerQuestionIA('general');
+        }
+    }, 200);
+}
+
+function payloadContactsCloud() {
+    return (utilisateur.contacts || []).map(c => ({
+        nom: c.nom,
+        telephone: c.telephone,
+        telephones: telephonesDuContact(c),
+        email: c.email,
+        emails: emailsDuContact(c),
+        metier: c.metier,
+        entreprise: c.entreprise,
+        adresse: c.adresse,
+        notes: c.notes
+    }));
+}
+
+function sauvegarderContactsCloud() {
+    if (!utilisateur) return;
+    if (!socket.connected) { alert('Serveur injoignable.'); return; }
+    const status = document.getElementById('contactImportStatus');
+    if (status) status.textContent = 'Sauvegarde cloud…';
+    socket.emit('contacts_backup', payloadContactsCloud(), (res) => {
+        if (res && res.ok) {
+            const msg = '☁️ ' + (res.n || 0) + ' contact(s) sauvegardé(s) sur votre compte';
+            if (status) status.textContent = msg;
+            montrerNotification(msg);
+        } else {
+            const err = (res && res.error) || 'Échec de sauvegarde';
+            if (status) status.textContent = err;
+            alert(err);
+        }
+    });
+}
+
+function restaurerContactsCloud() {
+    if (!utilisateur) return;
+    if (!socket.connected) { alert('Serveur injoignable.'); return; }
+    const status = document.getElementById('contactImportStatus');
+    if (status) status.textContent = 'Restauration cloud…';
+    socket.emit('contacts_restore', null, (res) => {
+        if (!res || !res.ok) {
+            const err = (res && res.error) || 'Échec de restauration';
+            if (status) status.textContent = err;
+            alert(err);
+            return;
+        }
+        const venus = Array.isArray(res.contacts) ? res.contacts : [];
+        if (!venus.length) {
+            if (status) status.textContent = 'Aucune sauvegarde cloud trouvée.';
+            montrerNotification('Aucune sauvegarde cloud pour ce compte.');
+            return;
+        }
+        if (!confirm('Fusionner ' + venus.length + ' contact(s) depuis le cloud avec votre annuaire local ?')) {
+            if (status) status.textContent = '';
+            return;
+        }
+        if (!utilisateur.contacts) utilisateur.contacts = [];
+        let ajoutes = 0, maj = 0;
+        venus.forEach(raw => {
+            const data = normaliserContact(raw);
+            if (!data.telephone) return;
+            const exist = utilisateur.contacts.find(c => c.telephone === data.telephone);
+            if (exist) {
+                Object.assign(exist, normaliserContact({ ...exist, ...data, online: exist.online, surEVAT: exist.surEVAT }));
+                maj++;
+            } else {
+                utilisateur.contacts.push(data);
+                ajoutes++;
+            }
+        });
+        sauverProfil();
+        afficherContacts();
+        verifierEtSynchroniserContacts();
+        const msg = '☁️ Restauré : ' + ajoutes + ' ajouté(s), ' + maj + ' mis à jour';
+        if (status) status.textContent = msg;
+        montrerNotification(msg);
+    });
+}
+
+function autoBackupContactsCloud() {
+    if (!utilisateur || !socket.connected) return;
+    if ((utilisateur.contacts || []).length === 0) return;
+    const last = Number(localStorage.getItem('evat_contacts_cloud_ts') || 0);
+    if (Date.now() - last < 12 * 60 * 60 * 1000) return; // max 1x / 12h auto
+    socket.emit('contacts_backup', payloadContactsCloud(), (res) => {
+        if (res && res.ok) localStorage.setItem('evat_contacts_cloud_ts', String(Date.now()));
+    });
+}
+
 function majStatsAccueil() {
     majTitresIA();
     majBadges();
     majCartePush();
+    majCompteurContactsEnLigne();
+    appliquerStatutPresenceUI();
+    majBoostOnboarding();
+    majBadgeContinuum();
+    appliquerModeDonneesFaibles();
+    autoBackupContactsCloud();
+    chargerGroupesServeur();
 }
 
 /** Bouton « Tester » : le serveur envoie 3 notifications d'appel dans 8 s ; il faut fermer l'app ou verrouiller l'écran. */
@@ -2552,6 +3653,9 @@ const IA_OUTILS = [
     { ico: '💬', nom: 'Message client', q: 'Rédige-moi un message court et professionnel (WhatsApp) pour un client de mon métier. Demande-moi d’abord la situation : relance de devis, retard, remerciement, réclamation…' },
     { ico: '🛠️', nom: 'Matériel', q: 'Quel matériel et quels outils sont indispensables dans mon métier, du débutant au professionnel ? Donne des prix indicatifs dans la monnaie locale de mon pays.' },
     { ico: '📣', nom: 'Plus de clients', q: 'Donne-moi un plan concret et réaliste pour trouver plus de clients dans mon métier cette semaine.' },
+    { ico: '📅', nom: 'Plan de journée', q: 'Organise ma journée de travail dans mon métier : priorités, créneaux, pauses, et 3 actions qui rapportent vraiment.' },
+    { ico: '🤝', nom: 'Négociation', q: 'Aide-moi à négocier un prix ou un délai avec un client de mon métier. Donne-moi des phrases prêtes à dire, fermes et respectueuses.' },
+    { ico: '🧾', nom: 'Facture', q: 'Rédige le texte d’une facture simple pour mon métier (mentions utiles, formulation claire), adapté à mon pays.' },
     { ico: '🔎', nom: 'Prix du marché', web: true, q: 'Cherche sur Internet les prix et tarifs actuels pratiqués dans mon métier dans mon pays (matériel et prestations) et fais-m’en un résumé clair avec les sources.' },
     { ico: '⚖️', nom: 'Règles à connaître', web: true, q: 'Cherche sur Internet les règles, autorisations et obligations à connaître pour exercer mon métier dans mon pays, et résume-les avec les sources.' },
     { ico: '📰', nom: 'Nouveautés', web: true, q: 'Cherche sur Internet les nouveautés, techniques et outils récents qui comptent dans mon métier, et dis-moi ce qui vaut vraiment le coup.' }
@@ -2885,6 +3989,10 @@ function ajouterAuJournal(e) {
     sauverProfil();
     majBadges();
     if (tab && tab.style.display !== 'none') rendreJournalAppels();
+    if (document.body.classList.contains('fiche-contact-ouverte')) {
+        const c = typeof ficheContactCourant === 'function' ? ficheContactCourant() : null;
+        if (c && typeof rendreFicheHistorique === 'function') rendreFicheHistorique(c);
+    }
 }
 
 /** Enregistre l'appel qui se termine (à appeler AVANT de remettre Call à zéro). */

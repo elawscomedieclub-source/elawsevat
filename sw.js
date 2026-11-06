@@ -3,7 +3,7 @@
    - Fichiers de l'app : "stale-while-revalidate" (rapide, mis à jour en arrière-plan)
    - Socket.io / API / tuiles de carte : jamais interceptés (aucun risque de casser le temps réel)
    - Bibliothèques CDN : mises en cache à la première utilisation */
-const VERSION = 'evat-continuum-v490';
+const VERSION = 'evat-continuum-v4110';
 const SHELL = `${VERSION}-shell`;
 const RUNTIME = `${VERSION}-runtime`;
 
@@ -93,7 +93,7 @@ self.addEventListener('push', (e) => {
             renotify: true,
             icon: 'icon-192.png',
             badge: 'icon-192.png',
-            requireInteraction: appel,                       // l'appel reste affiché jusqu'à action
+            requireInteraction: appel || d.type === 'admin', // appel ou message admin restent visibles
             vibrate: sonne ? [600, 250, 600, 250, 600, 250, 600] : [200, 100, 200],
             silent: false,
             timestamp: Date.now(),
