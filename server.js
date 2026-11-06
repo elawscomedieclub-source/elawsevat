@@ -1,5 +1,5 @@
 /* ============================================================
-   EVAT Continuum — Serveur de signalisation v4.4
+   EVAT Continuum — Serveur de signalisation v4.8
    - Identité serveur-autoritaire (le client ne peut plus usurper "sender/from")
    - PIN hashé avec scrypt + anti brute-force
    - Présence ciblée (plus de diffusion de tous les numéros à tout le monde)
@@ -12,6 +12,13 @@
             plafonds, anti-injection), recherche Internet, TURN Cloudflare, page /diagnostic
    - v4.4 : inscription ouverte à tous les pays, noms dans toutes les écritures, sonnerie push répétée
             (le téléphone « sonne » app fermée), test d'appel, IA adaptées au pays de l'utilisateur
+   - v4.5 : filet de sécurité d'appel (si l'app ne confirme pas la sonnerie en 2,5 s → notifications push),
+            appels manqués toujours notifiés, avec identifiant d'appel pour l'historique
+   - v4.6 : sauvegarde externe gratuite (Upstash Redis) des comptes et des abonnements aux notifications :
+            le serveur Render gratuit peut s'endormir/redémarrer sans que les téléphones deviennent injoignables ;
+            réponse « numéro inconnu » ; état des notifications ; journal d'appels (numéros masqués)
+   - v4.7 : un compte inconnu du serveur (redémarrage) demande à l'app de se ré-inscrire seule ; Upstash 401 expliqué
+   - v4.8 : panneau d'administration (/admin) : voir, bloquer, supprimer les comptes, redonner un code de récupération
    ============================================================ */
 const express = require('express');
 const http = require('http');
@@ -51,6 +58,9 @@ const io = new Server(server, {
  * tel → { nom, metier, pinHash, pinSalt, online, lastSeen, createdAt, socketId }
  */
 const registeredUsers = new Map();
+const supprimes = new Map();      // numéros supprimés par l'administrateur (ils ne reviennent pas tout seuls)
+const MSG_SUSPENDU = 'Votre compte a été suspendu par l’administrateur. Contactez-le pour le réactiver.';
+const MSG_SUPPRIME = 'Ce compte a été supprimé par l’administrateur. Vous pouvez vous réinscrire.';
 const messageHistory = [];
 const MAX_HISTORY = 300;
 const missedCalls = new Map();   // tel → [{from, at, callType}]
@@ -67,9 +77,10 @@ function loadData() {
                 nom: u.nom, metier: u.metier,
                 pinHash: u.pinHash, pinSalt: u.pinSalt,
                 createdAt: u.createdAt, lastSeen: u.lastSeen || u.createdAt,
-                push: u.push || null, online: false, hidden: false, socketId: null
+                push: u.push || null, bloque: !!u.bloque, online: false, hidden: false, socketId: null
             });
         });
+        (raw.supprimes || []).forEach(([t, ts]) => supprimes.set(t, ts));
         (raw.messages || []).forEach(m => messageHistory.push(m));
         if (raw.vapid && raw.vapid.publicKey) vapid = raw.vapid;
         console.log(`💾 ${registeredUsers.size} comptes chargés`);
@@ -78,6 +89,7 @@ function loadData() {
 
 let saveTimer = null;
 function saveDataSoon() {
+    upstashSauverSoon();
     if (saveTimer) return;
     saveTimer = setTimeout(() => {
         saveTimer = null;
@@ -90,11 +102,11 @@ function saveDataNow() {
         for (const [tel, u] of registeredUsers) {
             users.push({
                 tel, nom: u.nom, metier: u.metier, pinHash: u.pinHash,
-                pinSalt: u.pinSalt, createdAt: u.createdAt, lastSeen: u.lastSeen, push: u.push || null
+                pinSalt: u.pinSalt, createdAt: u.createdAt, lastSeen: u.lastSeen, push: u.push || null, bloque: !!u.bloque
             });
         }
         const tmp = DATA_FILE + '.tmp';
-        fs.writeFileSync(tmp, JSON.stringify({ users, vapid, messages: messageHistory.slice(-MAX_HISTORY) }));
+        fs.writeFileSync(tmp, JSON.stringify({ users, supprimes: [...supprimes], vapid, messages: messageHistory.slice(-MAX_HISTORY) }));
         fs.renameSync(tmp, DATA_FILE);
     } catch (e) {
         console.warn('Sauvegarde impossible :', e.message);
@@ -102,6 +114,102 @@ function saveDataNow() {
 }
 loadData();
 
+
+
+/* ---------------- Sauvegarde externe : Upstash Redis (gratuit) ----------------
+   Render gratuit s'endort et efface sa mémoire : sans sauvegarde, le serveur « oublie » les comptes ET les abonnements
+   aux notifications, donc un téléphone dont l'app est fermée ne peut plus être appelé. Variables à définir :
+   UPSTASH_REDIS_REST_URL et UPSTASH_REDIS_REST_TOKEN. */
+// Le copier-coller laisse parfois des caractères invisibles, des guillemets ou des espaces : on les retire.
+const nettoyerEnv = v => String(v || '').replace(/[\u200B-\u200F\u2060\uFEFF\u00A0"'`\s]/g, '');
+const UP_URL = nettoyerEnv(process.env.UPSTASH_REDIS_REST_URL).replace(/\/+$/, '');
+const UP_TOKEN = nettoyerEnv(process.env.UPSTASH_REDIS_REST_TOKEN);
+const upstashActif = !!(UP_URL && UP_TOKEN);
+const upUrlValide = (() => { try { return new URL(UP_URL).protocol === 'https:'; } catch (e) { return false; } })();
+const upFile = [];      // commandes en attente (suppressions de comptes)
+const upDerniers = new Map();      // tel -> dernier JSON enregistré (on n'écrit que ce qui change)
+let upMessagesJson = '', upMessagesT = 0, upTimer = null, upEtat = { ok: null, erreur: '', comptes: 0 };
+
+async function upstash(commande, pipeline) {
+    const r = await fetch(UP_URL + (pipeline ? '/pipeline' : ''), {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + UP_TOKEN, 'Content-Type': 'application/json' },
+        body: JSON.stringify(commande)
+    });
+    if (!r.ok) throw new Error('Upstash ' + r.status);
+    const j = await r.json();
+    if (!pipeline && j.error) throw new Error(j.error);
+    return pipeline ? j : j.result;
+}
+
+function jsonUtilisateur(u) {       // sans « lastSeen » : il change sans cesse et ferait écrire pour rien
+    return JSON.stringify({ nom: u.nom, metier: u.metier, pinHash: u.pinHash, pinSalt: u.pinSalt, createdAt: u.createdAt, push: u.push || null, bloque: !!u.bloque });
+}
+
+async function chargerDepuisUpstash() {
+    if (!upstashActif) return;
+    try {
+        const plat = await upstash(['HGETALL', 'evat:users']);
+        let n = 0;
+        for (let i = 0; i + 1 < (plat || []).length; i += 2) {
+            try {
+                const u = JSON.parse(plat[i + 1]);
+                registeredUsers.set(plat[i], {
+                    nom: u.nom, metier: u.metier, pinHash: u.pinHash, pinSalt: u.pinSalt,
+                    createdAt: u.createdAt, lastSeen: u.createdAt, push: u.push || null, bloque: !!u.bloque,
+                    online: false, hidden: false, socketId: null
+                });
+                upDerniers.set(plat[i], plat[i + 1]);
+                n++;
+            } catch (e) { /* entrée illisible : ignorée */ }
+        }
+        const sup = await upstash(['HGETALL', 'evat:supprimes']);
+        for (let i = 0; i + 1 < (sup || []).length; i += 2) supprimes.set(sup[i], Number(sup[i + 1]) || Date.now());
+        const msgs = await upstash(['GET', 'evat:messages']);
+        if (msgs) {
+            try { JSON.parse(msgs).forEach(m => messageHistory.push(m)); upMessagesJson = msgs; } catch (e) {}
+        }
+        upEtat = { ok: true, erreur: '', comptes: n };
+        console.log(`☁️ Upstash : ${n} compte(s) restauré(s)`);
+    } catch (e) {
+        upEtat = { ok: false, erreur: e.message, comptes: 0 };
+        console.warn('[Upstash] chargement impossible :', e.message, /401|403/.test(e.message) ? '→ jeton ou adresse incorrects : recopiez-les depuis l\'onglet REST API d\'Upstash' : '');
+    }
+}
+
+function upstashSauverSoon() {
+    if (!upstashActif || upTimer) return;
+    upTimer = setTimeout(upstashEnvoyer, 4000);
+    if (upTimer.unref) upTimer.unref();
+}
+
+async function upstashEnvoyer() {
+    upTimer = null;
+    if (!upstashActif) return;
+    const cmds = [], suites = [];
+    const enFile = upFile.splice(0);
+    enFile.forEach(c => cmds.push(c));
+    for (const [tel, u] of registeredUsers) {
+        const j = jsonUtilisateur(u);
+        if (upDerniers.get(tel) !== j) { cmds.push(['HSET', 'evat:users', tel, j]); suites.push(() => upDerniers.set(tel, j)); }
+    }
+    if (Date.now() - upMessagesT > 30000) {
+        const mj = JSON.stringify(messageHistory.slice(-MAX_HISTORY));
+        if (mj !== upMessagesJson) { cmds.push(['SET', 'evat:messages', mj]); suites.push(() => { upMessagesJson = mj; upMessagesT = Date.now(); }); }
+    }
+    if (!cmds.length) return;
+    try {
+        const res = await upstash(cmds, true);
+        if (Array.isArray(res) && res.some(x => x && x.error)) throw new Error(res.find(x => x && x.error).error);
+        suites.forEach(f => f());
+        upEtat.ok = true; upEtat.erreur = '';
+    } catch (e) {
+        upFile.unshift(...enFile);                  // les suppressions reviennent en file d'attente
+        upEtat.ok = false; upEtat.erreur = e.message;
+        console.warn('[Upstash] sauvegarde impossible :', e.message);
+        upstashSauverSoon();                       // on réessaiera
+    }
+}
 
 /* ---------------- IA : Mister ELAWS (généraliste) + Mister I (métier) ----------------
    La clé reste sur le serveur (ANTHROPIC_API_KEY) : jamais dans l'application.
@@ -559,6 +667,9 @@ async function construireIce() {
 }
 
 /* ---------------- Socket.io ---------------- */
+const masque = t => '***' + String(t || '').slice(-3);
+const logAppel = (evt, de, vers, id, extra) =>
+    console.log(`[APPEL] ${evt} ${masque(de)}→${masque(vers)} #${String(id || '').slice(0, 6)}${extra ? ' ' + extra : ''}`);
 const TYPES_SIGNAL = new Set(['offer', 'answer', 'ice_candidate', 'hangup', 'reject', 'busy', 'ringing']);
 
 io.on('connection', (socket) => {
@@ -587,6 +698,7 @@ io.on('connection', (socket) => {
         if (!nomEstValide(nom)) {
             return ack(cb, { ok: false, error: 'Nom invalide ou réservé (exemples / tests interdits). Entrez VOTRE vrai nom et prénom.' });
         }
+        if (registeredUsers.has(tel) && registeredUsers.get(tel).bloque) return ack(cb, { ok: false, suspendu: true, error: MSG_SUSPENDU });
         if (registeredUsers.has(tel)) {
             return ack(cb, {
                 ok: false, needsRecovery: true,
@@ -603,6 +715,7 @@ io.on('connection', (socket) => {
         registeredUsers.set(tel, user);
         lierSocket(socket, tel, user);
         saveDataSoon();
+        if (supprimes.has(tel)) { supprimes.delete(tel); upFile.push(['HDEL', 'evat:supprimes', tel]); }   // réinscription volontaire
         console.log(`[NEW] ${nom} (${tel})`);
 
         // Seuls ceux qui ont ce numéro en contact sont prévenus
@@ -624,6 +737,7 @@ io.on('connection', (socket) => {
         }
 
         const user = registeredUsers.get(tel);
+        if (user && user.bloque) return ack(cb, { ok: false, suspendu: true, error: MSG_SUSPENDU });
         if (!user) { noterEchec(cleIp, 30); return ack(cb, { ok: false, error: 'Aucun compte trouvé pour ce numéro.' }); }
         if (!pinEstCorrect(user, data.recoveryPin)) {
             noterEchec(cleIp, 30); noterEchec(cleTel, 5);
@@ -652,6 +766,8 @@ io.on('connection', (socket) => {
         if (estBloque(cleTel)) return ack(cb, { ok: false, error: 'Trop d’essais. Réessayez plus tard.' });
 
         const existing = registeredUsers.get(tel);
+        if (existing && existing.bloque) return ack(cb, { ok: false, suspendu: true, error: MSG_SUSPENDU });
+        if (!existing && supprimes.has(tel)) return ack(cb, { ok: false, supprime: true, error: MSG_SUPPRIME });
         if (existing) {
             if (pinEstCorrect(existing, data.recoveryPin)) {
                 effacerEchecs(cleTel);
@@ -678,7 +794,7 @@ io.on('connection', (socket) => {
             saveDataSoon();
             return ack(cb, { ok: true, restored: true });
         }
-        ack(cb, { ok: false, error: 'Impossible de lier ce numéro sans code de récupération.' });
+        ack(cb, { ok: false, needsNew: true, error: 'Compte inconnu du serveur : restauration en cours.' });
     });
 
     // Contacts + abonnement à leur présence (uniquement eux, pas tout le monde)
@@ -717,7 +833,15 @@ io.on('connection', (socket) => {
         const from = socket.telephone;
         const to = nettoyerTel(data.target);
         const cible = registeredUsers.get(to);
-        if (!cible || to === from) return;
+        if (to === from) return;
+        if (!cible) {
+            // Numéro sans compte (ou serveur qui vient de redémarrer sans sauvegarde) : on le dit à l'appelant au lieu de se taire
+            if (data.type === 'offer') {
+                logAppel('inconnu', from, to, data.callId);
+                socket.emit('p2p_signal', { type: 'user_unknown', sender: to, callId: String(data.callId || '').slice(0, 40) });
+            }
+            return;
+        }
 
         const msg = {
             type: data.type,
@@ -733,10 +857,14 @@ io.on('connection', (socket) => {
 
         // ----- Nouvelle sonnerie -----
         if (data.type === 'offer' && !data.renegotiate) {
+            if (cible.bloque) {                 // compte suspendu : il ne sonne pas
+                socket.emit('p2p_signal', { type: 'user_offline', sender: to, callId: msg.callId });
+                return;
+            }
             if (!cible.online && !cible.push) {
                 socket.emit('p2p_signal', { type: 'user_offline', sender: to, callId: msg.callId });
                 const l = missedCalls.get(to) || [];
-                l.push({ from, fromName: msg.senderName, at: Date.now(), callType: msg.callType });
+                l.push({ from, fromName: msg.senderName, at: Date.now(), callType: msg.callType, callId: msg.callId });
                 missedCalls.set(to, l.slice(-20));
                 return;
             }
@@ -744,17 +872,23 @@ io.on('connection', (socket) => {
                 socket.emit('p2p_signal', { type: 'busy', sender: to, callId: msg.callId });
                 return;
             }
+            logAppel('offre', from, to, msg.callId, `destinataire: ${cible.online ? (cible.hidden ? 'en ligne, cache' : 'en ligne') : 'hors ligne'}${cible.push ? ', push ok' : ', SANS push'}`);
             activeCalls.set(from, { peer: to, callId: msg.callId, since: Date.now() });
             activeCalls.set(to, { peer: from, callId: msg.callId, since: Date.now() });
             pendingCalls.set(to, { callId: msg.callId, from, fromName: msg.senderName, callType: msg.callType,
                                    signals: [msg], expires: Date.now() + 35000, acked: false });
+            const payloadAppel = {
+                type: 'call', callId: msg.callId, from, fromName: msg.senderName, callType: msg.callType,
+                title: msg.callType === 'video' ? '📹 Appel vidéo EVAT' : '📞 Appel EVAT',
+                body: msg.senderName + ' vous appelle', tag: 'evat-call'
+            };
             if (!joignableDirect(cible)) {
                 // téléphone verrouillé / app fermée → notifications répétées : le téléphone joue sa propre sonnerie
-                sonnerieDistante(to, msg.callId, {
-                    type: 'call', callId: msg.callId, from, fromName: msg.senderName, callType: msg.callType,
-                    title: msg.callType === 'video' ? '📹 Appel vidéo EVAT' : '📞 Appel EVAT',
-                    body: msg.senderName + ' vous appelle', tag: 'evat-call'
-                });
+                sonnerieDistante(to, msg.callId, payloadAppel);
+            } else {
+                // Le serveur croit l'app ouverte, mais elle peut être gelée (écran éteint, réseau coupé) :
+                // si elle ne confirme pas la sonnerie en 2,5 s, on envoie quand même les notifications.
+                setTimeout(() => sonnerieDistante(to, msg.callId, payloadAppel), 2500).unref();
             }
         } else {
             // candidats ICE : mis de côté tant que le destinataire n'a pas reçu l'offre
@@ -767,18 +901,18 @@ io.on('connection', (socket) => {
         if (data.type === 'ringing') {
             const p = pendingCalls.get(from);
             if (p && p.callId === msg.callId) p.acked = true;   // le destinataire a bien reçu l'appel
+            logAppel('sonne', from, to, msg.callId);
         }
 
         if (data.type === 'answer' || data.type === 'reject' || data.type === 'hangup' || data.type === 'busy') {
+            logAppel(data.type === 'answer' ? 'decroche' : data.type, from, to, msg.callId);
             // Appel jamais décroché ni reçu → appel manqué (notification push)
             const p = pendingCalls.get(to);
             if (data.type === 'hangup' && p && p.callId === msg.callId && !p.acked) {
                 const l = missedCalls.get(to) || [];
-                l.push({ from, fromName: msg.senderName, at: Date.now(), callType: msg.callType });
+                l.push({ from, fromName: msg.senderName, at: Date.now(), callType: msg.callType, callId: msg.callId });
                 missedCalls.set(to, l.slice(-20));
-                if (!joignableDirect(cible)) {
-                    envoyerPush(to, { type: 'missed', title: '📵 Appel manqué', body: msg.senderName + ' a essayé de vous joindre', tag: 'evat-missed', from });
-                }
+                envoyerPush(to, { type: 'missed', title: '📵 Appel manqué', body: msg.senderName + ' a essayé de vous joindre', tag: 'evat-missed', from, callId: msg.callId });
             }
             pendingCalls.delete(to); pendingCalls.delete(from);
         }
@@ -911,6 +1045,11 @@ io.on('connection', (socket) => {
         }, 8000).unref();
     });
 
+    socket.on('push_status', (_, cb) => {
+        const u = socket.telephone && registeredUsers.get(socket.telephone);
+        ack(cb, { liee: !!socket.telephone, abonne: !!(u && u.push), serveurPush: !!(webpush && vapid), sauvegarde: upstashActif ? upEtat.ok === true : null });
+    });
+
     socket.on('visibility', (hidden) => {
         const u = socket.telephone && registeredUsers.get(socket.telephone);
         if (u) u.hidden = !!hidden;
@@ -927,6 +1066,7 @@ io.on('connection', (socket) => {
         const to = payload.to ? nettoyerTel(payload.to) : null;
         const dest = to ? registeredUsers.get(to) : null;
         if (to && !dest) return ack(cb, { ok: false, error: 'Ce numéro n’a pas de compte EVAT.' });
+        if (dest && dest.bloque) return ack(cb, { ok: false, error: 'Ce contact est indisponible.' });
 
         const msg = {
             id: Date.now().toString(36) + crypto.randomBytes(3).toString('hex'),
@@ -1061,6 +1201,189 @@ setInterval(() => {
 }, 10 * 60 * 1000).unref();
 
 /* ---------------- HTTP ---------------- */
+
+/* ---------------- Administration : voir, bloquer, supprimer, redonner un code ---------------- */
+const adminIp = new Map();
+const adminJournal = [];       // dernières actions (en mémoire)
+
+function controleAdmin(req, res, donne) {
+    const admin = process.env.ADMIN_TOKEN || '';
+    res.set('Cache-Control', 'no-store');
+    if (!admin) { res.status(404).type('text').send('Administration désactivée : ajoutez la variable ADMIN_TOKEN sur Render.'); return false; }
+    const ip = String(req.headers['x-forwarded-for'] || req.ip || '').split(',')[0].trim();
+    const now = Date.now();
+    const f = adminIp.get(ip) || { n: 0, echecs: 0, t: now, until: 0 };
+    adminIp.set(ip, f);
+    if (f.until > now) { res.status(429).type('text').send('Trop d’essais. Réessayez dans 15 minutes.'); return false; }
+    if (now - f.t > 60000) { f.n = 0; f.t = now; }
+    if (++f.n > 120) { res.status(429).type('text').send('Trop de requêtes. Patientez une minute.'); return false; }
+    const d = String(donne || '');
+    const ok = d.length === admin.length && crypto.timingSafeEqual(Buffer.from(d), Buffer.from(admin));
+    if (!ok) {
+        if (++f.echecs >= 10) { f.until = now + 15 * 60 * 1000; f.echecs = 0; }
+        res.status(403).type('text').send('Accès refusé.');
+        return false;
+    }
+    f.echecs = 0;
+    return true;
+}
+const jetonDe = req => { const h = String((req.headers && req.headers.authorization) || ''); return /^Bearer /i.test(h) ? h.slice(7).trim() : ''; };
+
+function listeAdmin() {
+    const out = [];
+    for (const [tel, u] of registeredUsers) {
+        out.push({
+            tel, nom: u.nom, metier: u.metier, enLigne: !!u.online, push: !!u.push, bloque: !!u.bloque,
+            creeLe: u.createdAt || 0, vuLe: u.online ? Date.now() : (u.lastSeen && u.lastSeen > (u.createdAt || 0) ? u.lastSeen : 0)
+        });
+    }
+    return out.sort((a, b) => b.creeLe - a.creeLe);
+}
+
+/** Coupe proprement un compte connecté (blocage ou suppression) : appel en cours, sonnerie, session */
+function couperCompte(tel, raison, message) {
+    const u = registeredUsers.get(tel);
+    if (!u) return;
+    const c = activeCalls.get(tel);
+    if (c) {
+        activeCalls.delete(tel); activeCalls.delete(c.peer);
+        io.to(roomUser(c.peer)).emit('p2p_signal', { type: 'hangup', sender: tel, callId: c.callId });
+    }
+    pendingCalls.delete(tel);
+    const sock = u.socketId && io.sockets.sockets.get(u.socketId);
+    if (sock) { sock.emit('force_logout', { reason: raison, message }); sock.leave(roomUser(tel)); sock.telephone = null; }
+    u.online = false; u.hidden = false; u.socketId = null;
+    emettrePresence(tel);
+}
+
+function actionAdmin(action, tel) {
+    const u = registeredUsers.get(tel);
+    if (!u) return { ok: false, error: 'Compte introuvable.' };
+    if (action === 'bloquer') {
+        u.bloque = true;
+        couperCompte(tel, 'blocked', MSG_SUSPENDU);
+    } else if (action === 'debloquer') {
+        u.bloque = false;
+    } else if (action === 'supprimer') {
+        couperCompte(tel, 'deleted', MSG_SUPPRIME);
+        registeredUsers.delete(tel);
+        upDerniers.delete(tel);
+        for (let i = messageHistory.length - 1; i >= 0; i--) if (messageHistory[i].from === tel || messageHistory[i].to === tel) messageHistory.splice(i, 1);
+        missedCalls.delete(tel);
+        supprimes.set(tel, Date.now());
+        upFile.push(['HDEL', 'evat:users', tel], ['HSET', 'evat:supprimes', tel, String(Date.now())]);
+    } else if (action === 'nouveau_code') {
+        const pin = genererPin();
+        Object.assign(u, hashPin(pin));
+        effacerEchecs('tel:' + tel);
+        adminJournal.unshift({ t: Date.now(), action, tel: masque(tel) }); adminJournal.length = Math.min(adminJournal.length, 50);
+        console.log(`[ADMIN] ${action} ${masque(tel)}`);
+        saveDataSoon();
+        return { ok: true, code: pin };
+    } else return { ok: false, error: 'Action inconnue.' };
+    adminJournal.unshift({ t: Date.now(), action, tel: masque(tel) }); adminJournal.length = Math.min(adminJournal.length, 50);
+    console.log(`[ADMIN] ${action} ${masque(tel)}`);
+    saveDataNow();
+    saveDataSoon();
+    return { ok: true };
+}
+
+const PAGE_ADMIN = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Administration EVAT</title>
+<style>
+*{box-sizing:border-box}body{font-family:system-ui,sans-serif;background:#050b1a;color:#eaf4ff;margin:0;padding:14px;max-width:760px;margin:auto}
+h1{font-size:20px;margin:6px 0 12px}.stats{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}.stat{background:#0b1630;border:1px solid #1e3a6e;border-radius:12px;padding:8px 12px;font-size:13px}.stat b{display:block;font-size:20px}
+input{width:100%;padding:11px 14px;border-radius:12px;border:1px solid #1e3a6e;background:#050c1e;color:#eaf4ff;font-size:15px;margin-bottom:10px}
+.u{background:#0b1630;border:1px solid #1e3a6e;border-radius:14px;padding:12px;margin:8px 0}.u.bloque{border-color:#ef4444;background:#1a0b12}
+.u strong{font-size:15px}.u small{display:block;color:#9fb4d3;margin-top:3px}.tags{margin:6px 0}.tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;margin-right:5px;background:#12306a}
+.ok{background:#064e3b}.ko{background:#7f1d1d}.btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+button{border:0;border-radius:10px;padding:9px 12px;font-size:13px;color:#fff;background:#2563eb;cursor:pointer}button.r{background:#dc2626}button.v{background:#059669}button.o{background:#d97706}
+.err{color:#fca5a5}#modal{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;padding:20px}#modal div{background:#0b1630;border:1px solid #22d3ee;border-radius:16px;padding:22px;max-width:360px;text-align:center}
+#code{font-size:38px;letter-spacing:6px;font-weight:800;color:#22d3ee;margin:12px 0}.petit{color:#7589a8;font-size:12px;margin-top:16px}
+</style></head><body>
+<h1>🛡️ Administration EVAT</h1>
+<div class="stats" id="stats"></div>
+<input id="q" type="search" placeholder="Rechercher un nom, un numéro ou un métier…">
+<div id="liste">Chargement…</div>
+<p class="petit" id="journal"></p>
+<div id="modal"><div><strong>Nouveau code de récupération</strong><div id="code"></div>
+<p style="font-size:13px;color:#9fb4d3">Donnez ce code à l’utilisateur (par téléphone ou message). Dans EVAT : <em>Récupérer mon compte</em> → son numéro + ce code. L’ancien code ne marche plus. Ce code ne sera plus affiché.</p>
+<button id="fermer">J’ai noté le code</button></div></div>
+<script>
+(function(){
+  var token = new URLSearchParams(location.search).get('token') || '';
+  var users = [];
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+  function api(path, opts){
+    opts = opts || {};
+    opts.headers = {'Authorization':'Bearer '+token,'Content-Type':'application/json'};
+    return fetch(path, opts).then(function(r){ if(r.status===403) throw new Error('Accès refusé'); if(r.status===429) throw new Error('Trop d essais, patientez'); if(!r.ok) throw new Error('Erreur '+r.status); return r.json(); });
+  }
+  function date(t){ return t ? new Date(t).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}) : 'inconnue'; }
+  function rendre(){
+    var q = document.getElementById('q').value.trim().toLowerCase();
+    var l = users.filter(function(u){ return !q || (u.nom+' '+u.tel+' '+u.metier).toLowerCase().indexOf(q) >= 0; });
+    document.getElementById('liste').innerHTML = l.length ? l.map(function(u){
+      return '<div class="u'+(u.bloque?' bloque':'')+'"><strong>'+esc(u.nom)+'</strong><small>'+esc(u.tel)+' · '+esc(u.metier)+'</small>'+
+        '<div class="tags"><span class="tag '+(u.enLigne?'ok':'')+'">'+(u.enLigne?'🟢 en ligne':'⚪ hors ligne')+'</span>'+
+        '<span class="tag '+(u.push?'ok':'')+'">'+(u.push?'🔔 notifications':'🔕 sans notifications')+'</span>'+
+        (u.bloque?'<span class="tag ko">⛔ bloqué</span>':'')+'</div>'+
+        '<small>Inscrit : '+date(u.creeLe)+' · Vu : '+(u.enLigne?'maintenant':date(u.vuLe))+'</small>'+
+        '<div class="btns"><button class="o" data-a="nouveau_code" data-t="'+esc(u.tel)+'">🔑 Nouveau code</button>'+
+        (u.bloque?'<button class="v" data-a="debloquer" data-t="'+esc(u.tel)+'">✅ Débloquer</button>':'<button class="r" data-a="bloquer" data-t="'+esc(u.tel)+'">⛔ Bloquer</button>')+
+        '<button class="r" data-a="supprimer" data-t="'+esc(u.tel)+'">🗑️ Supprimer</button></div></div>';
+    }).join('') : '<p>Aucun compte.</p>';
+  }
+  function charger(){
+    api('/admin/api/users').then(function(d){
+      users = d.users;
+      document.getElementById('stats').innerHTML =
+        '<div class="stat"><b>'+d.stats.total+'</b>comptes</div><div class="stat"><b>'+d.stats.enLigne+'</b>en ligne</div>'+
+        '<div class="stat"><b>'+d.stats.bloques+'</b>bloqués</div><div class="stat"><b>'+d.stats.push+'</b>avec notifications</div>';
+      document.getElementById('journal').textContent = d.journal.length ? 'Dernières actions : ' + d.journal.slice(0,6).map(function(j){ return j.action+' '+j.tel; }).join(' · ') : '';
+      rendre();
+    }).catch(function(e){ document.getElementById('liste').innerHTML = '<p class="err">'+esc(e.message)+'</p>'; });
+  }
+  document.getElementById('q').addEventListener('input', rendre);
+  document.getElementById('fermer').addEventListener('click', function(){ document.getElementById('modal').style.display='none'; });
+  document.addEventListener('click', function(e){
+    var b = e.target.closest ? e.target.closest('[data-a]') : null; if(!b) return;
+    var a = b.getAttribute('data-a'), t = b.getAttribute('data-t');
+    var u = users.filter(function(x){ return x.tel===t; })[0] || {nom:t};
+    var q = {bloquer:'Bloquer le compte de '+u.nom+' ? Il sera déconnecté et ne pourra plus appeler ni être appelé.',
+             debloquer:'Débloquer le compte de '+u.nom+' ?',
+             supprimer:'SUPPRIMER définitivement le compte de '+u.nom+' et ses messages ? Cette action est irréversible.',
+             nouveau_code:'Générer un nouveau code de récupération pour '+u.nom+' ? L’ancien code ne marchera plus.'}[a];
+    if(!confirm(q)) return;
+    api('/admin/api/action',{method:'POST',body:JSON.stringify({action:a,tel:t})}).then(function(r){
+      if(!r.ok){ alert(r.error||'Échec'); return; }
+      if(r.code){ document.getElementById('code').textContent = r.code; document.getElementById('modal').style.display='flex'; }
+      charger();
+    }).catch(function(err){ alert(err.message); });
+  });
+  charger(); setInterval(charger, 30000);
+})();
+</script></body></html>`;
+
+app.get('/admin', (req, res) => {
+    if (!controleAdmin(req, res, req.query.token)) return;
+    res.type('html').send(PAGE_ADMIN);
+});
+app.get('/admin/api/users', (req, res) => {
+    if (!controleAdmin(req, res, jetonDe(req))) return;
+    const users = listeAdmin();
+    res.json({
+        users,
+        stats: { total: users.length, enLigne: users.filter(u => u.enLigne).length, bloques: users.filter(u => u.bloque).length, push: users.filter(u => u.push).length },
+        journal: adminJournal
+    });
+});
+app.post('/admin/api/action', (req, res) => {
+    if (!controleAdmin(req, res, jetonDe(req))) return;
+    const b = req.body || {};
+    const tel = nettoyerTel(b.tel);
+    res.json(actionAdmin(String(b.action || ''), tel));
+});
+
 /* ---------------- Page de diagnostic (pour activer les services pas à pas) ---------------- */
 const diagIp = new Map();
 const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -1082,11 +1405,23 @@ app.get('/diagnostic', async (req, res) => {
     const L = [];   // [statut, titre, détail]
     const ok = (t, d) => L.push(['✅', t, d]), warn = (t, d) => L.push(['⚠️', t, d]), ko = (t, d) => L.push(['❌', t, d]);
 
-    ok('Serveur EVAT', `v4.4 démarré. ${registeredUsers.size} compte(s), ${compterEnLigne()} en ligne.`);
+    ok('Serveur EVAT', `v4.8 démarré. ${registeredUsers.size} compte(s), ${compterEnLigne()} en ligne.`);
 
     // Comptes
-    if (process.env.DATA_DIR) ok('Sauvegarde des comptes', 'Un dossier de données est défini (DATA_DIR). Il doit être sur un disque persistant.');
-    else warn('Sauvegarde des comptes', "Pas de disque persistant : les comptes sont perdus à chaque redémarrage de Render (les téléphones se reconnectent seuls). Optionnel : ajoutez un Disk Render.");
+    if (upstashActif && !upUrlValide) {
+        ko('Sauvegarde externe (Upstash)', 'L’adresse UPSTASH_REDIS_REST_URL est illisible. Dans Render, effacez-la et retapez-la à la main : https://xxxx.upstash.io (sans espace, guillemets ni / final).');
+    } else if (upstashActif) {
+        try {
+            if (test) await upstash(['PING']);
+            if (upEtat.ok === false) ko('Sauvegarde externe (Upstash)', 'Configurée mais en erreur : ' + esc(upEtat.erreur));
+            else ok('Sauvegarde externe (Upstash)', `Active. ${upEtat.comptes} compte(s) restauré(s) au dernier démarrage${test ? '. Connexion testée : OK.' : '.'}`);
+        } catch (e) {
+            ko('Sauvegarde externe (Upstash)', /401|403/.test(e.message)
+                ? 'Upstash refuse vos identifiants (' + esc(e.message) + '). Recopiez UPSTASH_REDIS_REST_URL et UPSTASH_REDIS_REST_TOKEN depuis l\'onglet « REST API » (pas l\'onglet Redis), sans guillemets ni espace, avec le jeton normal (pas « Read-Only »).'
+                : 'Test impossible : ' + esc(e.message));
+        }
+    } else if (process.env.DATA_DIR) ok('Sauvegarde des comptes', 'Dossier de données défini (DATA_DIR). Il doit être sur un disque persistant.');
+    else ko('Sauvegarde des comptes', "Aucune sauvegarde : à chaque redémarrage de Render, les comptes ET les abonnements aux notifications sont perdus, donc un téléphone dont l'app est fermée ne peut plus sonner. Activez Upstash (gratuit) : variables UPSTASH_REDIS_REST_URL et UPSTASH_REDIS_REST_TOKEN.");
 
     // IA
     if (!AI_ENABLED) warn('IA', 'Désactivée volontairement (AI_ENABLED=false).');
@@ -1144,13 +1479,14 @@ app.get('/diagnostic', async (req, res) => {
 <style>body{font-family:system-ui,sans-serif;background:#050b1a;color:#eaf4ff;margin:0;padding:18px;max-width:640px;margin:auto}h1{font-size:20px}.l{background:#0b1630;border:1px solid #1e3a6e;border-radius:12px;padding:12px 14px;margin:10px 0}.l p{margin:6px 0 0;color:#9fb4d3;font-size:14px;line-height:1.4}a{color:#22d3ee}</style></head><body>
 <h1>🩺 Diagnostic EVAT</h1>${lignes}
 <p style="margin-top:20px"><a href="?token=${encodeURIComponent(donne)}&amp;test=1">▶ Lancer les tests réels (IA, Internet, TURN)</a></p>
+<p><a href="/admin?token=${encodeURIComponent(donne)}">🛡️ Ouvrir l’administration des comptes</a></p>
 <p style="color:#7589a8;font-size:12px">Les tests réels utilisent un peu de crédit Anthropic (moins d'un centime).</p></body></html>`);
 });
 
 app.get('/health', (req, res) => res.status(200).send('ok'));
 app.get('/', (req, res) => {
     res.json({
-        status: 'EVAT Continuum Signaling Server v4.4',
+        status: 'EVAT Continuum Signaling Server v4.8',
         push: !!(webpush && vapid),
         ai: !!ANTHROPIC_KEY && AI_ENABLED,
         online: compterEnLigne(),
@@ -1158,9 +1494,16 @@ app.get('/', (req, res) => {
     });
 });
 
-initialiserPush();
-server.listen(PORT, () => console.log(`🚀 EVAT Continuum v4 actif sur le port ${PORT}`));
+(async () => {
+    await Promise.race([chargerDepuisUpstash(), new Promise(r => setTimeout(r, 8000))]);   // jamais bloqué plus de 8 s
+    initialiserPush();
+    server.listen(PORT, () => console.log(`🚀 EVAT Continuum v4.8 actif sur le port ${PORT}`));
+})();
 
-function arret() { saveDataNow(); process.exit(0); }
+async function arret() {
+    saveDataNow();
+    try { await Promise.race([upstashEnvoyer(), new Promise(r => setTimeout(r, 4000))]); } catch (e) {}
+    process.exit(0);
+}
 process.on('SIGTERM', arret);
 process.on('SIGINT', arret);
