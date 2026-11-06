@@ -1,5 +1,5 @@
 /* ============================================================
-   EVAT Continuum v4.7 — Client dynamique
+   EVAT Continuum v4.8 — Client dynamique
    ============================================================ */
 
 /* ---------- Persistance optimisée ----------
@@ -284,6 +284,18 @@ socket.on('connect', () => {
             if (res && res.ok === false) {
                 // Serveur redémarré qui ne connaît plus ce compte : on le recrée tout seul (nouveau code de récupération)
                 if (res.needsNew && utilisateur) { reinscrireCompte(); return; }
+                if (res.supprime) {                         // compte supprimé par l'administrateur : retour à l'inscription
+                    effacerProfilLocal(); localStorage.removeItem('elaws_presentee');
+                    alert(res.error || 'Ce compte a été supprimé par l’administrateur.');
+                    location.reload();
+                    return;
+                }
+                if (res.suspendu) {
+                    const sp = document.getElementById('serverConnectionStatus');
+                    if (sp) { sp.textContent = '🔴 Compte suspendu par l’administrateur'; sp.style.color = 'var(--danger)'; }
+                    montrerNotification(res.error || 'Compte suspendu par l’administrateur.');
+                    return;
+                }
                 // PIN invalide ou compte pris → forcer la récupération
                 const st = document.getElementById('serverConnectionStatus');
                 if (st) { st.textContent = '🟠 Compte non reconnu — Menu → Refaire l’enregistrement'; st.style.color = 'var(--warning, #f59e0b)'; }
@@ -327,6 +339,13 @@ window.addEventListener('online', () => { if (!socket.connected) socket.connect(
 
 // Compte ouvert sur un autre téléphone → cet appareil est déconnecté automatiquement
 socket.on('force_logout', (data) => {
+    if (data && data.reason === 'blocked') {
+        try { if (typeof fermerAppelTotalLocally === 'function') fermerAppelTotalLocally(); } catch (e) {}
+        const st = document.getElementById('serverConnectionStatus');
+        if (st) { st.textContent = '🔴 Compte suspendu par l’administrateur'; st.style.color = 'var(--danger)'; }
+        alert(data.message || 'Votre compte a été suspendu par l’administrateur.');
+        return;
+    }
     const msg = (data && data.message)
         ? data.message
         : 'Votre compte a été ouvert sur un autre appareil. Vous êtes déconnecté.';
@@ -2496,7 +2515,7 @@ async function testerConnexionAppel() {
 
     lignes.shift();
     lignes.push(n === 0 ? '<strong>Tout est prêt pour les appels 👍</strong>' : '<strong>' + n + ' problème' + (n > 1 ? 's' : '') + ' à corriger (en rouge).</strong>');
-    lignes.push('<span style="opacity:.7">Application v4.7</span>');
+    lignes.push('<span style="opacity:.7">Application v4.8</span>');
     afficher();
 }
 
