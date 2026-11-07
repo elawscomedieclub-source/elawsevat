@@ -2189,6 +2189,12 @@ function messageErreurMedia(e) {
     return '❌ Impossible d’activer le micro/caméra.\n\nVérifiez les autorisations (Micro + Caméra) pour Chrome/EVAT dans les réglages du téléphone.';
 }
 
+function messageErreurConnexion(e) {
+    const nom = (e && e.name) || 'WebRTC';
+    const detail = (e && e.message) ? ' Détail : ' + String(e.message).slice(0, 180) : '';
+    return '❌ Les médias locaux sont prêts, mais la connexion d’appel a échoué (' + nom + '). Vérifiez le réseau et le relais TURN, puis réessayez.' + detail;
+}
+
 function attacherLocal() {
     const lv = document.getElementById('localVideo');
     if (lv) { lv.srcObject = Call.type === 'video' ? Call.local : null; lv.style.display = Call.type === 'video' ? 'block' : 'none'; }
@@ -2320,10 +2326,12 @@ async function lancerAppelDirectPeer(type, telOverride) {
     afficherEcranAppel(cible);
     setStatutAppel('🔄 Activation micro/caméra…');
 
+    let phase = 'media';
     try {
         Call.local = await obtenirMedia(type);
         if (Call.id !== idLocal) { Call.local.getTracks().forEach(t => t.stop()); return; } // annulé entre-temps
 
+        phase = 'webrtc';
         const pc = await creerPeerConnection();
         Call.pc = pc;
         Call.local.getTracks().forEach(t => pc.addTrack(t, Call.local));
@@ -2340,9 +2348,9 @@ async function lancerAppelDirectPeer(type, telOverride) {
         }, 35000);
     } catch (e) {
         if (Call.id === idLocal) {
-            const msg = messageErreurMedia(e);
+            const msg = phase === 'media' ? messageErreurMedia(e) : messageErreurConnexion(e);
             terminerAppel(msg, true, 'echec');
-            if (e && (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError' || e.name === 'SecurityError')) {
+            if (phase === 'media' && e && (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError' || e.name === 'SecurityError')) {
                 try { alert(msg); } catch (err) {}
             }
         }
@@ -2389,10 +2397,12 @@ async function accepterAppelEntrant() {
     afficherEcranAppel(Call.peer);
     setStatutAppel('📞 Décrochage…');
 
+    let phase = 'media';
     try {
         Call.local = await obtenirMedia(Call.type);
         if (Call.id !== idLocal) { Call.local.getTracks().forEach(t => t.stop()); return; }
 
+        phase = 'webrtc';
         const pc = await creerPeerConnection();
         Call.pc = pc;
         await pc.setRemoteDescription(Call.pendingOffer);
@@ -2411,9 +2421,9 @@ async function accepterAppelEntrant() {
         }, 20000);
     } catch (e) {
         if (Call.id === idLocal) {
-            const msg = messageErreurMedia(e);
+            const msg = phase === 'media' ? messageErreurMedia(e) : messageErreurConnexion(e);
             terminerAppel(msg, true, 'echec');
-            if (e && (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError' || e.name === 'SecurityError')) {
+            if (phase === 'media' && e && (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError' || e.name === 'SecurityError')) {
                 try { alert(msg); } catch (err) {}
             }
         }
@@ -2591,6 +2601,9 @@ socket.on('p2p_signal', async (data) => {
         }
     } catch (e) {
         console.warn('Signal appel :', e);
+        if (Call.state !== 'idle' && (data.type === 'answer' || data.type === 'offer')) {
+            terminerAppel(messageErreurConnexion(e), true, 'echec');
+        }
     }
 });
 
@@ -3615,7 +3628,7 @@ async function testerConnexionAppel() {
             const exemple = turnErr[0] ? ' (' + turnErr[0].url.replace(/^turns?:/, '') + ' : code ' + turnErr[0].code + ')' : '';
             if (refus) ko('Le relais REFUSE vos identifiants (code ' + refus.code + '). Vérifiez TURN_USERNAME et TURN_CREDENTIAL sur le serveur.');
             else if (turnErr.length) ko('Le relais est INJOIGNABLE depuis ce téléphone' + exemple + ' : ce réseau mobile le bloque. Réessayez en Wi-Fi ; sur ce réseau, les appels vers un autre réseau mobile échoueront.');
-            else ko('Aucun relais obtenu en 9 secondes et aucune erreur : réseau très lent ou coupé. Réessayez en Wi-Fi.');
+            else ko('TURN est annoncé, mais aucun candidat relais n’a été obtenu en 9 s (hôte ' + r.host + ', direct ' + r.srflx + '). Causes possibles : adresse/identifiants TURN, port ou protocole bloqué, ou relais inaccessible. Ce résultat ne prouve pas à lui seul que le Wi-Fi est coupé.');
             n++;
         }
         else { av('Aucun relais TURN configuré sur le serveur : les appels entre deux réseaux mobiles échoueront souvent.'); n++; }
@@ -3625,7 +3638,7 @@ async function testerConnexionAppel() {
 
     lignes.shift();
     lignes.push(n === 0 ? '<strong>Tout est prêt pour les appels 👍</strong>' : '<strong>' + n + ' problème' + (n > 1 ? 's' : '') + ' à corriger (en rouge).</strong>');
-    lignes.push('<span style="opacity:.7">Application v4.9</span>');
+    lignes.push('<span style="opacity:.7">Application v4.9.1</span>');
     afficher();
 }
 

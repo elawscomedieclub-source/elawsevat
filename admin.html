@@ -1,129 +1,171 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>EVAT | Console d'Administration Sécurisée</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="icon" href="logo_evat.svg" type="image/svg+xml">
-    <meta name="theme-color" content="#030712">
-</head>
-<body style="background:#030712; color:#f8fafc; font-family:system-ui, -apple-system, sans-serif; padding:16px;">
-    
-    <!-- ÉCRAN DE CONNEXION ADMIN -->
-    <div id="loginScreen" style="max-width:380px; margin:80px auto; background:var(--card-bg); border:2px solid var(--accent); border-radius:14px; padding:24px; box-shadow:0 0 30px rgba(14,165,233,0.3); text-align:center;">
-        <img src="logo_evat.svg" alt="Logo Admin" style="width:64px; height:64px; border-radius:50%; border:2px solid var(--accent); margin-bottom:12px;">
-        <h2 style="color:var(--accent); font-size:18px; margin-bottom:6px;">Administration Sécurisée</h2>
-        <p style="font-size:12px; color:var(--text-secondary); margin-bottom:16px;">Réservé exclusivement à Eric Lawson.</p>
-        
-        <input type="password" id="inputAdminPassword" class="input" placeholder="Entrez votre mot de passe admin..." style="margin-bottom:12px; font-size:13px; text-align:center;" onkeypress="if(event.key==='Enter') verifierMotDePasseAdmin()">
-        <button onclick="verifierMotDePasseAdmin()" class="btn-action ripple-effect" style="width:100%; background:var(--success); color:#fff; font-size:13px; padding:10px;">🔓 Se connecter</button>
-        <div id="loginErrorMsg" style="color:var(--danger); font-size:11.5px; margin-top:8px;"></div>
-        <div style="margin-top:16px;">
-            <a href="index.html" style="color:var(--text-secondary); font-size:11.5px; text-decoration:underline;">Retour à l'application principale</a>
-        </div>
-    </div>
-
-    <!-- TABLEAU DE BORD ADMIN (Caché par défaut) -->
-    <div id="adminDashboard" style="max-width:700px; margin:0 auto; padding-bottom:30px; display:none;">
-        <header style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; border-bottom:1px solid rgba(14,165,233,0.3); padding-bottom:12px;">
-            <div style="display:flex; align-items:center; gap:10px;">
-                <img src="logo_evat.svg" alt="Logo Admin" style="width:40px; height:40px; border-radius:50%; border:2px solid var(--accent);">
-                <div>
-                    <h1 style="font-size:16px; color:var(--accent); margin:0;">Console Admin Privée</h1>
-                    <span style="font-size:11px; color:var(--success);">Connecté en tant que • Eric Lawson</span>
-                </div>
-            </div>
-            <div style="display:flex; gap:8px;">
-                <button onclick="changerMotDePasseAdmin()" class="btn-action ripple-effect" style="padding:8px 12px; font-size:11.5px; background:var(--card-hover); color:var(--accent);">🔑 Changer MDP</button>
-                <a href="index.html" class="btn-action ripple-effect" style="text-decoration:none; padding:8px 12px; font-size:11.5px; background:var(--card-hover); color:var(--text-color);">⬅️ Quitter</a>
-            </div>
-        </header>
-
-        <div class="card" style="border-left: 4px solid var(--success); margin-bottom:16px;">
-            <h2 style="font-size:14px; color:var(--success); margin-bottom:6px;">📊 Statistiques des Visites & Installations PWA</h2>
-            <p style="font-size:12px; color:var(--text-secondary); margin-bottom:12px;">Historique en temps réel des personnes qui visitent l'application, leur pays et leurs installations.</p>
-            
-            <div style="display:flex; gap:10px; margin-bottom:12px;">
-                <button onclick="chargerJournalVisiteurs()" class="btn-action ripple-effect" style="background:var(--accent); color:#030712; font-size:12px; padding:8px 12px; flex:1;">🔄 Actualiser le Journal</button>
-                <button onclick="effacerJournalVisiteurs()" class="btn-action ripple-effect" style="background:var(--danger); color:#fff; font-size:12px; padding:8px 12px; width:auto;">🗑️ Vider</button>
-            </div>
-
-            <div id="containerJournalVisiteurs" style="background:var(--bg-color); border:1px solid var(--border-color); border-radius:10px; padding:10px; height:320px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;">
-                <!-- Les visites s'afficheront ici -->
-            </div>
-        </div>
-
-        <div class="card" style="border-left: 4px solid var(--accent);">
-            <h2 style="font-size:14px; color:var(--accent); margin-bottom:6px;">🔒 Sécurité & Contrôle Admin</h2>
-            <p style="font-size:12px; color:var(--text-secondary); margin-bottom:10px;">Accès protégé par mot de passe personnel. Vos données de trafic restent strictement confidentielles.</p>
-            <div style="font-size:12px; color:var(--text-color);">
-                • Administrateur : <strong>Eric Lawson</strong><br>
-                • Identifiant VoIP associé : <strong>+228 98 23 14 02</strong><br>
-                • Localisation par défaut : <strong>Lomé, Togo (Kodjoviakopé)</strong>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // Mot de passe par défaut initialisé à "eric2026" si non défini
-        if(!localStorage.getItem('evat_admin_password')) {
-            localStorage.setItem('evat_admin_password', 'eric2026');
-        }
-
-        function verifierMotDePasseAdmin() {
-            const mdpSaisi = document.getElementById('inputAdminPassword').value.trim();
-            const mdpStocke = localStorage.getItem('evat_admin_password') || 'eric2026';
-            const errorMsg = document.getElementById('loginErrorMsg');
-
-            if(mdpSaisi === mdpStocke) {
-                document.getElementById('loginScreen').style.display = 'none';
-                document.getElementById('adminDashboard').style.display = 'block';
-                chargerJournalVisiteurs();
-            } else {
-                errorMsg.innerText = "❌ Mot de passe incorrect. Accès refusé.";
-            }
-        }
-
-        function changerMotDePasseAdmin() {
-            const nouveauMdp = prompt("Entrez votre nouveau mot de passe administrateur :");
-            if(nouveauMdp && nouveauMdp.trim() !== "") {
-                localStorage.setItem('evat_admin_password', nouveauMdp.trim());
-                alert("✅ Mot de passe administrateur mis à jour avec succès !");
-            }
-        }
-
-        function chargerJournalVisiteurs() {
-            const container = document.getElementById('containerJournalVisiteurs');
-            let visites = JSON.parse(localStorage.getItem('evat_visites_journal') || '[]');
-            
-            if(visites.length === 0) {
-                visites = [
-                    { pays: "Togo", ville: "Lomé", ip: "197.234.xx.xx", date: new Date().toLocaleString(), type: "Visite Admin Initiale" }
-                ];
-                localStorage.setItem('evat_visites_journal', JSON.stringify(visites));
-            }
-
-            let html = '';
-            visites.forEach(v => {
-                const estInstall = v.type && v.type.includes("Installation");
-                html += `<div style="background:var(--bg-color); border:1px solid ${estInstall ? 'var(--success)' : 'var(--border-color)'}; padding:10px; border-radius:8px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-                        <strong style="color:${estInstall ? 'var(--success)' : 'var(--accent)'}; font-size:12.5px;">${estInstall ? '📲 ' : '🌐 '}${v.type || 'Visite Web'}</strong>
-                        <span style="font-size:10px; color:var(--text-secondary);">${v.date}</span>
-                    </div>
-                    <p style="font-size:12px; color:var(--text-color); margin:0;">📍 Lieu : <strong>${v.ville || 'Inconnu'}, ${v.pays || 'Inconnu'}</strong> | IP : ${v.ip || 'Interne'}</p>
-                </div>`;
-            });
-            container.innerHTML = html;
-        }
-
-        function effacerJournalVisiteurs() {
-            if(confirm("Voulez-vous effacer l'historique des visites ?")) {
-                localStorage.removeItem('evat_visites_journal');
-                chargerJournalVisiteurs();
-            }
-        }
-    </script>
-</body>
-</html>
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Administration EVAT</title>
+<style>
+*{box-sizing:border-box}body{font-family:system-ui,sans-serif;background:#050b1a;color:#eaf4ff;margin:0;padding:14px;max-width:860px;margin:auto}
+h1{font-size:20px;margin:6px 0 12px}h2{font-size:15px;margin:16px 0 8px;color:#67e8f9}
+.stats{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}.stat{background:#0b1630;border:1px solid #1e3a6e;border-radius:12px;padding:8px 12px;font-size:13px}.stat b{display:block;font-size:20px}
+input,textarea{width:100%;padding:11px 14px;border-radius:12px;border:1px solid #1e3a6e;background:#050c1e;color:#eaf4ff;font-size:15px;margin-bottom:10px}
+textarea{min-height:70px;resize:vertical}
+.u{background:#0b1630;border:1px solid #1e3a6e;border-radius:14px;padding:12px;margin:8px 0}.u.bloque{border-color:#ef4444;background:#1a0b12}.u.warn{border-color:#d97706}
+.u strong{font-size:15px}.u small{display:block;color:#9fb4d3;margin-top:3px}.tags{margin:6px 0}.tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;margin-right:5px;background:#12306a}
+.ok{background:#064e3b}.ko{background:#7f1d1d}.wa{background:#78350f}
+.btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+button{border:0;border-radius:10px;padding:9px 12px;font-size:13px;color:#fff;background:#2563eb;cursor:pointer}button.r{background:#dc2626}button.v{background:#059669}button.o{background:#d97706}button.g{background:#0e7490}button.p{background:#7c3aed}
+.err{color:#fca5a5}#modal{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;padding:20px;z-index:20}#modal>div{background:#0b1630;border:1px solid #22d3ee;border-radius:16px;padding:22px;max-width:400px;width:100%;text-align:center}
+#code{font-size:38px;letter-spacing:6px;font-weight:800;color:#22d3ee;margin:12px 0}.petit{color:#7589a8;font-size:12px;margin-top:16px}
+.box{background:#0b1630;border:1px solid #1e3a6e;border-radius:14px;padding:12px;margin:10px 0}
+.demande{border-left:3px solid #f59e0b;padding-left:10px;margin:8px 0}.demande.traite{opacity:.45;border-left-color:#64748b}
+.note{font-size:12px;color:#fde68a;margin-top:4px}
+.filtres{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.chip{padding:6px 12px;border-radius:20px;border:1px solid #1e3a6e;background:#0b1630;color:#eaf4ff;font-size:12px;cursor:pointer}
+.chip.on{background:#12306a;border-color:#22d3ee;color:#67e8f9}
+</style></head><body>
+<h1>🛡️ Administration EVAT</h1>
+<div class="stats" id="stats"></div>
+<div class="box">
+  <h2 style="margin-top:0">📢 Alerte à tous les utilisateurs</h2>
+  <input id="alerteTitre" placeholder="Titre (ex: Maintenance ce soir)">
+  <textarea id="alerteCorps" placeholder="Message visible par tous les comptes…"></textarea>
+  <button class="o" id="btnAlerteTous">Envoyer l’alerte globale</button>
+</div>
+<div class="box" id="boxDemandes" style="display:none">
+  <h2 style="margin-top:0">🆘 Demandes de réactivation</h2>
+  <p class="petit" style="margin:0 0 8px">Comptes bloqués qui ont tenté de se reconnecter.</p>
+  <div id="listeDemandes"></div>
+</div>
+<div class="filtres">
+  <button type="button" class="chip on" data-f="tous">Tous</button>
+  <button type="button" class="chip" data-f="enligne">En ligne</button>
+  <button type="button" class="chip" data-f="bloque">Bloqués</button>
+  <button type="button" class="chip" data-f="push">Avec notif.</button>
+  <button type="button" class="chip" data-f="warn">Avertis</button>
+</div>
+<input id="q" type="search" placeholder="Rechercher un nom, un numéro ou un métier…">
+<div id="liste">Chargement…</div>
+<p class="petit" id="journal"></p>
+<div id="modal"><div><div id="modalBody"></div><button id="fermer" style="margin-top:10px">Fermer</button></div></div>
+<script>
+(function(){
+  var token = new URLSearchParams(location.search).get('token') || '';
+  var users = [], demandes = [], filtre = 'tous';
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+  function api(path, opts){
+    opts = opts || {};
+    opts.headers = {'Authorization':'Bearer '+token,'Content-Type':'application/json'};
+    return fetch(path, opts).then(function(r){ if(r.status===403) throw new Error('Accès refusé'); if(r.status===429) throw new Error('Trop d essais, patientez'); if(!r.ok) throw new Error('Erreur '+r.status); return r.json(); });
+  }
+  function date(t){ return t ? new Date(t).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}) : 'inconnue'; }
+  function ouvrirModal(html){ document.getElementById('modalBody').innerHTML = html; document.getElementById('modal').style.display='flex'; }
+  function fermerModal(){ document.getElementById('modal').style.display='none'; }
+  function action(a, t, extra){
+    return api('/admin/api/action',{method:'POST',body:JSON.stringify(Object.assign({action:a,tel:t||''}, extra||{}))});
+  }
+  function rendreDemandes(){
+    var box = document.getElementById('boxDemandes');
+    box.style.display = demandes.length ? 'block' : 'none';
+    document.getElementById('listeDemandes').innerHTML = demandes.length ? demandes.slice(0,20).map(function(d){
+      return '<div class="demande'+(d.traite?' traite':'')+'"><strong>'+esc(d.nom)+'</strong> <small>'+esc(d.tel)+'</small>'+
+        '<small>Motif : '+esc(d.motif)+' · '+date(d.t)+' · '+d.tentatives+' tentative(s)</small>'+
+        (d.traite ? '' : '<div class="btns"><button class="v" data-a="debloquer" data-t="'+esc(d.tel)+'">✅ Débloquer</button>'+
+        '<button class="g" data-a="message" data-t="'+esc(d.tel)+'">💬 Contacter</button>'+
+        '<button class="o" data-a="marquer_demande" data-id="'+esc(d.id)+'">Marquer traité</button></div>') + '</div>';
+    }).join('') : '';
+  }
+  function rendre(){
+    var q = document.getElementById('q').value.trim().toLowerCase();
+    var l = users.filter(function(u){
+      if (filtre==='enligne' && !u.enLigne) return false;
+      if (filtre==='bloque' && !u.bloque) return false;
+      if (filtre==='push' && !u.push) return false;
+      if (filtre==='warn' && !u.avertissement) return false;
+      return !q || (u.nom+' '+u.tel+' '+u.metier+' '+(u.note||'')).toLowerCase().indexOf(q) >= 0;
+    });
+    document.getElementById('liste').innerHTML = l.length ? l.map(function(u){
+      return '<div class="u'+(u.bloque?' bloque':'')+(u.avertissement&&!u.bloque?' warn':'')+'"><strong>'+esc(u.nom)+'</strong><small>'+esc(u.tel)+' · '+esc(u.metier)+'</small>'+
+        '<div class="tags"><span class="tag '+(u.enLigne?'ok':'')+'">'+(u.enLigne?'🟢 en ligne':'⚪ hors ligne')+'</span>'+
+        '<span class="tag '+(u.push?'ok':'')+'">'+(u.push?'🔔 notifications':'🔕 sans notifications')+'</span>'+
+        (u.bloque?'<span class="tag ko">⛔ bloqué</span>':'')+(u.avertissement?'<span class="tag wa">⚠️ averti</span>':'')+'</div>'+
+        (u.note ? '<div class="note">📝 '+esc(u.note)+'</div>' : '')+
+        '<small>Inscrit : '+date(u.creeLe)+' · Vu : '+(u.enLigne?'maintenant':date(u.vuLe))+'</small>'+
+        '<div class="btns">'+
+        '<button class="g" data-a="message" data-t="'+esc(u.tel)+'">💬 Message</button>'+
+        '<button class="o" data-a="nouveau_code" data-t="'+esc(u.tel)+'">🔑 Code</button>'+
+        '<button class="p" data-a="avertir" data-t="'+esc(u.tel)+'">⚠️ Avertir</button>'+
+        '<button class="g" data-a="note" data-t="'+esc(u.tel)+'">📝 Note</button>'+
+        '<button class="g" data-a="renommer" data-t="'+esc(u.tel)+'">✏️ Nom</button>'+
+        '<button class="g" data-a="metier" data-t="'+esc(u.tel)+'">💼 Métier</button>'+
+        '<button class="g" data-a="reset_pin_essais" data-t="'+esc(u.tel)+'">🔄 PIN essais</button>'+
+        '<button class="o" data-a="deconnecter" data-t="'+esc(u.tel)+'">🔌 Déconnecter</button>'+
+        (u.bloque?'<button class="v" data-a="debloquer" data-t="'+esc(u.tel)+'">✅ Débloquer</button>':'<button class="r" data-a="bloquer" data-t="'+esc(u.tel)+'">⛔ Bloquer</button>')+
+        '<button class="r" data-a="supprimer" data-t="'+esc(u.tel)+'">🗑️ Supprimer</button></div></div>';
+    }).join('') : '<p>Aucun compte.</p>';
+  }
+  function charger(){
+    api('/admin/api/users').then(function(d){
+      users = d.users || []; demandes = d.demandes || [];
+      document.getElementById('stats').innerHTML =
+        '<div class="stat"><b>'+d.stats.total+'</b>comptes</div><div class="stat"><b>'+d.stats.enLigne+'</b>en ligne</div>'+
+        '<div class="stat"><b>'+d.stats.bloques+'</b>bloqués</div><div class="stat"><b>'+d.stats.push+'</b>avec notifications</div>'+
+        '<div class="stat"><b>'+(d.stats.demandes||0)+'</b>demandes</div>';
+      document.getElementById('journal').textContent = (d.journal||[]).length ? 'Dernières actions : ' + d.journal.slice(0,8).map(function(j){ return j.action+' '+(j.tel||''); }).join(' · ') : '';
+      rendreDemandes(); rendre();
+    }).catch(function(e){ document.getElementById('liste').innerHTML = '<p class="err">'+esc(e.message)+'</p>'; });
+  }
+  document.getElementById('q').addEventListener('input', rendre);
+  document.getElementById('fermer').addEventListener('click', fermerModal);
+  document.querySelectorAll('.filtres .chip').forEach(function(c){
+    c.addEventListener('click', function(){
+      document.querySelectorAll('.filtres .chip').forEach(function(x){ x.classList.remove('on'); });
+      c.classList.add('on'); filtre = c.getAttribute('data-f'); rendre();
+    });
+  });
+  document.getElementById('btnAlerteTous').addEventListener('click', function(){
+    var titre = document.getElementById('alerteTitre').value.trim();
+    var corps = document.getElementById('alerteCorps').value.trim();
+    if(!corps){ alert('Écrivez un message.'); return; }
+    if(!confirm('Envoyer cette alerte à TOUS les comptes ?')) return;
+    action('alerte_tous','',{titre:titre||'Alerte EVAT',corps:corps}).then(function(r){
+      if(!r.ok){ alert(r.error||'Échec'); return; }
+      alert('Alerte envoyée.\nEn ligne : '+(r.nSock||0)+'\nPush : '+(r.nPush||0));
+      charger();
+    }).catch(function(e){ alert(e.message); });
+  });
+  document.addEventListener('click', function(e){
+    var b = e.target.closest ? e.target.closest('[data-a]') : null; if(!b) return;
+    var a = b.getAttribute('data-a'), t = b.getAttribute('data-t') || '';
+    var u = users.filter(function(x){ return x.tel===t; })[0] || {nom:t, tel:t};
+    if (a === 'message') {
+      ouvrirModal('<strong>Message à '+esc(u.nom)+'</strong><input id="mTitre" value="Message de l’administrateur"><textarea id="mCorps" placeholder="Votre message…"></textarea><button class="v" id="mSend">Envoyer</button>');
+      document.getElementById('mSend').onclick = function(){
+        var titre = document.getElementById('mTitre').value.trim();
+        var corps = document.getElementById('mCorps').value.trim();
+        if(!corps){ alert('Message vide'); return; }
+        action('message', t, {titre:titre, corps:corps}).then(function(r){
+          if(!r.ok){ alert(r.error||'Échec'); return; }
+          alert('Envoyé.'); fermerModal(); charger();
+        }).catch(function(err){ alert(err.message); });
+      };
+      return;
+    }
+    if (a === 'note') {
+      ouvrirModal('<strong>Note interne — '+esc(u.nom)+'</strong><textarea id="mNote">'+(u.note?esc(u.note):'')+'</textarea><button class="v" id="mSend">Enregistrer</button>');
+      document.getElementById('mSend').onclick = function(){
+        action('note', t, {note: document.getElementById('mNote').value}).then(function(r){ if(!r.ok) alert(r.error||'Échec'); else { fermerModal(); charger(); } }).catch(function(err){ alert(err.message); });
+      };
+      return;
+    }
+    if (a === 'renommer') { var nom = prompt('Nouveau nom :', u.nom); if(nom==null) return; action('renommer', t, {nom:nom}).then(function(r){ if(!r.ok) alert(r.error||'Échec'); else charger(); }); return; }
+    if (a === 'metier') { var metier = prompt('Métier :', u.metier||''); if(metier==null) return; action('metier', t, {metier:metier}).then(function(r){ if(!r.ok) alert(r.error||'Échec'); else charger(); }); return; }
+    if (a === 'avertir') { var corps = prompt('Message d’avertissement :', 'Votre compte a reçu un avertissement. Merci de respecter les règles d’usage d’EVAT.'); if(corps==null) return; if(!confirm('Avertir '+u.nom+' ?')) return; action('avertir', t, {corps:corps}).then(function(r){ if(!r.ok) alert(r.error||'Échec'); else charger(); }); return; }
+    if (a === 'marquer_demande') { action('marquer_demande', '', {id: b.getAttribute('data-id')}).then(function(){ charger(); }); return; }
+    if (a === 'nouveau_code') {
+      if(!confirm('Nouveau code pour '+u.nom+' ?')) return;
+      action(a, t).then(function(r){ if(!r.ok){ alert(r.error||'Échec'); return; } ouvrirModal('<strong>Nouveau code</strong><div id="code">'+esc(r.code)+'</div><p style="font-size:13px;color:#9fb4d3">Donnez ce code à l’utilisateur.</p>'); charger(); });
+      return;
+    }
+    var q = {bloquer:'Bloquer '+u.nom+' ?',debloquer:'Débloquer '+u.nom+' ?',supprimer:'SUPPRIMER '+u.nom+' ? Irréversible.',deconnecter:'Déconnecter '+u.nom+' ?',reset_pin_essais:'Reset tentatives PIN pour '+u.nom+' ?'}[a];
+    if(q && !confirm(q)) return;
+    action(a, t).then(function(r){ if(!r.ok){ alert(r.error||'Échec'); return; } if(r.code) ouvrirModal('<strong>Nouveau code</strong><div id="code">'+esc(r.code)+'</div>'); charger(); }).catch(function(err){ alert(err.message); });
+  });
+  charger(); setInterval(charger, 20000);
+})();
+</script></body></html>
