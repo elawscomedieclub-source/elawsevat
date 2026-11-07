@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>EVAT | Mister ELAWS</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.webmanifest">
+    <meta name="description" content="EVAT — messagerie, appels audio/vidéo P2P, GPS et assistant ELAWS">
+    <link rel="icon" href="icon-192.png" type="image/png">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="preconnect" href="https://elawsserverevat.onrender.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.socket.io" crossorigin>
+    <meta name="theme-color" content="#030712">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <!-- Leaflet est chargé à la demande (app.js → chargerLeaflet) : ~150 Ko en moins au démarrage -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" defer></script>
+    <script>
+        const SERVER_URL = "https://elawsserverevat.onrender.com";
+    </script>
+</head>
+<body>
+    <!-- Modal d'enregistrement sécurisé -->
+    <div id="welcomeModal" class="modal-overlay" style="display:none;">
+        <div class="card welcome-card">
+            <div class="quantum-globe-container" style="margin: 0 auto 15px auto;">
+                <canvas class="globe globe-halo" data-size="104" aria-label="Terre"></canvas>
+            </div>
+            <h2 style="color:var(--accent); font-size:18px; margin-bottom:6px;">EVAT Continuum</h2>
+            <p style="font-size:12px; color:var(--text-secondary); margin-bottom:10px;">
+                Un numéro = un seul compte. Entrez <strong>vos propres informations</strong> (pas d’exemple).
+            </p>
+
+            <div class="auth-tabs">
+                <button type="button" id="tabBtnCreate" class="auth-tab active" onclick="afficherModeAuth('create')">Créer un compte</button>
+                <button type="button" id="tabBtnRecover" class="auth-tab" onclick="afficherModeAuth('recover')">Récupérer mon compte</button>
+            </div>
+
+            <!-- MODE CRÉATION -->
+            <div id="authModeCreate" style="text-align:left;">
+                <label>Nom & Prénom (le vôtre uniquement) :</label>
+                <input type="text" id="inputNom" class="input" placeholder="Ex: Afi Mensah" autocomplete="name" value="">
+
+                <label>Pays / Indicatif :</label>
+                <select id="selectPays" class="input" onchange="mettreAJourIndicatif()" aria-label="Pays"></select>
+
+                <label>Numéro de téléphone (unique) :</label>
+                <input type="tel" id="inputTelProfil" class="input" placeholder="+indicatif puis numéro" autocomplete="tel" value="" oninput="synchroniserPaysDepuisTel()">
+
+                <label>Métier / Profession :</label>
+                <input type="text" id="inputMetier" class="input" placeholder="Votre métier" value="">
+
+                <p id="authCreateError" class="auth-error" style="display:none;"></p>
+                <button type="button" onclick="demanderPermissionsEtActiverProfil()" class="btn-action">🚀 Créer mon compte</button>
+            </div>
+
+            <!-- MODE RÉCUPÉRATION -->
+            <div id="authModeRecover" style="text-align:left; display:none;">
+                <p style="font-size:11.5px; color:var(--text-secondary); margin-bottom:10px;">
+                    Changement d’appareil ? Même numéro + <strong>code de récupération</strong> reçu à la création.
+                </p>
+                <label>Numéro du compte :</label>
+                <input type="tel" id="inputTelRecover" class="input" placeholder="+indicatif puis numéro" value="">
+
+                <label>Code de récupération (6 chiffres) :</label>
+                <input type="text" id="inputPinRecover" class="input" placeholder="123456" maxlength="8" inputmode="numeric" value="">
+                <p class="hint-box" style="margin-top:6px;">🔑 Code perdu ou oublié ? Contactez l’administrateur d’EVAT : il vous donnera un nouveau code.</p>
+
+                <label>Métier (optionnel) :</label>
+                <input type="text" id="inputMetierRecover" class="input" placeholder="Votre métier" value="">
+
+                <p id="authRecoverError" class="auth-error" style="display:none;"></p>
+                <button type="button" onclick="recupererCompteExistant()" class="btn-action btn-success">🔓 Récupérer mon compte</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Code de récupération (affiché une seule fois) -->
+    <div id="pinModal" class="modal-overlay" style="display:none;">
+        <div class="card welcome-card" style="max-width:380px;">
+            <h2 style="color:var(--success); font-size:17px; margin-bottom:8px;">🔐 Code de récupération</h2>
+            <p style="font-size:12px; color:var(--text-secondary); margin-bottom:12px;">
+                Notez ce code <strong>maintenant</strong>. Il sera demandé si vous changez de téléphone. Il ne s’affichera plus.
+            </p>
+            <div id="pinDisplay" class="pin-display">------</div>
+            <p style="font-size:11px; color:var(--danger); margin:10px 0 14px 0;">
+                Ne le partagez avec personne. Sans ce code, impossible de récupérer le compte.
+            </p>
+            <button type="button" onclick="fermerPinModal()" class="btn-action btn-success">J’ai noté mon code — Continuer</button>
+        </div>
+    </div>
+
+    <!-- Bannière installation PWA -->
+    <div id="installBanner">
+        <div>
+            <strong style="font-size:12.5px; color:var(--accent); display:block;">📱 Installer EVAT Continuum</strong>
+            <span style="font-size:11px; color:var(--text-secondary);">Ajoutez l'application sur votre écran d'accueil.</span>
+        </div>
+        <div style="display:flex; gap:6px;">
+            <button onclick="declencherInstallationApp()" class="btn-action" style="background:var(--success); color:#fff; padding:6px 12px; font-size:11px; width:auto;">Installer</button>
+            <button onclick="fermerBanniereInstall()" class="btn-close">✕</button>
+        </div>
+    </div>
+
+    <!-- Notification temps réel -->
+    <div id="notificationBanner">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+                <strong style="font-size:13px; display:block;">🚨 Alerte Sentinelle Continuum</strong>
+                <span id="notificationText" style="font-size:12px;">Contact inscrit !</span>
+            </div>
+            <button onclick="fermerNotification()" class="btn-close">✕</button>
+        </div>
+    </div>
+
+    <div id="app">
+        <header class="header">
+            <div class="header-left">
+                <img class="header-logo" src="icon-192.png" alt="EVAT" width="34" height="34">
+                <button onclick="toggleMenu(event)" class="menu-btn" aria-label="Menu">☰</button>
+                <button type="button" id="headerProfilBtn" onclick="switchTab('profil');return false;" class="header-profil-btn">
+                    <span id="headerProfilPhoto">?</span>
+                    <span class="header-profil-text">
+                        <span id="headerProfilNom">Profil</span>
+                        <span id="headerProfilTel"></span>
+                    </span>
+                </button>
+            </div>
+            <div class="elaws-widget">
+                <button type="button" onclick="ouvrirIA('general')" class="elaws-orb" aria-label="Mister ELAWS : l'IA qui répond à toutes vos questions" title="Mister ELAWS — posez n'importe quelle question">
+                    <canvas class="globe globe-halo" data-size="44" aria-hidden="true"></canvas>
+                </button>
+            </div>
+        </header>
+
+        <nav id="sidebar" class="sidebar" onclick="event.stopPropagation()">
+            <div class="sidebar-user">
+                <h3 id="sidebarUserName">—</h3>
+                <span id="sidebarUserRole">Non connecté</span>
+            </div>
+            <div class="nav-modules" id="navModulesRoot">
+                <p class="nav-hint">4 modules — profil en haut</p>
+                
+                <!-- Module 1 : un seul nom clair -->
+                <div class="nav-module" data-module="dashboard">
+                    <button type="button" class="nav-module-btn" onclick="ouvrirSousModule('dashboard');">
+                        🏠 1 · Tableau de bord
+                    </button>
+                </div>
+
+                <div class="nav-module" data-module="messages">
+                    <button type="button" class="nav-module-btn" onclick="ouvrirSousModule('messagerie');">
+                        💬 2 · Discussion, Appels & GPS
+                    </button>
+                </div>
+
+                <div class="nav-module" data-module="reseau">
+                    <button type="button" class="nav-module-btn" onclick="ouvrirSousModule('contacts');">
+                        👥 3 · Contacts
+                    </button>
+                </div>
+
+                <div class="nav-module" data-module="elaws">
+                    <button type="button" class="nav-module-btn" onclick="toggleGrandModule('elaws');">
+                        ⚡ 4 · ELAWS, Quêtes, Outils & Stratégie <span class="nav-chevron">▼</span>
+                    </button>
+                    <div class="nav-sous">
+                        <a href="#" class="nav-link" id="link-elaws-ia" onclick="ouvrirSousModule('elaws-ia');return false;">🔮 Mister ELAWS (répond à tout)</a>
+                        <a href="#" class="nav-link" id="link-ia-metier" onclick="ouvrirSousModule('ia-metier');return false;">💼 Mister I (mon métier)</a>
+                        <a href="#" class="nav-link" id="link-outils" onclick="ouvrirSousModule('outils');return false;">🛠️ Bloc-notes</a>
+                        <a href="#" class="nav-link" id="link-parametres" onclick="ouvrirSousModule('parametres');return false;">⚙️ Paramètres</a>
+                        <a href="#" class="nav-link" id="link-voyage" onclick="ouvrirSousModule('voyage');return false;">✈️ Voyage</a>
+                        <a href="#" class="nav-link" id="link-sync" onclick="ouvrirSousModule('sync');return false;">☁️ Sauvegarde</a>
+                        <a href="#" class="nav-link" id="link-quetes" onclick="ouvrirSousModule('quetes');return false;">⚡ Quêtes</a>
+                        <a href="#" class="nav-link" id="link-succes1000" onclick="ouvrirSousModule('succes1000');return false;">💎 Stratégie</a>
+                    </div>
+                </div>
+            </div>
+            <div class="sidebar-footer">
+                <button onclick="deconnecterUtilisateur()" class="btn-action btn-danger">🔄 Refaire l'enregistrement</button>
+            </div>
+        </nav>
+
+        <div id="appOverlay" class="app-overlay" onclick="fermerTousLesMenus()"></div>
+
+        <main>
+            <!-- DASHBOARD -->
+            <section id="tab-dashboard" class="tab-content active">
+                <div class="hero-card">
+                    <div class="hero-avatar"><img src="icon-512.png" alt="" width="96" height="96"></div>
+                    <div class="hero-text">
+                        <span class="hero-kicker">EVAT | ELAWS Quantum Continuum</span>
+                        <h3 id="dashUserName" class="dash-name">—</h3>
+                        <span id="dashUserMetier" class="dash-metier">Profil non chargé</span>
+                        <p class="status-line" id="serverConnectionStatus">🟢 Connexion active</p>
+                    </div>
+                </div>
+
+                <div class="presence-bar">
+                    <button type="button" id="btnPresenceCycle" class="presence-cycle" onclick="cyclerStatutPresence()" title="Changer votre statut (visible seulement par vos contacts)">
+                        <span id="presenceCycleIcon">🟢</span>
+                        <span id="presenceCycleLabel">Disponible</span>
+                    </button>
+                    <span id="presenceHint" class="presence-hint">vos contacts seulement</span>
+                    <span id="badgeContinuum" class="badge-continuum" hidden title="Profil Continuum complété">◆ Continuum</span>
+                </div>
+
+                <div id="boostOnboarding" class="boost-card card" style="display:none;">
+                    <strong>🚀 Activation Continuum</strong>
+                    <p class="subtitle" style="margin-top:6px;">3 étapes pour être joignable et opérationnel.</p>
+                    <ul class="boost-list" id="boostList"></ul>
+                </div>
+
+                <div class="stats-grid">
+                    <button type="button" class="stat-card" onclick="switchTab('contacts')">
+                        <span class="stat-ico">🟢</span><strong id="onlineCount">0</strong><small>Contacts en ligne</small>
+                    </button>
+                    <button type="button" class="stat-card" onclick="switchTab('messagerie')">
+                        <span class="stat-ico">💬</span><strong id="statNonLus">0</strong><small>Messages non lus</small>
+                    </button>
+                    <button type="button" class="stat-card" onclick="switchTab('contacts')">
+                        <span class="stat-ico">👥</span><strong id="statContacts">0</strong><small>Contacts</small>
+                    </button>
+                    <button type="button" class="stat-card" onclick="activerNotificationsPush()">
+                        <span class="stat-ico">🔔</span><strong id="statPush" class="stat-text">—</strong><small>Notifications</small>
+                    </button>
+                </div>
+
+                <div class="ia-duo">
+                    <button type="button" class="ia-card metier" onclick="ouvrirIA('metier')">
+                        <span class="orb orb-md metier"></span>
+                        <span class="ia-card-text"><strong id="iaMetierTitre">Mister I</strong><small id="iaMetierSous">Votre expert métier</small></span>
+                    </button>
+                    <button type="button" class="ia-card" onclick="ouvrirIA('general')">
+                        <canvas class="globe globe-halo" data-size="40" aria-hidden="true"></canvas>
+                        <span class="ia-card-text"><strong>Mister ELAWS</strong><small>Répond à tout · cherche sur Internet</small></span>
+                    </button>
+                </div>
+
+                <div id="pushPrompt" class="push-card" style="display:none;">
+                    <div>
+                        <strong>🔔 Recevez vos appels même app fermée</strong>
+                        <span id="pushPromptText">Activez les notifications pour que le téléphone sonne et pour voir les messages sans ouvrir EVAT.</span>
+                    </div>
+                    <button type="button" onclick="activerNotificationsPush()" class="btn-action">Activer</button>
+                </div>
+
+                <div class="card text-center globe-card">
+                    <h3 class="section-title">RÉSEAU QUANTIQUE MONDIAL</h3>
+                    <div class="quantum-globe-container">
+                        <canvas class="globe globe-halo" data-size="190" aria-label="Terre"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- APPELS : historique et appels manqués -->
+            <section id="tab-appels" class="tab-content" style="display:none;">
+                <div class="conv-head"><h2>📞 Appels</h2></div>
+                <div class="appels-filtres">
+                    <button type="button" class="appels-chip active" data-filtre="tous" onclick="filtrerAppels('tous')">Tous</button>
+                    <button type="button" class="appels-chip" data-filtre="manques" onclick="filtrerAppels('manques')">Manqués</button>
+                    <button type="button" class="btn-icon" onclick="viderJournalAppels()" aria-label="Effacer l'historique" title="Effacer l'historique">🗑️</button>
+                </div>
+                <div id="listeAppels" class="appels-list"></div>
+            </section>
+
+            <!-- ELAWS : IA généraliste -->
+            <section id="tab-elaws-ia" class="tab-content ia-tab" style="display:none;">
+                <div class="ia-view">
+                    <div class="ia-top">
+                        <canvas class="globe globe-halo" data-size="42" aria-hidden="true"></canvas>
+                        <div class="ia-title"><strong>Mister ELAWS</strong><span>Répond à toutes vos questions · peut chercher sur Internet</span></div>
+                        <button type="button" class="btn-icon" onclick="nouvelleDiscussionIA('general')" aria-label="Nouvelle discussion" title="Nouvelle discussion">🗑️</button>
+                    </div>
+                    <div id="elawsChatBox" class="ia-thread"></div>
+                    <div id="micStatusElaws" class="mic-status"></div>
+                    <div class="ia-toolbar">
+                        <textarea id="elawsInput" class="input input-message" rows="1" placeholder="Posez votre question…" enterkeyhint="send" oninput="autoResize(this)" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();actionEnvoiIA('general');}"></textarea>
+                        <button type="button" onclick="basculerEcouteVocaleIA('general')" class="btn-icon btn-mic-round" aria-label="Dicter">🎙️</button>
+                        <button type="button" id="elawsSend" onclick="actionEnvoiIA('general')" class="btn-send-round" aria-label="Envoyer">➤</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Assistant métier : uniquement le métier de la personne -->
+            <section id="tab-ia-metier" class="tab-content ia-tab" style="display:none;">
+                <div class="ia-view">
+                    <div class="ia-top">
+                        <span class="orb orb-md metier"></span>
+                        <div class="ia-title"><strong><span id="iaMetierTop">Mister I</span></strong><span id="iaMetierSousTop">Spécialiste de votre activité</span></div>
+                        <button type="button" class="btn-icon" onclick="nouvelleDiscussionIA('metier')" aria-label="Nouvelle discussion" title="Nouvelle discussion">🗑️</button>
+                    </div>
+                    <div id="metierChatBox" class="ia-thread"></div>
+                    <div id="metierTools" class="ia-tools" aria-label="Outils de Mister I"></div>
+                    <div id="micStatusMetier" class="mic-status"></div>
+                    <div class="ia-toolbar">
+                        <textarea id="metierInput" class="input input-message" rows="1" placeholder="Question sur votre métier…" enterkeyhint="send" oninput="autoResize(this)" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();actionEnvoiIA('metier');}"></textarea>
+                        <button type="button" onclick="basculerEcouteVocaleIA('metier')" class="btn-icon btn-mic-round" aria-label="Dicter">🎙️</button>
+                        <button type="button" id="metierSend" onclick="actionEnvoiIA('metier')" class="btn-send-round" aria-label="Envoyer">➤</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- CONTACTS -->
+            <section id="tab-contacts" class="tab-content" style="display:none;">
+                <div class="card">
+                    <h2>📇 Annuaire & Contacts</h2>
+                    <p class="subtitle">Vos contacts restent liés à votre numéro de compte. Changez de téléphone → récupérez le compte avec votre code, puis réimportez les contacts du téléphone si besoin.</p>
+
+                    <div class="add-contact-box">
+                        <strong>➕ Enregistrer un contact</strong>
+                        <div class="add-contact-form">
+                            <input type="text" id="nouveauNomContact" class="input" placeholder="Nom & prénom" autocomplete="name">
+                            <input type="tel" id="nouveauTelContact" class="input" placeholder="Numéro avec indicatif (ex: +228…)" autocomplete="tel">
+                            <input type="email" id="nouveauEmailContact" class="input" placeholder="E-mail (optionnel)" autocomplete="email">
+                            <input type="text" id="nouveauEntrepriseContact" class="input" placeholder="Entreprise / organisation (optionnel)">
+                            <input type="text" id="nouveauMetierContact" class="input" placeholder="Métier / fonction (optionnel)">
+                            <textarea id="nouveauNotesContact" class="input" rows="2" placeholder="Notes (optionnel)"></textarea>
+                            <button type="button" onclick="ajouterNouveauContact()" class="btn-action btn-success">Enregistrer</button>
+                        </div>
+                    </div>
+
+                    <div class="dialer-box">
+                        <strong>📞 Appeler un numéro</strong>
+                        <div class="dialer-row">
+                            <input type="tel" id="appelCibleNum" class="input" placeholder="+indicatif puis numéro">
+                            <button type="button" onclick="lancerAppelDirectPeer('audio')" class="btn-action btn-call-audio" aria-label="Appel vocal">📞 Appel vocal</button>
+                            <button type="button" onclick="lancerAppelDirectPeer('video')" class="btn-action btn-call-video" aria-label="Appel vidéo">📹 Vidéo</button>
+                        </div>
+                    </div>
+
+                    <div class="contacts-toolbar">
+                        <input type="search" id="contactSearch" class="input conv-search" placeholder="Rechercher un contact…" oninput="afficherContacts()">
+                        <span id="contactCount" class="contact-count"></span>
+                    </div>
+                    <div id="listeContactsContainer" class="contacts-list"></div>
+
+                    <div class="contact-sync-footer">
+                        <button type="button" onclick="importerContactsTelephone()" class="btn-sync-sm" title="Importer depuis le téléphone">📥 Importer</button>
+                        <button type="button" onclick="syncContactsEVAT()" class="btn-sync-sm" title="Actualiser le statut EVAT">🔄 Statuts</button>
+                        <button type="button" onclick="sauvegarderContactsCloud()" class="btn-sync-sm" title="Sauvegarder l’annuaire sur le compte">☁️ Sauver</button>
+                        <button type="button" onclick="restaurerContactsCloud()" class="btn-sync-sm" title="Restaurer depuis le cloud">☁️ Restaurer</button>
+                        <span id="contactImportStatus" class="contact-import-status" aria-live="polite"></span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- MAP (legacy) -->
+            <section id="tab-map" class="tab-content" style="display:none;">
+                <div class="card">
+                    <h2>🗺️ Carte & Position GPS</h2>
+                    <div class="map-actions">
+                        <button onclick="partagerMaPositionGPS()" class="btn-action btn-success">📍 Partager ma Position</button>
+                        <button onclick="centrerSurMoi()" class="btn-action btn-accent">🎯 Centrer</button>
+                    </div>
+                    <div id="mapContainer" class="map-box"></div>
+                </div>
+            </section>
+
+            <!-- MESSAGERIE : liste des conversations + fil -->
+            <section id="tab-messagerie" class="tab-content" style="display:none;">
+                <div id="convListView">
+                    <div class="conv-head">
+                        <h2>💬 Messages</h2>
+                        <button type="button" class="btn-icon" onclick="ouvrirCreationGroupe()" aria-label="Nouveau groupe" title="Créer un groupe">👥+</button>
+                    </div>
+                    <input type="search" id="convSearch" class="input conv-search" placeholder="Rechercher une conversation…" oninput="afficherMessagesLocaux()">
+                    <div id="convList" class="conv-list"></div>
+                </div>
+
+                <!-- Modal création groupe -->
+                <div id="modalGroupe" class="modal-groupe" hidden>
+                    <div class="modal-groupe-card">
+                        <div class="modal-groupe-head">
+                            <strong>Nouveau groupe</strong>
+                            <button type="button" class="btn-icon" onclick="fermerCreationGroupe()">✕</button>
+                        </div>
+                        <input type="text" id="groupeNom" class="input" placeholder="Nom du groupe" maxlength="60">
+                        <p class="subtitle">Cochez les contacts inscrits sur EVAT</p>
+                        <div id="groupeMembresList" class="groupe-membres-list"></div>
+                        <button type="button" class="btn-action btn-success" onclick="creerGroupeEVAT()">Créer le groupe</button>
+                    </div>
+                </div>
+
+                <div id="chatView" class="chat-view" style="display:none;">
+                    <div class="chat-top">
+                        <button type="button" class="btn-icon" onclick="fermerConversation()" aria-label="Retour">←</button>
+                        <span id="chatPeerAvatar" class="avatar sm"></span>
+                        <div class="chat-peer">
+                            <strong id="chatPeerName"></strong>
+                            <span id="chatPeerStatus"></span>
+                        </div>
+                        <button type="button" id="btnChatResume" class="btn-icon" onclick="resumerConversationIA()" aria-label="Résumer la conversation" title="Résumé IA">✨</button>
+                        <button type="button" id="btnChatAudio" class="btn-icon" onclick="appelerConversation('audio')" aria-label="Appel audio">📞</button>
+                        <button type="button" id="btnChatVideo" class="btn-icon" onclick="appelerConversation('video')" aria-label="Appel vidéo">📹</button>
+                        <button type="button" class="btn-icon" onclick="toggleGpsMessage()" aria-label="Carte">🗺️</button>
+                    </div>
+
+                    <div id="listeMessagesLocaux" class="messages-list chat-thread"></div>
+
+                    <!-- Panneau GPS -->
+                    <div id="panneauGpsMessage" class="panel-gps" style="display:none;">
+                        <div class="panel-header">
+                            <strong>🗺️ GPS</strong>
+                            <button type="button" onclick="fermerGpsMessage()" class="btn-close">✕</button>
+                        </div>
+                        <div class="gps-actions">
+                            <button type="button" onclick="centrerSurMoiMessage()" class="btn-action btn-accent">📍 Me localiser</button>
+                            <button type="button" onclick="partagerMaPositionGPS()" class="btn-action btn-success">📤 Partager</button>
+                        </div>
+                        <div id="mapContainerMessage" class="map-box-sm"></div>
+                        <div id="gpsMessageStatus" class="gps-status"></div>
+                    </div>
+
+                    <div id="chatImagePreview" class="chat-image-preview" hidden>
+                        <img id="chatImagePreviewImg" alt="Aperçu">
+                        <button type="button" class="btn-icon" onclick="annulerImageChat()" aria-label="Retirer">✕</button>
+                    </div>
+                    <div id="chatVoiceBar" class="chat-voice-bar" hidden>
+                        <span class="chat-voice-dot"></span>
+                        <span id="chatVoiceTimer">0:00</span>
+                        <button type="button" class="btn-icon" onclick="annulerVocalChat()" aria-label="Annuler">✕</button>
+                        <button type="button" class="btn-send-round" onclick="envoyerVocalChat()" aria-label="Envoyer le vocal">➤</button>
+                    </div>
+                    <div class="chat-toolbar">
+                        <input type="file" id="chatImageInput" accept="image/*" capture="environment" hidden onchange="onChatImageChoisie(event)">
+                        <button type="button" class="btn-icon" onclick="document.getElementById('chatImageInput').click()" aria-label="Photo" title="Envoyer une photo">📷</button>
+                        <button type="button" id="btnChatVocal" class="btn-icon btn-vocal" onclick="toggleVocalChat(event)" aria-label="Message vocal" title="Appuyer pour enregistrer / appuyer pour envoyer">🎙️</button>
+                        <textarea id="chatLocalInput" class="input input-message" rows="1" placeholder="Message" enterkeyhint="send" oninput="autoResize(this);signalerEcriture()" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();envoyerMessageChatLocal();}"></textarea>
+                        <button type="button" onclick="envoyerMessageChatLocal()" class="btn-send-round" aria-label="Envoyer">➤</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- COMMUNICATIONS (redirect) -->
+            <section id="tab-communications" class="tab-content" style="display:none;">
+                <div class="card">
+                    <p>Appels sur <b>Discussion, Appels & GPS</b>.</p>
+                    <button type="button" class="btn-action btn-success" onclick="ouvrirSousModule('messagerie');setTimeout(function(){toggleChoixAppel(true);},80);">Ouvrir</button>
+                </div>
+            </section>
+
+            <!-- PARAMÈTRES -->
+            <section id="tab-parametres" class="tab-content" style="display:none;">
+                <div class="card">
+                    <h2>⚙️ Paramètres & Sonneries</h2>
+                    <p class="subtitle">Personnalisez la sonnerie de vos appels entrants.</p>
+                    <div class="param-row continuum-param">
+                        <label class="param-check">
+                            <input type="checkbox" id="modeDonneesFaibles" onchange="basculerModeDonneesFaibles(this.checked)">
+                            <span>Mode données faibles (globe allégé, animations réduites)</span>
+                        </label>
+                    </div>
+                    
+                    <label>Type de Sonnerie :</label>
+                    <select id="selectSonnerieType" class="input">
+                        <option value="telephone">📱 Sonnerie de mon téléphone (recommandé)</option>
+                        <option value="iphone">🎵 Style iPhone (Marimba)</option>
+                        <option value="motorola">📟 Style Motorola (Électronique)</option>
+                        <option value="samsung">🎶 Style Samsung (Over the Horizon)</option>
+                        <option value="classique">🔔 Sonnerie Classique</option>
+                        <option value="custom">🎵 Fichier MP3 Personnel</option>
+                    </select>
+
+                    <p class="hint-box">📱 <strong>Sonnerie de mon téléphone</strong> : EVAT utilise le son de notification de votre téléphone, aussi quand l'application est fermée. Pour choisir <em>votre</em> sonnerie : Réglages du téléphone → Applications → EVAT → Notifications → Son.</p>
+                    <button type="button" onclick="testerNotificationsAppel()" class="btn-action">🔔 Tester un appel app fermée</button>
+                    <button type="button" onclick="testerConnexionAppel()" class="btn-action" style="margin-top:8px;">🩺 Tester ma connexion d'appel</button>
+                    <div id="resultatTestAppel" class="hint-box" style="display:none;"></div>
+
+                    <label>Importer un fichier MP3 (Max 1 Mo) :</label>
+                    <input type="file" id="inputCustomRingtone" accept="audio/mp3,audio/*" class="input" onchange="chargerSonneriePerso(event)">
+
+                    <button onclick="sauvegarderParametresApp()" class="btn-action btn-success">💾 Enregistrer les Paramètres</button>
+                </div>
+            </section>
+
+            <!-- QUÊTES -->
+            <section id="tab-quetes" class="tab-content" style="display:none;">
+                <div class="card">
+                    <h2>⚡ Quêtes & Qubits</h2>
+                    <div class="quest-card">
+                        <strong>✅ Configuration du Système</strong>
+                        <p class="quest-reward">+50 Qubits</p>
+                    </div>
+                    <div class="quest-card">
+                        <strong>📡 Première connexion réseau</strong>
+                        <p class="quest-reward">+30 Qubits</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- STRATÉGIE -->
+            <section id="tab-succes1000" class="tab-content" style="display:none;">
+                <div class="card">
+                    <h2>💎 Stratégie Succès</h2>
+                    <input type="text" id="inputObjectif1000" class="input" placeholder="Votre objectif...">
+                    <button class="btn-action" onclick="genererPlanSucces1000()">Générer le plan</button>
+                    <div id="resultatPlan1000" style="margin-top:10px; display:none;"></div>
+                </div>
+            </section>
+
+            <!-- SYNC -->
+            <section id="tab-sync" class="tab-content" style="display:none;">
+                <div class="card">
+                    <h2>☁️ Sauvegarde Cloud</h2>
+                    <p class="subtitle">Téléchargez une copie JSON de votre profil, notes et messages.</p>
+                    <button onclick="exporterDonneesCloud()" class="btn-action btn-success">📥 Télécharger la sauvegarde</button>
+                </div>
+            </section>
+
+            <!-- VOYAGE -->
+            <section id="tab-voyage" class="tab-content" style="display:none;">
+                <div class="card">
+                    <h2>✈️ Guide Voyage & Visa</h2>
+                    <input type="text" id="voyageDestination" class="input" placeholder="Ex: Paris, Accra, Dubai...">
+                    <button class="btn-action" onclick="lancerAnalyseVoyageAvance()">Analyser</button>
+                    <div id="resultatAssistantVoyage" style="margin-top:10px; display:none;"></div>
+                </div>
+            </section>
+
+            <!-- PROFIL -->
+            <section id="tab-profil" class="tab-content" style="display:none;">
+                <div class="card">
+                    <h2>👤 Profil & Sécurité</h2>
+                    <p class="subtitle">Un numéro = un seul compte, reconnu sur tous vos appareils. Pour un nouveau téléphone : « Récupérer mon compte » + votre code de récupération.</p>
+
+                    <div class="profil-id-box">
+                        <span class="profil-id-label">Identité EVAT</span>
+                        <strong id="profilIdTel">—</strong>
+                        <small id="profilIdPinHint">Le code de récupération a été affiché à la création du compte (notez-le hors ligne).</small>
+                    </div>
+
+                    <label>Nom & Prénom</label>
+                    <input type="text" id="inputNomProfil" class="input" placeholder="Votre nom" autocomplete="name">
+                    <label>Numéro de compte (verrouillé)</label>
+                    <input type="text" id="inputTelProfil2" class="input" placeholder="Téléphone" readonly style="opacity:0.75;cursor:not-allowed;">
+                    <label>E-mail</label>
+                    <input type="email" id="inputEmailProfil" class="input" placeholder="vous@exemple.com" autocomplete="email">
+                    <label>Métier / Profession</label>
+                    <input type="text" id="inputMetierProfil" class="input" placeholder="Métier">
+                    <label>Entreprise / Organisation</label>
+                    <input type="text" id="inputEntrepriseProfil" class="input" placeholder="Entreprise (optionnel)">
+                    <label>Ville / Localité</label>
+                    <input type="text" id="inputVilleProfil" class="input" placeholder="Ville">
+                    <label>À propos</label>
+                    <textarea id="inputBioProfil" class="input" rows="3" placeholder="Quelques mots sur vous…"></textarea>
+                    <button type="button" onclick="sauvegarderProfilBaseDesdeProfil()" class="btn-action btn-success">💾 Enregistrer les modifications</button>
+                </div>
+            </section>
+
+            <!-- OUTILS / NOTES -->
+            <section id="tab-outils" class="tab-content" style="display:none;">
+                <div class="card">
+                    <h2>🛠️ Bloc-Notes & Outils</h2>
+                    <input type="text" id="noteTitre" class="input" placeholder="Titre de la note...">
+                    <textarea id="noteContenu" class="input" placeholder="Contenu..." rows="3"></textarea>
+                    <button class="btn-action btn-success" onclick="ajouterNoteBlocNotes()">Enregistrer la note</button>
+                    <div id="listeNotesContainer" class="notes-list"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+    <!-- Écran d'appel (audio / vidéo) -->
+    <div id="callContainer" class="call-screen" style="display:none;" role="dialog" aria-label="Appel en cours">
+        <video id="remoteVideo" autoplay playsinline style="display:none;"></video>
+        <div class="call-top">
+            <div id="callPeerAvatar" class="avatar big"></div>
+            <h2 id="callPeerName"></h2>
+            <p id="callStatusLog" class="call-status">Prêt.</p>
+        </div>
+        <video id="localVideo" class="local-preview" autoplay playsinline muted style="display:none;"></video>
+        <audio id="remoteAudio" autoplay playsinline></audio>
+        <div class="call-controls">
+            <button type="button" id="btnMute" onclick="basculerMicro()" class="call-btn">🎙️ Micro</button>
+            <button type="button" id="btnSpeaker" onclick="basculerHautParleur()" class="call-btn" title="Haut-parleur">🔊 HP</button>
+            <button type="button" id="btnCam" onclick="basculerCamera()" class="call-btn" style="display:none;">📷 Caméra</button>
+            <button type="button" onclick="raccrocherAppel()" class="call-btn hangup">📴 Raccrocher</button>
+        </div>
+    </div>
+
+    <!-- Navigation basse -->
+    <nav id="bottomNav" class="bottom-nav" aria-label="Navigation principale">
+        <button type="button" data-tab="dashboard" class="active" onclick="switchTab('dashboard')">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><span>Accueil</span>
+        </button>
+        <button type="button" data-tab="messagerie" onclick="switchTab('messagerie')">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+            <b id="badgeMsg" class="badge" hidden>0</b><span>Messages</span>
+        </button>
+        <button type="button" data-tab="contacts" onclick="switchTab('contacts')">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Contacts</span>
+        </button>
+        <button type="button" data-tab="appels" onclick="switchTab('appels')">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            <b id="badgeAppels" class="badge" hidden>0</b><span>Appels</span>
+        </button>
+        <button type="button" onclick="toggleMenu(event)">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg><span>Plus</span>
+        </button>
+    </nav>
+
+    <script src="app.js" defer></script>
+
+    <!-- Fiche contact plein écran (style Truecaller / contacts natifs) -->
+    <div id="contactFiche" class="contact-fiche" hidden aria-hidden="true">
+        <div class="contact-fiche-inner">
+            <header class="contact-fiche-top">
+                <button type="button" class="contact-fiche-back" id="contactFicheBack" aria-label="Retour">‹</button>
+                <div class="contact-fiche-top-actions">
+                    <button type="button" class="contact-fiche-icon-btn" id="contactFicheEdit" title="Modifier">✏️</button>
+                    <button type="button" class="contact-fiche-icon-btn" id="contactFicheShare" title="Partager">📤</button>
+                </div>
+            </header>
+            <div class="contact-fiche-hero">
+                <div class="contact-fiche-avatar" id="contactFicheAvatar">?</div>
+                <h2 class="contact-fiche-nom" id="contactFicheNom">—</h2>
+                <p class="contact-fiche-statut" id="contactFicheStatut"></p>
+                <p class="contact-fiche-metier" id="contactFicheMetier"></p>
+            </div>
+            <div class="contact-fiche-primary">
+                <button type="button" class="cf-primary" id="contactFicheCall">
+                    <span class="cf-ico">📞</span><small>Appel</small>
+                </button>
+                <button type="button" class="cf-primary" id="contactFicheVCall">
+                    <span class="cf-ico">📹</span><small>Vidéo</small>
+                </button>
+                <button type="button" class="cf-primary" id="contactFicheMsg">
+                    <span class="cf-ico">💬</span><small>Message</small>
+                </button>
+                <button type="button" class="cf-primary" id="contactFicheSms">
+                    <span class="cf-ico">📱</span><small>SMS</small>
+                </button>
+            </div>
+            <div class="contact-fiche-body">
+                <div class="cf-block" id="contactFicheTelBlock">
+                    <span class="cf-label">Téléphones</span>
+                    <div id="contactFicheTels" class="cf-list"></div>
+                    <div class="cf-row-actions">
+                        <button type="button" class="cf-mini" id="contactFicheAddTel">＋ Ajouter un numéro</button>
+                        <button type="button" class="cf-mini" id="contactFicheCopy">📋 Copier le principal</button>
+                    </div>
+                </div>
+                <div class="cf-block" id="contactFicheEmailBlock">
+                    <span class="cf-label">E-mails</span>
+                    <div id="contactFicheEmails" class="cf-list"></div>
+                    <div class="cf-row-actions">
+                        <button type="button" class="cf-mini" id="contactFicheAddEmail">＋ Ajouter un e-mail</button>
+                    </div>
+                </div>
+                <div class="cf-block" id="contactFicheEntrepriseBlock" hidden>
+                    <span class="cf-label">Entreprise</span>
+                    <div class="cf-value" id="contactFicheEntreprise">—</div>
+                </div>
+                <div class="cf-block" id="contactFicheAdresseBlock" hidden>
+                    <span class="cf-label">Adresse</span>
+                    <div class="cf-value" id="contactFicheAdresse">—</div>
+                </div>
+                <div class="cf-block" id="contactFicheNotesBlock" hidden>
+                    <span class="cf-label">Notes</span>
+                    <div class="cf-value cf-notes" id="contactFicheNotes">—</div>
+                </div>
+                <div class="cf-block" id="contactFicheHistoBlock">
+                    <div class="cf-histo-head">
+                        <span class="cf-label" style="margin:0">Historique d’appels</span>
+                        <div class="cf-histo-filtres">
+                            <button type="button" class="cf-chip active" data-hf="tous">Tous</button>
+                            <button type="button" class="cf-chip" data-hf="in">Reçus</button>
+                            <button type="button" class="cf-chip" data-hf="out">Sortants</button>
+                            <button type="button" class="cf-chip" data-hf="manque">Manqués</button>
+                        </div>
+                    </div>
+                    <div id="contactFicheHisto" class="cf-histo-list"></div>
+                </div>
+                <div class="cf-block cf-danger-zone">
+                    <button type="button" class="cf-danger" id="contactFicheDel">🗑️ Supprimer le contact</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
