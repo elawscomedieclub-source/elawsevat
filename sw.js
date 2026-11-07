@@ -3,7 +3,7 @@
    - Fichiers de l'app : "stale-while-revalidate" (rapide, mis à jour en arrière-plan)
    - Socket.io / API / tuiles de carte : jamais interceptés (aucun risque de casser le temps réel)
    - Bibliothèques CDN : mises en cache à la première utilisation */
-const VERSION = 'evat-continuum-v4111';
+const VERSION = 'evat-continuum-v4110';
 const SHELL = `${VERSION}-shell`;
 const RUNTIME = `${VERSION}-runtime`;
 
@@ -15,7 +15,6 @@ const ASSETS = [
     './logo_evat.svg',
     './icon-192.png',
     './icon-512.png',
-    './icon-maskable-512.png',
     './apple-touch-icon.png',
     './manifest.webmanifest'
 ];

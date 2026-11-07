@@ -308,7 +308,7 @@ socket.on('connect', () => {
             signalerVisibilite();
             activerPush();
             majStatsAccueil();
-            while (_outbox.length) { const m = _outbox.shift(); envoyerMessage(m.to, m.texte, m.cid, m.image); }
+            while (_outbox.length) { const m = _outbox.shift(); envoyerMessage(m.to, m.texte, m.cid, m.image, m.audio, m.audioDur); }
         });
         if (window._heartbeatInterval) clearInterval(window._heartbeatInterval);
         window._heartbeatInterval = setInterval(() => socket.emit('heartbeat'), 25000);
@@ -2136,43 +2136,44 @@ socket.on('connect', () => { Call.iceAt = 0; setTimeout(() => chargerIce(), 800)
 
 /* ---------- Médias ---------- */
 async function obtenirMedia(type) {
-    if (!window.isSecureContext) {
-        const err = new Error('Contexte non sécurisé');
-        err.name = 'SecurityError';
-        throw err;
-    }
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         const err = new Error('getUserMedia indisponible');
         err.name = 'NotSupportedError';
         throw err;
     }
-    const essais = [];
-    if (type === 'video') {
-        essais.push({
-            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-            video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 24, max: 30 }, facingMode: 'user' }
-        });
-        essais.push({ audio: true, video: { facingMode: 'user' } });
-        essais.push({ audio: true, video: true });
-    }
-    essais.push({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-        video: false
-    });
-    essais.push({ audio: true, video: false });
-
-    let derniere = null;
+    const estVideo = type === 'video';
+    // Audio d'abord (appels vocaux) — contraintes progressives pour Android Chrome
+    const essais = estVideo
+        ? [
+            { audio: true, video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } },
+            { audio: true, video: { facingMode: 'user' } },
+            { audio: true, video: true },
+            { audio: true, video: false }  // repli appel vocal si caméra refusée
+          ]
+        : [
+            { audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false },
+            { audio: true, video: false }
+          ];
+    let dernier = null;
     for (let i = 0; i < essais.length; i++) {
         try {
             const stream = await navigator.mediaDevices.getUserMedia(essais[i]);
-            if (type === 'video' && !stream.getVideoTracks().length) Call.type = 'audio';
+            if (estVideo && !stream.getVideoTracks().length) {
+                Call.type = 'audio';
+                setStatutAppel('🎙️ Caméra indisponible — appel vocal');
+            }
+            if (!stream.getAudioTracks().length) {
+                stream.getTracks().forEach(t => t.stop());
+                throw Object.assign(new Error('Aucun micro'), { name: 'NotFoundError' });
+            }
             return stream;
         } catch (e) {
-            derniere = e;
-            if (e && e.name === 'NotAllowedError') throw e;
+            dernier = e;
+            // Permission refusée : ne pas enchaîner inutilement
+            if (e && (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError')) throw e;
         }
     }
-    throw derniere || new Error('Impossible d’activer le micro/caméra');
+    throw dernier || new Error('Micro inaccessible');
 }
 
 function messageErreurMedia(e) {
@@ -2189,12 +2190,6 @@ function messageErreurMedia(e) {
     return '❌ Impossible d’activer le micro/caméra.\n\nVérifiez les autorisations (Micro + Caméra) pour Chrome/EVAT dans les réglages du téléphone.';
 }
 
-function messageErreurConnexion(e) {
-    const nom = (e && e.name) || 'WebRTC';
-    const detail = (e && e.message) ? ' Détail : ' + String(e.message).slice(0, 180) : '';
-    return '❌ Les médias locaux sont prêts, mais la connexion d’appel a échoué (' + nom + '). Vérifiez le réseau et le relais TURN, puis réessayez.' + detail;
-}
-
 function attacherLocal() {
     const lv = document.getElementById('localVideo');
     if (lv) { lv.srcObject = Call.type === 'video' ? Call.local : null; lv.style.display = Call.type === 'video' ? 'block' : 'none'; }
@@ -2205,9 +2200,20 @@ function attacherLocal() {
 function attacherDistant() {
     const ra = document.getElementById('remoteAudio');
     const rv = document.getElementById('remoteVideo');
-    if (ra) ra.srcObject = Call.remote;
-    if (rv) { rv.srcObject = Call.type === 'video' ? Call.remote : null; rv.style.display = Call.type === 'video' ? 'block' : 'none'; }
-    if (ra && ra.play) ra.play().catch(() => {});
+    if (ra) {
+        ra.srcObject = Call.remote;
+        ra.autoplay = true;
+        ra.setAttribute('playsinline', '');
+        try { ra.volume = 1; } catch (e) {}
+        const p = ra.play();
+        if (p && p.catch) p.catch(() => {});
+        appliquerHautParleur();
+    }
+    if (rv) {
+        rv.srcObject = Call.type === 'video' ? Call.remote : null;
+        rv.style.display = Call.type === 'video' ? 'block' : 'none';
+        if (Call.type === 'video' && rv.play) rv.play().catch(() => {});
+    }
 }
 
 /* ---------- PeerConnection ---------- */
@@ -2320,18 +2326,16 @@ async function lancerAppelDirectPeer(type, telOverride) {
     demanderPermissionNotifications();
     Object.assign(Call, {
         state: 'calling', id: nouvelIdAppel(), peer: cible, type, isCaller: true,
-        pendingOffer: null, pendingCandidates: [], remote: null, restarts: 0, muted: false, camOff: false
+        pendingOffer: null, pendingCandidates: [], remote: null, restarts: 0, muted: false, camOff: false, speaker: false
     });
     const idLocal = Call.id;
     afficherEcranAppel(cible);
-    setStatutAppel('🔄 Activation micro/caméra…');
+    setStatutAppel(type === 'video' ? '🔄 Activation micro/caméra…' : '🔄 Activation du micro…');
 
-    let phase = 'media';
     try {
         Call.local = await obtenirMedia(type);
         if (Call.id !== idLocal) { Call.local.getTracks().forEach(t => t.stop()); return; } // annulé entre-temps
 
-        phase = 'webrtc';
         const pc = await creerPeerConnection();
         Call.pc = pc;
         Call.local.getTracks().forEach(t => pc.addTrack(t, Call.local));
@@ -2348,9 +2352,9 @@ async function lancerAppelDirectPeer(type, telOverride) {
         }, 35000);
     } catch (e) {
         if (Call.id === idLocal) {
-            const msg = phase === 'media' ? messageErreurMedia(e) : messageErreurConnexion(e);
+            const msg = messageErreurMedia(e);
             terminerAppel(msg, true, 'echec');
-            if (phase === 'media' && e && (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError' || e.name === 'SecurityError')) {
+            if (e && (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError' || e.name === 'SecurityError')) {
                 try { alert(msg); } catch (err) {}
             }
         }
@@ -2397,12 +2401,10 @@ async function accepterAppelEntrant() {
     afficherEcranAppel(Call.peer);
     setStatutAppel('📞 Décrochage…');
 
-    let phase = 'media';
     try {
         Call.local = await obtenirMedia(Call.type);
         if (Call.id !== idLocal) { Call.local.getTracks().forEach(t => t.stop()); return; }
 
-        phase = 'webrtc';
         const pc = await creerPeerConnection();
         Call.pc = pc;
         await pc.setRemoteDescription(Call.pendingOffer);
@@ -2421,9 +2423,9 @@ async function accepterAppelEntrant() {
         }, 20000);
     } catch (e) {
         if (Call.id === idLocal) {
-            const msg = phase === 'media' ? messageErreurMedia(e) : messageErreurConnexion(e);
+            const msg = messageErreurMedia(e);
             terminerAppel(msg, true, 'echec');
-            if (phase === 'media' && e && (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError' || e.name === 'SecurityError')) {
+            if (e && (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError' || e.name === 'SecurityError')) {
                 try { alert(msg); } catch (err) {}
             }
         }
@@ -2486,7 +2488,15 @@ function afficherEcranAppel(tel) {
     if (a) a.textContent = initialesDe(nom);
     document.getElementById('callContainer').style.display = 'flex';
     majBoutonsAppel();
+
+    const bs = document.getElementById('btnSpeaker');
+    if (bs) {
+        bs.style.display = (Call.type === 'audio') ? 'inline-block' : 'none';
+        Call.speaker = Call.type === 'audio'; // haut-parleur par défaut en vocal
+        appliquerHautParleur();
+    }
 }
+
 
 function majBoutonsAppel() {
     const m = document.getElementById('btnMute');
@@ -2499,6 +2509,46 @@ function basculerMicro() {
     Call.muted = !Call.muted;
     Call.local.getAudioTracks().forEach(t => { t.enabled = !Call.muted; });
     majBoutonsAppel();
+}
+
+function appliquerHautParleur() {
+    const ra = document.getElementById('remoteAudio');
+    if (!ra) return;
+    const on = !!Call.speaker;
+    try {
+        if (typeof ra.setSinkId === 'function') {
+            // Certains navigateurs exposent les sorties ; "default" = système
+            ra.setSinkId(on ? 'default' : 'default').catch(() => {});
+        }
+    } catch (e) {}
+    try { ra.volume = 1; } catch (e) {}
+    // Astuce mobile : bascule "speaker" via contrainte si dispo (peu supporté)
+    if (Call.remote) {
+        Call.remote.getAudioTracks().forEach(t => {
+            try {
+                const c = t.getConstraints ? t.getConstraints() : {};
+                /* no-op si non supporté */
+            } catch (e) {}
+        });
+    }
+    const btn = document.getElementById('btnSpeaker');
+    if (btn) {
+        btn.classList.toggle('active', on);
+        btn.textContent = on ? '🔊 HP' : '🔈 Oreille';
+        btn.title = on ? 'Haut-parleur activé' : 'Mode oreillette';
+    }
+    // Volume max + replay pour "débloquer" l'audio après geste
+    try {
+        ra.muted = false;
+        const p = ra.play();
+        if (p && p.catch) p.catch(() => {});
+    } catch (e) {}
+}
+
+function basculerHautParleur() {
+    Call.speaker = !Call.speaker;
+    appliquerHautParleur();
+    montrerNotification(Call.speaker ? '🔊 Haut-parleur' : '🔈 Mode discret');
 }
 function basculerCamera() {
     if (!Call.local) return;
@@ -2523,7 +2573,7 @@ socket.on('p2p_signal', async (data) => {
             Object.assign(Call, {
                 state: 'ringing', id: data.callId, peer: data.sender, type: data.callType || 'audio',
                 isCaller: false, pendingOffer: data.offer, pendingCandidates: [], remote: null,
-                restarts: 0, muted: false, camOff: false
+                restarts: 0, muted: false, camOff: false, speaker: false
             });
             signaler('ringing');
             afficherModalAppelEntrant(data.sender, Call.type);
@@ -2601,9 +2651,6 @@ socket.on('p2p_signal', async (data) => {
         }
     } catch (e) {
         console.warn('Signal appel :', e);
-        if (Call.state !== 'idle' && (data.type === 'answer' || data.type === 'offer')) {
-            terminerAppel(messageErreurConnexion(e), true, 'echec');
-        }
     }
 });
 
@@ -2725,7 +2772,7 @@ socket.on('new_message', (msg) => {
 
     const m = {
         id: msg.id, cid: msg.cid || null,
-        expediteur: msg.fromName || msg.from, from: msg.from, texte: msg.texte, image: msg.image || null, groupId: msg.groupId || null, groupName: msg.groupName || null, heure: msg.heure,
+        expediteur: msg.fromName || msg.from, from: msg.from, texte: msg.texte, image: msg.image || null, audio: msg.audio || null, audioDur: msg.audioDur || 0, groupId: msg.groupId || null, groupName: msg.groupName || null, heure: msg.heure,
         fromMe, to: msg.groupId ? ('group:' + msg.groupId) : (msg.to || null), ts: msg.timestamp,
         etat: fromMe ? (msg.read ? 'read' : (msg.delivered ? 'delivered' : 'sent')) : null
     };
@@ -2750,7 +2797,7 @@ socket.on('new_message', (msg) => {
         } else {
             utilisateur.nonLus = utilisateur.nonLus || {};
             utilisateur.nonLus[cle] = (utilisateur.nonLus[cle] || 0) + 1;
-            const apercuTxt = msg.image ? '📷 Photo' : (msg.texte || '');
+            const apercuTxt = msg.audio ? '🎤 Message vocal' : (msg.image ? '📷 Photo' : (msg.texte || ''));
             const apercu = `💬 ${m.expediteur} : ${apercuTxt.slice(0, 40)}${apercuTxt.length > 40 ? '…' : ''}`;
             montrerNotification(apercu, () => ouvrirMessagerie(cle));
         }
@@ -2789,14 +2836,14 @@ socket.on('typing', (d) => {
 });
 
 /* ---------- Envoi ---------- */
-function envoyerMessage(to, texte, cidExistant, imageData) {
+function envoyerMessage(to, texte, cidExistant, imageData, audioData, audioDur) {
     if (!utilisateur) return;
     const cid = cidExistant || nouvelIdMsg();
     const isGroup = estCleGroupe(to);
     const groupId = isGroup ? idGroupeDeCle(to) : null;
     const peer = (!isGroup && to && to !== 'general') ? to : null;
-    const texteFinal = (texte || '').trim() || (imageData ? '📷 Photo' : '');
-    if (!texteFinal && !imageData) return;
+    const texteFinal = (texte || '').trim() || (audioData ? '🎤 Message vocal' : (imageData ? '📷 Photo' : ''));
+    if (!texteFinal && !imageData && !audioData) return;
 
     (utilisateur.messagesLocaux = utilisateur.messagesLocaux || []).push({
         id: cid, cid,
@@ -2804,6 +2851,8 @@ function envoyerMessage(to, texte, cidExistant, imageData) {
         from: utilisateur.telephone,
         texte: texteFinal,
         image: imageData || null,
+        audio: audioData || null,
+        audioDur: audioData ? (audioDur || 0) : 0,
         groupId: groupId || null,
         heure: heureCourte(Date.now()),
         ts: Date.now(),
@@ -2818,12 +2867,13 @@ function envoyerMessage(to, texte, cidExistant, imageData) {
     afficherMessagesLocaux(true);
 
     if (!socket.connected) {
-        if (!_outbox.some(x => x.cid === cid)) _outbox.push({ to, texte: texteFinal, cid, image: imageData || null });
+        if (!_outbox.some(x => x.cid === cid)) _outbox.push({ to, texte: texteFinal, cid, image: imageData || null, audio: audioData || null, audioDur: audioDur || 0 });
         return;
     }
     const payload = { to: peer, texte: texteFinal, cid };
     if (groupId) payload.groupId = groupId;
     if (imageData) payload.image = imageData;
+    if (audioData) { payload.audio = audioData; payload.audioDur = audioDur || 0; }
     socket.emit('send_message', payload, (res) => {
         const m = (utilisateur.messagesLocaux || []).find(x => x.cid === cid || x.id === cid);
         if (!m) return;
@@ -2933,6 +2983,191 @@ function ouvrirLightboxImage(src) {
     if (im) im.src = src;
     lb.removeAttribute('hidden');
 }
+
+
+/* ---------- Messages vocaux ---------- */
+function fmtDureeVocal(s) {
+    s = Math.max(0, Math.round(Number(s) || 0));
+    const m = Math.floor(s / 60), r = s % 60;
+    return m + ':' + String(r).padStart(2, '0');
+}
+
+const _vocal = {
+    rec: null, stream: null, chunks: [], start: 0, timer: null, maxMs: 60000, stopped: false
+};
+
+function vocalMime() {
+    const cands = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/ogg;codecs=opus',
+        'audio/mp4'
+    ];
+    for (const t of cands) {
+        try { if (window.MediaRecorder && MediaRecorder.isTypeSupported(t)) return t; } catch (e) {}
+    }
+    return '';
+}
+
+async function demarrerVocalChat(ev) {
+    if (ev) { try { ev.preventDefault(); } catch (e) {} }
+    if (_vocal.rec) return;
+    if (!convoOuverte) return;
+    if (!window.MediaRecorder) {
+        alert('Enregistrement vocal non supporté sur ce navigateur.');
+        return;
+    }
+    const mime = vocalMime();
+    try {
+        _vocal.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (e) {
+        alert('Micro inaccessible. Autorisez le micro pour EVAT dans les réglages du navigateur.');
+        return;
+    }
+    _vocal.chunks = [];
+    _vocal.stopped = false;
+    try {
+        _vocal.rec = mime ? new MediaRecorder(_vocal.stream, { mimeType: mime, audioBitsPerSecond: 24000 })
+                          : new MediaRecorder(_vocal.stream);
+    } catch (e) {
+        try { _vocal.rec = new MediaRecorder(_vocal.stream); } catch (e2) {
+            _vocal.stream.getTracks().forEach(t => t.stop());
+            alert('Impossible de démarrer l’enregistrement.');
+            return;
+        }
+    }
+    _vocal.rec.ondataavailable = (e) => { if (e.data && e.data.size) _vocal.chunks.push(e.data); };
+    _vocal.rec.start(250);
+    _vocal.start = Date.now();
+    const bar = document.getElementById('chatVoiceBar');
+    const toolbar = document.querySelector('#chatView .chat-toolbar');
+    if (bar) bar.removeAttribute('hidden');
+    if (toolbar) toolbar.style.display = 'none';
+    const btn = document.getElementById('btnChatVocal');
+    if (btn) btn.classList.add('recording');
+    const tick = () => {
+        const sec = Math.floor((Date.now() - _vocal.start) / 1000);
+        const el = document.getElementById('chatVoiceTimer');
+        if (el) el.textContent = fmtDureeVocal(sec);
+        if (sec >= 60) arreterVocalChat();
+    };
+    tick();
+    _vocal.timer = setInterval(tick, 250);
+}
+
+function _stopVocalStream() {
+    if (_vocal.timer) { clearInterval(_vocal.timer); _vocal.timer = null; }
+    if (_vocal.stream) {
+        try { _vocal.stream.getTracks().forEach(t => t.stop()); } catch (e) {}
+        _vocal.stream = null;
+    }
+    const btn = document.getElementById('btnChatVocal');
+    if (btn) btn.classList.remove('recording');
+}
+
+function arreterVocalChat(ev) {
+    if (ev) { try { ev.preventDefault(); } catch (e) {} }
+    if (!_vocal.rec || _vocal.stopped) return;
+    _vocal.stopped = true;
+    const rec = _vocal.rec;
+    _vocal.rec = null;
+    const duree = Math.round((Date.now() - _vocal.start) / 1000);
+    rec.onstop = async () => {
+        _stopVocalStream();
+        const type = rec.mimeType || 'audio/webm';
+        const blob = new Blob(_vocal.chunks, { type });
+        _vocal.chunks = [];
+        if (duree < 1 || blob.size < 200) {
+            restaurerToolbarChat();
+            montrerNotification('Vocal trop court');
+            return;
+        }
+        try {
+            const dataUrl = await blobToDataUrl(blob);
+            if (!dataUrl || dataUrl.length > 350000) {
+                restaurerToolbarChat();
+                alert('Message vocal trop long. Réessayez en parlant moins longtemps.');
+                return;
+            }
+            window._chatVocalData = dataUrl;
+            window._chatVocalDur = duree;
+            // Envoi direct au relâchement (style WhatsApp)
+            envoyerVocalChat();
+        } catch (e) {
+            restaurerToolbarChat();
+            alert('Échec de préparation du vocal.');
+        }
+    };
+    try { rec.stop(); } catch (e) { _stopVocalStream(); restaurerToolbarChat(); }
+}
+
+function annulerVocalChat() {
+    if (_vocal.rec && !_vocal.stopped) {
+        _vocal.stopped = true;
+        try { _vocal.rec.onstop = null; _vocal.rec.stop(); } catch (e) {}
+        _vocal.rec = null;
+    }
+    _vocal.chunks = [];
+    _stopVocalStream();
+    window._chatVocalData = null;
+    window._chatVocalDur = 0;
+    restaurerToolbarChat();
+}
+
+function restaurerToolbarChat() {
+    const bar = document.getElementById('chatVoiceBar');
+    const toolbar = document.querySelector('#chatView .chat-toolbar');
+    if (bar) bar.setAttribute('hidden', '');
+    if (toolbar) toolbar.style.display = '';
+}
+
+function envoyerVocalChat() {
+    const data = window._chatVocalData;
+    const dur = window._chatVocalDur || 0;
+    window._chatVocalData = null;
+    window._chatVocalDur = 0;
+    restaurerToolbarChat();
+    if (!data || !convoOuverte) return;
+    const to = convoOuverte === 'general' ? null : convoOuverte;
+    envoyerMessage(to, '', null, null, data, dur);
+}
+
+function blobToDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result);
+        r.onerror = reject;
+        r.readAsDataURL(blob);
+    });
+}
+
+let _audioPlaying = null;
+document.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('.msg-audio-play');
+    if (!b) return;
+    const src = b.getAttribute('data-audio-src');
+    if (!src) return;
+    if (_audioPlaying) {
+        try { _audioPlaying.pause(); } catch (err) {}
+        document.querySelectorAll('.msg-audio-play.playing').forEach(x => { x.classList.remove('playing'); x.textContent = '▶'; });
+        if (_audioPlaying._btn === b) { _audioPlaying = null; return; }
+    }
+    const a = new Audio(src);
+    a._btn = b;
+    _audioPlaying = a;
+    b.classList.add('playing');
+    b.textContent = '⏸';
+    a.onended = a.onpause = () => {
+        b.classList.remove('playing');
+        b.textContent = '▶';
+        if (_audioPlaying === a) _audioPlaying = null;
+    };
+    a.play().catch(() => {
+        b.classList.remove('playing');
+        b.textContent = '▶';
+        montrerNotification('Lecture audio impossible');
+    });
+});
 
 /* ---------- Groupes légers ---------- */
 function sauverGroupesLocaux(list) {
@@ -3084,8 +3319,11 @@ function majNavChat() {
 }
 
 function appelerConversation(type) {
-    if (!convoOuverte || convoOuverte === 'general') return;
-    lancerAppelDirectPeer(type, convoOuverte);
+    if (!convoOuverte || convoOuverte === 'general' || estCleGroupe(convoOuverte)) {
+        montrerNotification('Choisissez un contact pour un appel vocal.');
+        return;
+    }
+    lancerAppelDirectPeer(type || 'audio', convoOuverte);
 }
 
 /* ---------- Rendu ---------- */
@@ -3122,10 +3360,15 @@ function rendreFil(forcerBas) {
         const imgHtml = m.image
             ? `<div class="msg-image"><img src="${m.image.replace(/"/g, '')}" alt="Photo" loading="lazy" onclick="ouvrirLightboxImage(this.src)"></div>`
             : '';
-        const txtHtml = (m.texte && m.texte !== '📷 Photo')
+        const audioHtml = m.audio
+            ? `<div class="msg-audio"><button type="button" class="msg-audio-play" data-audio-src="${String(m.audio).replace(/"/g, '')}" aria-label="Lire">▶</button>
+                <div class="msg-audio-wave"></div>
+                <span class="msg-audio-dur">${fmtDureeVocal(m.audioDur)}</span></div>`
+            : '';
+        const txtHtml = (m.texte && m.texte !== '📷 Photo' && m.texte !== '🎤 Message vocal')
             ? `<p>${escapeHtml(m.texte)}</p>`
-            : (m.image ? '' : `<p>${escapeHtml(m.texte || '')}</p>`);
-        html += `<div class="msg-bubble ${moi ? 'me' : 'other'}">${auteur}${imgHtml}${txtHtml}` +
+            : ((m.image || m.audio) ? '' : `<p>${escapeHtml(m.texte || '')}</p>`);
+        html += `<div class="msg-bubble ${moi ? 'me' : 'other'}">${auteur}${imgHtml}${audioHtml}${txtHtml}` +
                 `<div class="msg-meta"><span class="msg-time">${escapeHtml(m.ts ? heureCourte(m.ts) : (m.heure || ''))}</span>${coches(m)}</div></div>`;
     });
     container.innerHTML = html;
@@ -3159,7 +3402,7 @@ function rendreListeConversations() {
         const nom = nomConvo(k);
         const c = k !== 'general' ? (utilisateur.contacts || []).find(x => x.telephone === k) : null;
         const n = nonLus[k] || 0;
-        const apercu = m ? ((m.fromMe ? 'Vous : ' : ((k === 'general' || estCleGroupe(k)) ? m.expediteur + ' : ' : '')) + (m.image && (!m.texte || m.texte === '📷 Photo') ? '📷 Photo' : (m.texte || ''))) : 'Aucun message';
+        const apercu = m ? ((m.fromMe ? 'Vous : ' : ((k === 'general' || estCleGroupe(k)) ? m.expediteur + ' : ' : '')) + (m.audio ? '🎤 Message vocal' : (m.image && (!m.texte || m.texte === '📷 Photo') ? '📷 Photo' : (m.texte || '')))) : 'Aucun message';
         const avatar = k === 'general' ? '🌐' : (estCleGroupe(k) ? '👥' : escapeHtml(initialesDe(nom)));
         return `<button type="button" class="conv-item ${n ? 'unread' : ''}" data-conv="${escapeHtml(k)}">
             <span class="avatar ${k === 'general' ? 'net' : ''} ${estCleGroupe(k) ? 'grp' : ''}">${avatar}${c && c.online ? '<i class="dot-on"></i>' : ''}</span>
@@ -3628,7 +3871,7 @@ async function testerConnexionAppel() {
             const exemple = turnErr[0] ? ' (' + turnErr[0].url.replace(/^turns?:/, '') + ' : code ' + turnErr[0].code + ')' : '';
             if (refus) ko('Le relais REFUSE vos identifiants (code ' + refus.code + '). Vérifiez TURN_USERNAME et TURN_CREDENTIAL sur le serveur.');
             else if (turnErr.length) ko('Le relais est INJOIGNABLE depuis ce téléphone' + exemple + ' : ce réseau mobile le bloque. Réessayez en Wi-Fi ; sur ce réseau, les appels vers un autre réseau mobile échoueront.');
-            else ko('TURN est annoncé, mais aucun candidat relais n’a été obtenu en 9 s (hôte ' + r.host + ', direct ' + r.srflx + '). Causes possibles : adresse/identifiants TURN, port ou protocole bloqué, ou relais inaccessible. Ce résultat ne prouve pas à lui seul que le Wi-Fi est coupé.');
+            else ko('Aucun relais obtenu en 9 secondes et aucune erreur : réseau très lent ou coupé. Réessayez en Wi-Fi.');
             n++;
         }
         else { av('Aucun relais TURN configuré sur le serveur : les appels entre deux réseaux mobiles échoueront souvent.'); n++; }
@@ -3638,7 +3881,7 @@ async function testerConnexionAppel() {
 
     lignes.shift();
     lignes.push(n === 0 ? '<strong>Tout est prêt pour les appels 👍</strong>' : '<strong>' + n + ' problème' + (n > 1 ? 's' : '') + ' à corriger (en rouge).</strong>');
-    lignes.push('<span style="opacity:.7">Application v4.9.1</span>');
+    lignes.push('<span style="opacity:.7">Application v4.9</span>');
     afficher();
 }
 

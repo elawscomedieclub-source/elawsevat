@@ -325,8 +325,8 @@
                         <strong>📞 Appeler un numéro</strong>
                         <div class="dialer-row">
                             <input type="tel" id="appelCibleNum" class="input" placeholder="+indicatif puis numéro">
-                            <button type="button" onclick="lancerAppelDirectPeer('audio')" class="btn-action btn-call-audio" aria-label="Appel audio">📞</button>
-                            <button type="button" onclick="lancerAppelDirectPeer('video')" class="btn-action btn-call-video" aria-label="Appel vidéo">📹</button>
+                            <button type="button" onclick="lancerAppelDirectPeer('audio')" class="btn-action btn-call-audio" aria-label="Appel vocal">📞 Appel vocal</button>
+                            <button type="button" onclick="lancerAppelDirectPeer('video')" class="btn-action btn-call-video" aria-label="Appel vidéo">📹 Vidéo</button>
                         </div>
                     </div>
 
@@ -417,9 +417,16 @@
                         <img id="chatImagePreviewImg" alt="Aperçu">
                         <button type="button" class="btn-icon" onclick="annulerImageChat()" aria-label="Retirer">✕</button>
                     </div>
+                    <div id="chatVoiceBar" class="chat-voice-bar" hidden>
+                        <span class="chat-voice-dot"></span>
+                        <span id="chatVoiceTimer">0:00</span>
+                        <button type="button" class="btn-icon" onclick="annulerVocalChat()" aria-label="Annuler">✕</button>
+                        <button type="button" class="btn-send-round" onclick="envoyerVocalChat()" aria-label="Envoyer le vocal">➤</button>
+                    </div>
                     <div class="chat-toolbar">
                         <input type="file" id="chatImageInput" accept="image/*" capture="environment" hidden onchange="onChatImageChoisie(event)">
                         <button type="button" class="btn-icon" onclick="document.getElementById('chatImageInput').click()" aria-label="Photo" title="Envoyer une photo">📷</button>
+                        <button type="button" id="btnChatVocal" class="btn-icon btn-vocal" onpointerdown="demarrerVocalChat(event)" onpointerup="arreterVocalChat(event)" onpointerleave="arreterVocalChat(event)" onpointercancel="annulerVocalChat()" aria-label="Message vocal" title="Maintenir pour enregistrer">🎙️</button>
                         <textarea id="chatLocalInput" class="input input-message" rows="1" placeholder="Message" enterkeyhint="send" oninput="autoResize(this);signalerEcriture()" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();envoyerMessageChatLocal();}"></textarea>
                         <button type="button" onclick="envoyerMessageChatLocal()" class="btn-send-round" aria-label="Envoyer">➤</button>
                     </div>
@@ -566,6 +573,7 @@
         <audio id="remoteAudio" autoplay playsinline></audio>
         <div class="call-controls">
             <button type="button" id="btnMute" onclick="basculerMicro()" class="call-btn">🎙️ Micro</button>
+            <button type="button" id="btnSpeaker" onclick="basculerHautParleur()" class="call-btn" title="Haut-parleur">🔊 HP</button>
             <button type="button" id="btnCam" onclick="basculerCamera()" class="call-btn" style="display:none;">📷 Caméra</button>
             <button type="button" onclick="raccrocherAppel()" class="call-btn hangup">📴 Raccrocher</button>
         </div>
