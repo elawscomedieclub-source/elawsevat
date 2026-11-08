@@ -3296,6 +3296,22 @@ function creerGroupeEVAT() {
     });
 }
 
+
+function quitterGroupeEVAT() {
+    if (!convoOuverte || !estCleGroupe(convoOuverte)) return;
+    const id = idGroupeDeCle(convoOuverte);
+    const nom = nomConvo(convoOuverte);
+    if (!confirm('Quitter le groupe « ' + nom + ' » ?')) return;
+    if (!socket.connected) { alert('Serveur injoignable.'); return; }
+    socket.emit('group_leave', { id }, (res) => {
+        if (!res || !res.ok) { alert((res && res.error) || 'Impossible de quitter'); return; }
+        sauverGroupesLocaux(groupesLocaux().filter(g => g.id !== id));
+        fermerConversation();
+        montrerNotification('Vous avez quitté « ' + nom + ' »');
+        afficherMessagesLocaux();
+    });
+}
+
 function chargerGroupesServeur() {
     if (!socket.connected || !utilisateur) return;
     socket.emit('group_list', null, (res) => {
@@ -3357,6 +3373,22 @@ function ouvrirConversation(cle) {
     ['btnChatAudio', 'btnChatVideo'].forEach(id => { const b = document.getElementById(id); if (b) b.style.display = prive ? '' : 'none'; });
     const br = document.getElementById('btnChatResume');
     if (br) br.style.display = (cle === 'general') ? 'none' : '';
+    let btnLeave = document.getElementById('btnChatLeaveGroup');
+    if (!btnLeave) {
+        const top = document.querySelector('#chatView .chat-top');
+        if (top) {
+            btnLeave = document.createElement('button');
+            btnLeave.type = 'button';
+            btnLeave.id = 'btnChatLeaveGroup';
+            btnLeave.className = 'btn-icon';
+            btnLeave.title = 'Quitter le groupe';
+            btnLeave.setAttribute('aria-label', 'Quitter le groupe');
+            btnLeave.textContent = '🚪';
+            btnLeave.onclick = () => quitterGroupeEVAT();
+            top.appendChild(btnLeave);
+        }
+    }
+    if (btnLeave) btnLeave.style.display = estCleGroupe(cle) ? '' : 'none';
     majEntetePeer();
     majNavChat();
     rendreMessagesLocaux(true);
