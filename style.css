@@ -2087,3 +2087,16 @@ body.low-data .ia-card { backdrop-filter: none !important; }
     margin-top: 12vh;
 }
 #btnSpeaker { min-width: 72px; }
+
+
+/* Kit métier adaptatif */
+.kit-metier-banner {
+    grid-column: 1 / -1;
+    display: flex; flex-direction: column; gap: 4px;
+    padding: 10px 12px; margin-bottom: 4px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(6,182,212,0.12));
+    border: 1px solid rgba(34,211,238,0.3);
+}
+.kit-metier-banner strong { font-size: 13px; color: #a5f3fc; }
+.kit-metier-soft { font-size: 11px; color: #9fb4d3; line-height: 1.35; }

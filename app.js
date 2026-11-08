@@ -2118,17 +2118,27 @@ document.addEventListener('visibilitychange', () => {
 });
 
 /* ---------- ICE (STUN + TURN fournis par le serveur) ---------- */
-function chargerIce() {
-    if (Call.ice && Date.now() - Call.iceAt < 30 * 60 * 1000) return Promise.resolve(Call.ice);
+function chargerIce(force) {
+    if (!force && Call.ice && Date.now() - Call.iceAt < 15 * 60 * 1000) return Promise.resolve(Call.ice);
     return new Promise(resolve => {
-        const fin = servers => { Call.ice = servers; Call.iceAt = Date.now(); resolve(servers); };
-        const garde = setTimeout(() => fin(STUN_SECOURS), 2500);
+        const fin = (servers, meta) => {
+            Call.ice = servers && servers.length ? servers : STUN_SECOURS;
+            Call.iceAt = Date.now();
+            Call.iceMeta = meta || {};
+            resolve(Call.ice);
+        };
+        const garde = setTimeout(() => fin(STUN_SECOURS, { timeout: true }), 4000);
         try {
+            if (!socket.connected) { clearTimeout(garde); fin(STUN_SECOURS, { offline: true }); return; }
             socket.emit('get_ice', null, res => {
                 clearTimeout(garde);
-                fin(res && Array.isArray(res.iceServers) && res.iceServers.length ? res.iceServers : STUN_SECOURS);
+                const list = res && Array.isArray(res.iceServers) && res.iceServers.length ? res.iceServers : STUN_SECOURS;
+                fin(list, { turn: res && res.turn, hasTurn: !!(res && res.hasTurn) });
             });
-        } catch (e) { clearTimeout(garde); fin(STUN_SECOURS); }
+        } catch (e) {
+            clearTimeout(garde);
+            fin(STUN_SECOURS, { error: true });
+        }
     });
 }
 // Précharge les serveurs ICE pour que l'appel démarre sans attente
@@ -2253,7 +2263,7 @@ function attacherDistant() {
 /* ---------- PeerConnection ---------- */
 async function creerPeerConnection() {
     const iceServers = await chargerIce();
-    const pc = new RTCPeerConnection({ iceServers, bundlePolicy: 'max-bundle', iceCandidatePoolSize: 2 });
+    const pc = new RTCPeerConnection({ iceServers, bundlePolicy: 'max-bundle', rtcpMuxPolicy: 'require', iceCandidatePoolSize: 4, iceTransportPolicy: 'all' });
 
     pc.onicecandidate = e => { if (e.candidate) signaler('ice_candidate', { candidate: e.candidate }); };
 
@@ -2367,6 +2377,7 @@ async function lancerAppelDirectPeer(type, telOverride) {
     setStatutAppel(type === 'video' ? '🔄 Activation micro/caméra…' : '🔄 Activation du micro…');
 
     try {
+        await chargerIce(true);
         Call.local = await obtenirMedia(type);
         if (Call.id !== idLocal) { Call.local.getTracks().forEach(t => t.stop()); return; } // annulé entre-temps
 
@@ -3818,6 +3829,7 @@ function autoBackupContactsCloud() {
 
 function majStatsAccueil() {
     majTitresIA();
+    if (typeof rendreOutilsMetier === 'function') rendreOutilsMetier();
     majBadges();
     majCartePush();
     majCompteurContactsEnLigne();
@@ -3861,23 +3873,42 @@ function reinscrireCompte() {
 
 /** « Tester ma connexion d'appel » : serveur, notifications, micro, puis essai réel des serveurs de relais (STUN/TURN). */
 function sonderIce(iceServers) {
-    return new Promise((resolve) => {
-        const c = { host: 0, srflx: 0, relay: 0, erreurs: [] };
-        let pc, fini = false;
-        const fin = () => { if (fini) return; fini = true; try { pc && pc.close(); } catch (e) {} resolve(c); };
+    return new Promise(resolve => {
+        let pc = null;
+        const compte = { host: 0, srflx: 0, relay: 0, erreurs: [] };
+        const fin = () => {
+            try { if (pc) pc.close(); } catch (e) {}
+            resolve(compte);
+        };
+        const garde = setTimeout(fin, 15000); // 15 s : certains mobiles sont lents sur TURN TCP/TLS
         try {
-            pc = new RTCPeerConnection({ iceServers });
-            pc.createDataChannel('test');
-            pc.onicecandidateerror = (e) => { c.erreurs.push({ url: e.url || '', code: e.errorCode, texte: e.errorText || '' }); };
-            pc.onicecandidate = (e) => {
-                if (!e.candidate) { fin(); return; }
-                const t = e.candidate.type || ((/ typ (\w+)/.exec(e.candidate.candidate || '') || [])[1]);
-                if (c[t] !== undefined) c[t]++;
+            pc = new RTCPeerConnection({ iceServers, iceTransportPolicy: 'all', iceCandidatePoolSize: 4 });
+            pc.onicecandidateerror = (ev) => {
+                try {
+                    compte.erreurs.push({
+                        url: String(ev.url || ''),
+                        code: ev.errorCode || 0,
+                        text: String(ev.errorText || '').slice(0, 80)
+                    });
+                } catch (e) {}
             };
-            pc.onicegatheringstatechange = () => { if (pc.iceGatheringState === 'complete') fin(); };
-            pc.createOffer().then(o => pc.setLocalDescription(o)).catch(fin);
-        } catch (e) { fin(); }
-        setTimeout(fin, 9000);
+            pc.onicecandidate = (ev) => {
+                if (!ev.candidate) {
+                    clearTimeout(garde);
+                    fin();
+                    return;
+                }
+                const c = ev.candidate.candidate || '';
+                if (/ typ relay /.test(c)) compte.relay++;
+                else if (/ typ srflx /.test(c)) compte.srflx++;
+                else if (/ typ host /.test(c)) compte.host++;
+            };
+            pc.createDataChannel('evat-probe');
+            pc.createOffer().then(o => pc.setLocalDescription(o)).catch(() => { clearTimeout(garde); fin(); });
+        } catch (e) {
+            clearTimeout(garde);
+            fin();
+        }
     });
 }
 
@@ -3938,7 +3969,7 @@ async function testerConnexionAppel() {
             const exemple = turnErr[0] ? ' (' + turnErr[0].url.replace(/^turns?:/, '') + ' : code ' + turnErr[0].code + ')' : '';
             if (refus) ko('Le relais REFUSE vos identifiants (code ' + refus.code + '). Vérifiez TURN_USERNAME et TURN_CREDENTIAL sur le serveur.');
             else if (turnErr.length) ko('Le relais est INJOIGNABLE depuis ce téléphone' + exemple + ' : ce réseau mobile le bloque. Réessayez en Wi-Fi ; sur ce réseau, les appels vers un autre réseau mobile échoueront.');
-            else ko('Aucun relais obtenu en 9 secondes et aucune erreur : réseau très lent ou coupé. Réessayez en Wi-Fi.');
+            else ko('Aucun relais TURN obtenu en 15 s. Causes fréquentes : variables TURN absentes/incorrectes sur Render, ou opérateur qui bloque le relais. Configurez TURN (Metered ou Cloudflare) puis redéployez le serveur.');
             n++;
         }
         else { av('Aucun relais TURN configuré sur le serveur : les appels entre deux réseaux mobiles échoueront souvent.'); n++; }
@@ -3948,7 +3979,7 @@ async function testerConnexionAppel() {
 
     lignes.shift();
     lignes.push(n === 0 ? '<strong>Tout est prêt pour les appels 👍</strong>' : '<strong>' + n + ' problème' + (n > 1 ? 's' : '') + ' à corriger (en rouge).</strong>');
-    lignes.push('<span style="opacity:.7">Application v4.9</span>');
+    lignes.push('<span style="opacity:.7">Application v4.24 · test ICE 15 s</span>');
     afficher();
 }
 
@@ -3968,8 +3999,8 @@ const IA_CFG = {
 const IA_MAX_HIST = 60;      // messages gardés sur le téléphone, par IA (affichage)
 const iaEtat = { actif: null, reqId: null, buf: '', el: null, raf: 0, question: '', sources: null };
 
-// Outils prêts à l'emploi de Mister I (les trois derniers cherchent sur Internet)
-const IA_OUTILS = [
+// Outils génériques Mister I (tous métiers)
+const IA_OUTILS_BASE = [
     { ico: '🧾', nom: 'Devis', q: 'Aide-moi à préparer un devis pour un client de mon métier. Pose-moi une par une les questions nécessaires (prestation, quantités, prix, délai), puis écris le devis prêt à envoyer, dans la monnaie locale de mon pays.' },
     { ico: '💰', nom: 'Prix & marge', q: 'Aide-moi à calculer mon prix de vente et ma marge pour une prestation ou un produit de mon métier. Demande-moi mes coûts (matériel, temps, déplacement), puis propose un prix juste et rentable.' },
     { ico: '✅', nom: 'Checklist', q: 'Prépare-moi une checklist complète pour ma journée de travail type dans mon métier (avant, pendant, après), avec les contrôles de sécurité.' },
@@ -3983,6 +4014,203 @@ const IA_OUTILS = [
     { ico: '⚖️', nom: 'Règles à connaître', web: true, q: 'Cherche sur Internet les règles, autorisations et obligations à connaître pour exercer mon métier dans mon pays, et résume-les avec les sources.' },
     { ico: '📰', nom: 'Nouveautés', web: true, q: 'Cherche sur Internet les nouveautés, techniques et outils récents qui comptent dans mon métier, et dis-moi ce qui vaut vraiment le coup.' }
 ];
+
+/* ---------- Kit métier adaptatif : outils / logiciels / méthodes selon le secteur ---------- */
+const KITS_METIER = [
+    {
+        id: 'architecture',
+        titre: 'Architecture & conception',
+        mots: ['architect', 'architecture', 'urbanist', 'dessinateur batiment', 'concepteur batiment', 'bim', 'maître d’œuvre', 'maitre d\'oeuvre', 'architecte'],
+        logiciels: ['AutoCAD', 'Revit (BIM)', 'Archicad', 'SketchUp', 'Lumion / Enscape', 'Bluebeam'],
+        outils: [
+            { ico: '📐', nom: 'Brief client', q: 'En tant qu’expert architecture, aide-moi à structurer un brief projet (programme, surface, budget, contraintes terrain, normes) sous forme de questions à poser au client, une par une.' },
+            { ico: '🏗️', nom: 'Phases projet', q: 'Rappelle-moi les phases typiques d’un projet d’architecture (esquisse, APS, APD, permis, EXE, chantier) et ce que je dois livrer à chaque étape dans mon pays.' },
+            { ico: '📋', nom: 'Permis & normes', web: true, q: 'Cherche les démarches de permis de construire et normes essentielles pour un projet de bâtiment dans mon pays, résume clairement avec sources.' },
+            { ico: '🖥️', nom: 'Logiciels plans', q: 'Quels logiciels utiliser pour les plans et la 3D en architecture (débutant → pro) ? Avantages, alternatives gratuites ou abordables, et par quoi commencer selon mon niveau.' },
+            { ico: '🧱', nom: 'CCTP / descriptif', q: 'Aide-moi à rédiger un descriptif technique simple (type CCTP abrégé) pour un lot de mon projet. Demande-moi le type d’ouvrage et le lot.' }
+        ]
+    },
+    {
+        id: 'batiment',
+        titre: 'Bâtiment & chantier',
+        mots: ['maçon', 'macon', 'plombier', 'électricien', 'electricien', 'carreleur', 'peintre', 'menuisier', 'charpentier', 'ferrailleur', 'coffreur', 'manœuvre', 'manoeuvre', 'bts bâtiment', 'genie civil', 'génie civil', 'conducteur de travaux', 'chef de chantier'],
+        logiciels: ['Excel / feuilles de métrés', 'Autodesk Construction', 'WhatsApp pro', 'plans PDF annotés'],
+        outils: [
+            { ico: '📏', nom: 'Métré / quantités', q: 'Aide-moi à estimer quantités et métré pour un ouvrage de mon métier. Demande dimensions et type de travaux, puis donne un tableau clair.' },
+            { ico: '🦺', nom: 'Sécurité chantier', q: 'Checklist sécurité chantier pour mon métier (EPI, risques, bons gestes) adaptée à un petit chantier.' },
+            { ico: '📦', nom: 'Liste matériaux', q: 'Établis une liste de matériaux et consommables pour mon intervention. Demande le type de chantier, puis organise par priorité d’achat.' },
+            { ico: '📸', nom: 'Compte-rendu', q: 'Rédige un compte-rendu de chantier court (avancement, problèmes, besoins) prêt à envoyer au client ou au chef de projet.' }
+        ]
+    },
+    {
+        id: 'sante',
+        titre: 'Santé & soin',
+        mots: ['infirmier', 'infirmière', 'medecin', 'médecin', 'pharmacien', 'sage-femme', 'kine', 'kiné', 'dentiste', 'aide-soignant', 'aide soignant', 'laborantin', 'veterinaire', 'vétérinaire'],
+        logiciels: ['Dossier patient', 'agenda pro', 'référentiels nationaux'],
+        outils: [
+            { ico: '📅', nom: 'Planning soins', q: 'Aide-moi à organiser une journée type dans mon métier de santé (priorités, hygiène, transmission).' },
+            { ico: '📝', nom: 'Transmission', q: 'Rédige un modèle de transmission claire et professionnelle pour mon métier de santé (faits, actions, surveillance).' },
+            { ico: '📚', nom: 'Bonnes pratiques', web: true, q: 'Cherche les bonnes pratiques et recommandations actuelles pour mon métier de santé dans mon pays, résumé fiable avec sources.' }
+        ]
+    },
+    {
+        id: 'commerce',
+        titre: 'Commerce & vente',
+        mots: ['commerçant', 'commercant', 'vendeur', 'vendeuse', 'boutique', 'supermarché', 'negociant', 'négociant', 'caissier', 'retail', 'magasin'],
+        logiciels: ['caisse / POS', 'Excel stocks', 'WhatsApp Business', 'Instagram Shopping'],
+        outils: [
+            { ico: '📦', nom: 'Stock', q: 'Aide-moi à gérer mon stock (seuils de réassort, produits qui dorment, rotation) pour mon commerce.' },
+            { ico: '🏷️', nom: 'Prix de vente', q: 'Calcule un prix de vente rentable à partir de mon prix d’achat, charges et marge cible. Demande les chiffres un par un.' },
+            { ico: '📣', nom: 'Promo semaine', q: 'Propose un plan promo simple pour cette semaine (offre, message client, affichage) adapté à mon commerce.' }
+        ]
+    },
+    {
+        id: 'agriculture',
+        titre: 'Agriculture & élevage',
+        mots: ['agriculteur', 'cultivateur', 'éleveur', 'eleveur', 'fermier', 'maraîcher', 'maraicher', 'pêcheur', 'pecheur', 'aviculteur', 'pisciculteur'],
+        logiciels: ['carnet de culture', 'météo', 'WhatsApp coopérative'],
+        outils: [
+            { ico: '🌱', nom: 'Calendrier culture', q: 'Propose un calendrier de culture / élevage réaliste pour mon activité et mon climat (saison, actions clés).' },
+            { ico: '💧', nom: 'Intrants', q: 'Liste les intrants et matériels essentiels pour mon type d’exploitation, avec priorités si le budget est limité.' },
+            { ico: '📈', nom: 'Rentabilité', q: 'Aide-moi à estimer la rentabilité d’une campagne ou d’un lot (coûts, rendement, prix de vente).' }
+        ]
+    },
+    {
+        id: 'transport',
+        titre: 'Transport & logistique',
+        mots: ['chauffeur', 'taxi', 'camionneur', 'transporteur', 'logistique', 'coursier', 'livreur', 'moto-taxi', 'mototaxi'],
+        logiciels: ['GPS', 'apps de course', 'suivi carburant'],
+        outils: [
+            { ico: '⛽', nom: 'Coût trajet', q: 'Calcule le coût réel d’un trajet (carburant, usure, temps) et un prix client juste. Demande distance et type de véhicule.' },
+            { ico: '🗺️', nom: 'Tournée', q: 'Optimise une tournée de livraisons / courses pour la journée (ordre, pauses, points critiques).' },
+            { ico: '🛠️', nom: 'Entretien véhicule', q: 'Checklist entretien véhicule pour mon activité de transport (quotidien, hebdo, mensuel).' }
+        ]
+    },
+    {
+        id: 'informatique',
+        titre: 'Informatique & digital',
+        mots: ['développeur', 'developpeur', 'programmeur', 'informaticien', 'webmaster', 'graphiste', 'designer', 'community manager', 'data', 'technicien informatique', 'réparateur téléphone', 'reparateur telephone'],
+        logiciels: ['VS Code', 'Figma', 'GitHub', 'Canva', 'Notion'],
+        outils: [
+            { ico: '🧩', nom: 'Cahier des charges', q: 'Aide-moi à rédiger un mini cahier des charges pour un projet digital de mon métier (objectif, livrables, délais).' },
+            { ico: '🧪', nom: 'Recette / tests', q: 'Propose une checklist de tests avant livraison client pour mon type de projet informatique ou digital.' },
+            { ico: '💡', nom: 'Stack conseillée', q: 'Quelles technologies ou logiciels recommander pour mon besoin digital, selon mon niveau et mon budget ?' }
+        ]
+    },
+    {
+        id: 'education',
+        titre: 'Éducation & formation',
+        mots: ['enseignant', 'professeur', 'instituteur', 'formateur', 'tuteur', 'éducateur', 'educateur', 'coach scolaire'],
+        logiciels: ['Google Classroom', 'Canva', 'WhatsApp classe', 'PDF annotés'],
+        outils: [
+            { ico: '📖', nom: 'Fiche de cours', q: 'Structure une fiche de cours claire (objectifs, déroulé, exercices) pour mon niveau et ma matière. Demande le thème.' },
+            { ico: '📝', nom: 'Évaluation', q: 'Propose une petite évaluation (5–10 questions) avec barème pour le sujet que je vais indiquer.' },
+            { ico: '👨‍👩‍👧', nom: 'Message parents', q: 'Rédige un message professionnel aux parents ou apprenants (rappel, résultat, encouragement).' }
+        ]
+    },
+    {
+        id: 'beaute',
+        titre: 'Beauté & bien-être',
+        mots: ['coiffeur', 'coiffeuse', 'esthétique', 'estheticienne', 'estheticienne', 'barbier', 'onglerie', 'spa', 'maquilleur', 'maquilleuse'],
+        logiciels: ['agenda RDV', 'Instagram', 'WhatsApp Business'],
+        outils: [
+            { ico: '📅', nom: 'Agenda salon', q: 'Aide-moi à organiser mon planning de rendez-vous (créneaux rentables, no-show, relances).' },
+            { ico: '💅', nom: 'Fiche prestation', q: 'Rédige une fiche prestation claire (durée, prix, produits, contre-indications) pour mon service.' },
+            { ico: '✨', nom: 'Post réseaux', q: 'Écris un post Instagram / WhatsApp attractif pour promouvoir une offre de mon salon cette semaine.' }
+        ]
+    },
+    {
+        id: 'restauration',
+        titre: 'Restauration & cuisine',
+        mots: ['cuisinier', 'chef', 'restaurateur', 'traiteur', 'boulanger', 'pâtissier', 'patissier', 'serveur', 'hotelier', 'hôtelier'],
+        logiciels: ['fiches techniques', 'caisse', 'stocks cuisine'],
+        outils: [
+            { ico: '🍽️', nom: 'Fiche technique', q: 'Crée une fiche technique de plat (ingrédients, quantités, coût, prix de vente) — demande-moi le plat.' },
+            { ico: '📋', nom: 'Mise en place', q: 'Checklist mise en place avant service pour mon type d’établissement.' },
+            { ico: '📉', nom: 'Food cost', q: 'Aide-moi à calculer le food cost et le prix de vente d’un plat pour viser une marge saine.' }
+        ]
+    },
+    {
+        id: 'droit',
+        titre: 'Droit & administration',
+        mots: ['avocat', 'juriste', 'notaire', 'huissier', 'comptable', 'expert-comptable', 'greffier', 'assistant juridique'],
+        logiciels: ['traitement de texte', 'agenda audiences', 'archivage dossiers'],
+        outils: [
+            { ico: '📁', nom: 'Trame dossier', q: 'Propose une structure de dossier client pour mon métier juridique / admin (pièces, chronologie, points clés).' },
+            { ico: '✍️', nom: 'Courrier type', q: 'Rédige un courrier professionnel type (relance, mise en demeure simple, demande de pièces) — demande le contexte.' },
+            { ico: '⏱️', nom: 'Délais', web: true, q: 'Cherche les délais procéduraux ou obligations courantes liés à mon métier dans mon pays (résumé + sources).' }
+        ]
+    },
+    {
+        id: 'securite',
+        titre: 'Sécurité & défense',
+        mots: ['agent de sécurité', 'vigil', 'vigile', 'gendarme', 'policier', 'militaire', 'gardiennage'],
+        logiciels: ['main courante', 'rapports', 'radio'],
+        outils: [
+            { ico: '📝', nom: 'Main courante', q: 'Modèle de main courante / rapport d’incident clair (faits, heure, personnes, actions).' },
+            { ico: '🚨', nom: 'Consignes poste', q: 'Checklist consignes de poste pour une vacation type dans mon métier de sécurité.' }
+        ]
+    },
+    {
+        id: 'artisanat',
+        titre: 'Artisanat & production',
+        mots: ['couturier', 'couturière', 'couturiere', 'cordonnier', 'forgeron', 'artisan', 'soudeur', 'mécanicien', 'mecanicien', 'garagiste'],
+        logiciels: ['photos avant/après', 'devis mobile', 'catalogue modèles'],
+        outils: [
+            { ico: '🔧', nom: 'Diagnostic', q: 'Guide de diagnostic étape par étape pour un problème client typique de mon métier artisanal.' },
+            { ico: '📸', nom: 'Avant / après', q: 'Comment présenter mon travail (photos, témoignages) pour convaincre de nouveaux clients dans mon métier.' }
+        ]
+    }
+];
+
+function normaliserMotMetier(s) {
+    return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ' ').replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function detecterKitMetier(metier) {
+    const n = normaliserMotMetier(metier);
+    if (!n || n === 'operateur' || n === 'utilisateur') return null;
+    let best = null, score = 0;
+    for (const kit of KITS_METIER) {
+        let sc = 0;
+        for (const m of kit.mots) {
+            const mm = normaliserMotMetier(m);
+            if (n.includes(mm) || mm.includes(n)) sc += mm.length;
+        }
+        if (sc > score) { score = sc; best = kit; }
+    }
+    return score > 0 ? best : null;
+}
+
+function outilsMetierActifs() {
+    const metier = (utilisateur && utilisateur.metier) || '';
+    const kit = detecterKitMetier(metier);
+    const speciaux = kit ? (kit.outils || []) : [];
+    // outils secteur en premier, puis base (sans doublons de nom)
+    const noms = new Set(speciaux.map(o => o.nom));
+    const base = IA_OUTILS_BASE.filter(o => !noms.has(o.nom));
+    const liste = speciaux.concat(base);
+    // Ajoute un outil « logiciels du métier » dynamique
+    if (kit && kit.logiciels && kit.logiciels.length) {
+        liste.unshift({
+            ico: '💻',
+            nom: 'Logiciels métier',
+            q: 'Je suis ' + metier + '. Voici des outils souvent utilisés dans mon secteur : ' + kit.logiciels.join(', ') +
+               '. Explique à quoi sert chacun, lesquels prioriser selon mon niveau (débutant / intermédiaire / pro), et des alternatives gratuites ou peu chères. Adapte à mon pays.'
+        });
+    } else if (metier && metier !== 'Opérateur') {
+        liste.unshift({
+            ico: '💻',
+            nom: 'Logiciels métier',
+            q: 'Je suis « ' + metier + ' ». Quels logiciels, applications et outils numériques sont réellement utilisés dans mon métier au quotidien ? Classe-les par priorité (essentiel / utile / avancé) et indique des options abordables.'
+        });
+    }
+    return { kit, liste };
+}
+
+// Rétrocompatibilité
+const IA_OUTILS = IA_OUTILS_BASE;
+
 
 function iaHist(mode) {
     utilisateur.iaHistorique = utilisateur.iaHistorique || {};
@@ -4045,9 +4273,24 @@ function bienvenueIA(mode) {
            'Aide-moi à écrire un message poli pour réclamer un remboursement',
            'Que cuisiner ce soir avec du riz, des œufs et des tomates ?',
            'Quels sont les jours fériés dans mon pays cette année ?']
-        : ['Quelles erreurs courantes éviter dans mon métier ?',
-           'Comment fixer mes prix et rester rentable ?',
-           'Quels clients dois-je viser en priorité ?'];
+        : (function() {
+            const kit = detecterKitMetier((utilisateur && utilisateur.metier) || '');
+            if (kit && kit.id === 'architecture') return [
+                'Quels logiciels pour débuter les plans d’architecture ?',
+                'Comment structurer un devis d’architecte ?',
+                'Quelles étapes avant un dépôt de permis ?'
+            ];
+            if (kit && kit.id === 'batiment') return [
+                'Comment estimer un métré rapidement ?',
+                'Checklist sécurité avant de démarrer un chantier',
+                'Comment rédiger un devis maçonnerie clair ?'
+            ];
+            return [
+                'Quelles erreurs courantes éviter dans mon métier ?',
+                'Comment fixer mes prix et rester rentable ?',
+                'Quels outils numériques utiliser dans mon métier ?'
+            ];
+        })();
     const intro = mode === 'general'
         ? `Bonjour${p ? ' ' + escapeHtml(p) : ''} ! Je suis <strong>Mister ELAWS</strong>. Posez-moi n’importe quelle question : je réfléchis avec vous, je peux même chercher sur Internet.`
         : `Je suis <strong>Mister I</strong>, votre assistant ${escapeHtml(metier || 'métier')}. Je réponds uniquement aux questions de votre métier, avec des outils prêts à l’emploi ci-dessous. Pour tout le reste, demandez à <strong>Mister ELAWS</strong> : touchez la sphère <span class="orb orb-xs inline terre"></span> en haut.`;
@@ -4061,7 +4304,23 @@ function bienvenueIA(mode) {
 function rendreOutilsMetier() {
     const box = document.getElementById('metierTools');
     if (!box) return;
-    box.innerHTML = IA_OUTILS.map((o, i) =>
+    const { kit, liste } = outilsMetierActifs();
+    window._iaOutilsCourants = liste;
+    let head = '';
+    if (kit) {
+        head = `<div class="kit-metier-banner"><strong>🧰 Kit ${escapeHtml(kit.titre)}</strong>` +
+            (kit.logiciels && kit.logiciels.length
+                ? `<span class="kit-metier-soft">Logiciels : ${escapeHtml(kit.logiciels.slice(0, 5).join(' · '))}</span>`
+                : '') +
+            `</div>`;
+    } else if (utilisateur && utilisateur.metier && utilisateur.metier !== 'Opérateur') {
+        head = `<div class="kit-metier-banner"><strong>🧰 Espace « ${escapeHtml(utilisateur.metier)} »</strong>` +
+            `<span class="kit-metier-soft">Outils adaptés + assistants génériques</span></div>`;
+    } else {
+        head = `<div class="kit-metier-banner"><strong>🧰 Indiquez votre métier</strong>` +
+            `<span class="kit-metier-soft">Profil → métier pour débloquer le kit sectoriel</span></div>`;
+    }
+    box.innerHTML = head + liste.map((o, i) =>
         `<button type="button" class="ia-tool${o.web ? ' web' : ''}" data-tool="${i}" title="${o.web ? 'Utilise Internet' : ''}"><span>${o.ico}</span>${escapeHtml(o.nom)}</button>`).join('');
 }
 
@@ -4083,11 +4342,14 @@ function rendreIA(mode) {
 function majTitresIA() {
     if (!utilisateur) return;
     const metier = (utilisateur.metier || '').trim();
+    const kit = detecterKitMetier(metier);
     const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
     set('iaMetierTitre', 'Mister I');
     set('iaMetierTop', 'Mister I');
-    set('iaMetierSous', metier ? 'Expert ' + metier : 'Votre expert métier');
-    set('iaMetierSousTop', metier ? 'Uniquement : ' + metier : 'Spécialiste de votre activité');
+    set('iaMetierSous', metier ? ('Expert ' + metier) : 'Votre expert métier');
+    set('iaMetierSousTop', metier
+        ? (kit ? (kit.titre + ' · ' + metier) : ('Uniquement : ' + metier))
+        : 'Spécialiste de votre activité');
 }
 
 function iaDefiler(box) {
@@ -4258,7 +4520,7 @@ document.addEventListener('click', (e) => {
     const c = e.target.closest && e.target.closest('.ia-chip');
     if (c) { envoyerQuestionIA(c.dataset.ia, c.dataset.q); return; }
     const t = e.target.closest && e.target.closest('.ia-tool');
-    if (t) { const o = IA_OUTILS[Number(t.dataset.tool)]; if (o) envoyerQuestionIA('metier', o.q); }
+    if (t) { const arr = window._iaOutilsCourants || IA_OUTILS_BASE; const o = arr[Number(t.dataset.tool)]; if (o) envoyerQuestionIA('metier', o.q); }
 });
 
 // Compatibilité avec l'ancien code
