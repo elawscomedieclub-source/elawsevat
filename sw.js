@@ -3,7 +3,7 @@
    - Fichiers de l'app : "stale-while-revalidate" (rapide, mis à jour en arrière-plan)
    - Socket.io / API / tuiles de carte : jamais interceptés (aucun risque de casser le temps réel)
    - Bibliothèques CDN : mises en cache à la première utilisation */
-const VERSION = 'evat-continuum-v4110';
+const VERSION = 'evat-continuum-v4112';
 const SHELL = `${VERSION}-shell`;
 const RUNTIME = `${VERSION}-runtime`;
 
@@ -46,6 +46,7 @@ self.addEventListener('fetch', (e) => {
 
     // Temps réel, serveur, tuiles OSM : on laisse passer sans toucher
     if (url.pathname.includes('/socket.io/') ||
+        url.pathname.endsWith('.apk') ||
         url.hostname.endsWith('onrender.com') ||
         url.hostname.endsWith('tile.openstreetmap.org')) return;
 

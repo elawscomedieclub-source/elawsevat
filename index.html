@@ -473,6 +473,15 @@
 
                     <button onclick="sauvegarderParametresApp()" class="btn-action btn-success">💾 Enregistrer les Paramètres</button>
                 </div>
+
+                <div class="card" id="carteTelechargementApk">
+                    <h2>📲 Application Android</h2>
+                    <p class="subtitle">Installez EVAT comme une vraie application : appels et messages même application fermée.</p>
+                    <a id="btnTelechargerApk" class="btn-action btn-success" href="evat.apk" download="EVAT.apk" style="display:block;text-align:center;text-decoration:none;" onclick="return telechargerApk(event)">⬇️ Télécharger l'APK EVAT</a>
+                    <button type="button" id="btnInstallerPwaParametres" class="btn-action" style="margin-top:8px;display:none;" onclick="declencherInstallationApp()">📱 Installer depuis le navigateur</button>
+                    <div id="infoApk" class="hint-box" style="display:none;"></div>
+                    <p class="hint-box">Après le téléchargement, ouvrez le fichier. Si Android le demande, autorisez « Installer des applications inconnues » pour votre navigateur. Sur iPhone, utilisez Safari → Partager → « Sur l'écran d'accueil ».</p>
+                </div>
             </section>
 
             <!-- QUÊTES -->

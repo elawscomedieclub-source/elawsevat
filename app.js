@@ -90,6 +90,42 @@ function declencherInstallationApp() {
     }
 }
 
+// ---------- Téléchargement APK (paramètres) ----------
+// Placez le fichier evat.apk à côté de index.html (même dossier sur Vercel),
+// ou remplacez cette adresse par un lien direct (GitHub Releases, etc.).
+const APK_URL = 'evat.apk';
+
+async function telechargerApk(ev) {
+    const info = document.getElementById('infoApk');
+    const montrer = (msg) => { if (info) { info.textContent = msg; info.style.display = 'block'; } };
+    if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+        if (ev) ev.preventDefault();
+        montrer("L'APK est réservé à Android. Sur iPhone : Safari → Partager → « Sur l'écran d'accueil ».");
+        return false;
+    }
+    try {
+        const r = await fetch(APK_URL, { method: 'HEAD', cache: 'no-store' });
+        if (!r.ok) throw new Error('absent');
+    } catch (e) {
+        if (ev) ev.preventDefault();
+        montrer("L'APK n'est pas encore disponible sur le serveur. Utilisez « Installer depuis le navigateur » en attendant.");
+        return false;
+    }
+    montrer('Téléchargement lancé… ouvrez ensuite le fichier EVAT.apk pour installer.');
+    return true;
+}
+
+function majBoutonsInstallation() {
+    const dejaInstallee = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+    const carte = document.getElementById('carteTelechargementApk');
+    if (carte && dejaInstallee) carte.style.display = 'none';
+    const b = document.getElementById('btnInstallerPwaParametres');
+    if (b) b.style.display = deferredPrompt ? 'block' : 'none';
+}
+window.addEventListener('beforeinstallprompt', () => setTimeout(majBoutonsInstallation, 0));
+window.addEventListener('appinstalled', majBoutonsInstallation);
+window.addEventListener('load', majBoutonsInstallation);
+
 function fermerBanniereInstall() {
     const banner = document.getElementById('installBanner');
     if (banner) banner.style.display = 'none';
@@ -2250,14 +2286,124 @@ function attacherDistant() {
         ra.setAttribute('playsinline', '');
         try { ra.volume = 1; } catch (e) {}
         const p = ra.play();
-        if (p && p.catch) p.catch(() => {});
+        if (p && p.catch) p.catch(() => debloquerSonDistant());
         appliquerHautParleur();
     }
     if (rv) {
+        rv.muted = true;   // le son passe uniquement par #remoteAudio (évite le son doublé en vidéo)
         rv.srcObject = Call.type === 'video' ? Call.remote : null;
         rv.style.display = Call.type === 'video' ? 'block' : 'none';
         if (Call.type === 'video' && rv.play) rv.play().catch(() => {});
     }
+}
+
+/* ---------- Améliorations appels (v4.12) ---------- */
+// Son distant bloqué par le navigateur (autoplay) : un seul toucher le débloque
+function debloquerSonDistant() {
+    if (Call._debloquage) return;
+    Call._debloquage = true;
+    setStatutAppel('🔇 Touchez l’écran pour activer le son');
+    const evts = ['pointerdown', 'touchstart', 'keydown'];
+    const retry = () => {
+        evts.forEach(e => document.removeEventListener(e, retry, true));
+        Call._debloquage = false;
+        ['remoteAudio', 'remoteVideo'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el && el.srcObject && el.play) el.play().catch(() => {});
+        });
+    };
+    evts.forEach(e => document.addEventListener(e, retry, true));
+}
+
+// Opus réglé pour les réseaux mobiles : correction d'erreurs, silence économe, 32 kb/s, mono
+function ameliorerSdpOpus(sdp) {
+    try {
+        const m = sdp && sdp.match(/a=rtpmap:(\d+) opus\/48000\/2/);
+        if (!m) return sdp;
+        const pt = m[1];
+        const voulus = ['minptime=10', 'useinbandfec=1', 'usedtx=1', 'maxaveragebitrate=32000', 'stereo=0', 'sprop-stereo=0'];
+        const re = new RegExp('a=fmtp:' + pt + ' ([^\\r\\n]*)');
+        if (re.test(sdp)) {
+            return sdp.replace(re, (all, old) => {
+                const garde = old.split(';').map(x => x.trim()).filter(x => x && !/^(minptime|useinbandfec|usedtx|maxaveragebitrate|stereo|sprop-stereo)=/.test(x));
+                return 'a=fmtp:' + pt + ' ' + garde.concat(voulus).join(';');
+            });
+        }
+        return sdp.replace(m[0], m[0] + '\r\na=fmtp:' + pt + ' ' + voulus.join(';'));
+    } catch (e) { return sdp; }
+}
+
+// Qualité de la liaison (mesurée toutes les 4 s) + débit vidéo adapté
+let _qualTimer = null, _qualPrev = null;
+const LIBELLE_QUALITE = { bonne: '📶 Bonne', moyenne: '📶 Moyenne', faible: '⚠️ Faible' };
+const DEBIT_VIDEO = { bonne: 700000, moyenne: 350000, faible: 150000 };
+
+function arreterSurveillanceQualite() {
+    if (_qualTimer) { clearInterval(_qualTimer); _qualTimer = null; }
+    _qualPrev = null;
+}
+
+function adapterDebitVideo(niveau) {
+    const cible = DEBIT_VIDEO[niveau];
+    if (!cible || Call._debitVideo === cible || !Call.pc) return;
+    Call._debitVideo = cible;
+    try {
+        Call.pc.getSenders().forEach(snd => {
+            if (snd.track && snd.track.kind === 'video') {
+                const par = snd.getParameters();
+                if (!par.encodings || !par.encodings.length) par.encodings = [{}];
+                par.encodings[0].maxBitrate = cible;
+                snd.setParameters(par).catch(() => {});
+            }
+        });
+    } catch (e) {}
+}
+
+function demarrerSurveillanceQualite() {
+    arreterSurveillanceQualite();
+    _qualTimer = setInterval(async () => {
+        const pc = Call.pc;
+        if (!pc || Call.state !== 'connected') return;
+        try {
+            const stats = await pc.getStats();
+            let lost = 0, recv = 0, rtt = null;
+            stats.forEach(r => {
+                if (r.type === 'inbound-rtp' && !r.isRemote) { lost += Math.max(0, r.packetsLost || 0); recv += r.packetsReceived || 0; }
+                if (r.type === 'candidate-pair' && r.state === 'succeeded' && (r.nominated || r.selected) && typeof r.currentRoundTripTime === 'number') rtt = r.currentRoundTripTime;
+            });
+            let perte = 0;
+            if (_qualPrev) {
+                const dl = lost - _qualPrev.lost, dr = recv - _qualPrev.recv;
+                if (dl + dr > 0) perte = dl / (dl + dr);
+            }
+            _qualPrev = { lost, recv };
+            let niveau = 'bonne';
+            if (perte > 0.15 || (rtt !== null && rtt > 1)) niveau = 'faible';
+            else if (perte > 0.05 || (rtt !== null && rtt > 0.4)) niveau = 'moyenne';
+            Call.qualite = niveau;
+            adapterDebitVideo(niveau);
+        } catch (e) {}
+    }, 4000);
+}
+
+// Changement de réseau (Wi-Fi ↔ 4G) pendant un appel : reconnexion immédiate côté appelant
+let _netTimer = null;
+let _netType = navigator.connection && navigator.connection.type;
+function surChangementReseau() {
+    if (Call.state !== 'connected' && Call.state !== 'connecting') return;
+    clearTimeout(_netTimer);
+    _netTimer = setTimeout(() => {
+        if (!Call.pc) return;
+        if (Call.isCaller) { Call.restarts = 0; redemarrerIce(); }
+        else setStatutAppel('🔄 Changement de réseau…');
+    }, 1500);
+}
+window.addEventListener('online', surChangementReseau);
+if (navigator.connection && navigator.connection.addEventListener) {
+    navigator.connection.addEventListener('change', () => {
+        const t = navigator.connection.type;
+        if (t !== _netType) { _netType = t; surChangementReseau(); }
+    });
 }
 
 /* ---------- PeerConnection ---------- */
@@ -2316,10 +2462,12 @@ function passerConnecte() {
         const sec = Math.floor((Date.now() - Call.startedAt) / 1000);
         const mm = String(Math.floor(sec / 60)).padStart(2, '0');
         const ss = String(sec % 60).padStart(2, '0');
-        setStatutAppel('✅ En ligne • ' + mm + ':' + ss);
+        if (Call._debloquage) { setStatutAppel('🔇 Touchez l’écran pour activer le son'); return; }
+        setStatutAppel('✅ En ligne • ' + mm + ':' + ss + (Call.qualite ? ' • ' + LIBELLE_QUALITE[Call.qualite] : ''));
     };
     maj();
     Call.timers.tick = setInterval(maj, 1000);
+    demarrerSurveillanceQualite();
 }
 
 async function redemarrerIce(force) {
@@ -2387,6 +2535,7 @@ async function lancerAppelDirectPeer(type, telOverride) {
         attacherLocal();
 
         const offer = await pc.createOffer();
+        offer.sdp = ameliorerSdpOpus(offer.sdp);
         await pc.setLocalDescription(offer);
         signaler('offer', { offer: pc.localDescription });
 
@@ -2459,6 +2608,7 @@ async function accepterAppelEntrant() {
         await appliquerCandidatsEnAttente();
 
         const answer = await pc.createAnswer();
+        answer.sdp = ameliorerSdpOpus(answer.sdp);
         await pc.setLocalDescription(answer);
         signaler('answer', { answer: pc.localDescription });
         setStatutAppel('🔄 Connexion avec ' + nomPourTel(Call.peer) + '…');
@@ -2497,6 +2647,7 @@ function terminerAppel(message, notifier, cause) {
     clearTimeout(Call.timers.ring);
     clearTimeout(Call.timers.drop);
     clearInterval(Call.timers.tick);
+    arreterSurveillanceQualite();
     cacherModalAppelEntrant();
     fermerNotificationAppel();
     libererEcran();
@@ -2516,7 +2667,8 @@ function terminerAppel(message, notifier, cause) {
 
     Object.assign(Call, {
         state: 'idle', id: null, peer: null, pc: null, local: null, remote: null,
-        pendingOffer: null, pendingCandidates: [], isCaller: false, restarts: 0, startedAt: 0
+        pendingOffer: null, pendingCandidates: [], isCaller: false, restarts: 0, startedAt: 0,
+        qualite: null, _debitVideo: 0, _debloquage: false
     });
     if (message) montrerNotification(message);
 }
