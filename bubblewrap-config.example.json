@@ -1,0 +1,19 @@
+{
+  "packageId": "com.evat.continuum",
+  "name": "EVAT Continuum",
+  "launcherName": "EVAT",
+  "display": "standalone",
+  "themeColor": "#040a1a",
+  "themeColorDark": "#040a1a",
+  "navigationColor": "#040a1a",
+  "navigationColorDark": "#040a1a",
+  "backgroundColor": "#040a1a",
+  "enableNotifications": true,
+  "startUrl": "/",
+  "iconUrl": "https://VOTRE-SITE/icon-512.png",
+  "maskableIconUrl": "https://VOTRE-SITE/icon-maskable-512.png",
+  "appVersionName": "4.25.0",
+  "appVersionCode": 4250,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap"
+}
