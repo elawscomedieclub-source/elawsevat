@@ -116,7 +116,7 @@ async function telechargerApk(ev) {
 }
 
 function majBoutonsInstallation() {
-    const dejaInstallee = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+    const dejaInstallee = NATIF || window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
     const carte = document.getElementById('carteTelechargementApk');
     if (carte && dejaInstallee) carte.style.display = 'none';
     const b = document.getElementById('btnInstallerPwaParametres');
@@ -285,6 +285,13 @@ function synchroniserPaysDepuisTel() {
     if (opt) opt.selected = true;
 }
 
+// ---------- Appli native Android (Capacitor) ----------
+// Le même code tourne dans le navigateur ET dans l'appli native : NATIF vaut true seulement dans l'APK.
+const NATIF = !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform());
+function plugNatif(nom) {
+    try { return (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins[nom]) || null; } catch (e) { return null; }
+}
+
 // ---------- Socket.io ----------
 // Réveille le serveur (hébergement gratuit qui s'endort) dès l'ouverture, en parallèle du chargement
 try { fetch(SERVER_URL + '/health', { mode: 'no-cors', cache: 'no-store' }).catch(() => {}); } catch (e) {}
@@ -425,6 +432,28 @@ socket.on('contact_registered', (data) => {
             montrerNotification(`🚨 ${match.nom} (${data.telephone}) vient de s'inscrire ! Métier : ${data.metier}`);
         }
     }
+});
+
+// Un contact du téléphone vient de s'inscrire sur EVAT (comme WhatsApp / Telegram)
+socket.on('contacts_joined', (liste) => {
+    if (!utilisateur || !Array.isArray(liste) || !liste.length) return;
+    const noms = [];
+    (utilisateur.contacts || []).forEach(c => {
+        const d = liste.find(x => x.telephone === c.telephone);
+        if (!d) return;
+        c.surEVAT = true;
+        c.online = true;
+        if (d.metier) c.metier = d.metier;
+        noms.push(c.nom);
+    });
+    if (!noms.length) return;
+    sauverProfil();
+    afficherContacts();
+    majCompteurContactsEnLigne();
+    verifierEtSynchroniserContacts();
+    montrerNotification(noms.length === 1
+        ? '🎉 ' + noms[0] + ' vient de rejoindre EVAT !'
+        : '🎉 ' + noms.slice(0, 3).join(', ') + (noms.length > 3 ? ' et ' + (noms.length - 3) + ' autres' : '') + ' viennent de rejoindre EVAT !');
 });
 
 // Présence temps réel : le serveur n'envoie plus que les changements des contacts suivis
@@ -1464,7 +1493,7 @@ function supprimerContact(index) {
 function ecrireAuContact(nom, tel) { ouvrirMessagerie(tel); }
 
 function contactsPickerDispo() {
-    return !!(navigator.contacts && typeof navigator.contacts.select === 'function');
+    return NATIF || !!(navigator.contacts && typeof navigator.contacts.select === 'function');
 }
 
 function proposerRestaurationCloud() {
@@ -1478,8 +1507,30 @@ function proposerRestaurationCloud() {
     });
 }
 
+/** Appli native : lecture directe de tout le carnet d'adresses (une seule autorisation), puis mise à jour toutes les 12 h */
+async function lireContactsNatifs() {
+    const C = plugNatif('Contacts');
+    if (!C) throw Object.assign(new Error('Module contacts absent'), { name: 'NotSupportedError' });
+    let perm = await C.checkPermissions();
+    if (!perm || perm.contacts !== 'granted') perm = await C.requestPermissions();
+    if (!perm || perm.contacts !== 'granted') throw Object.assign(new Error('Permission refusée'), { name: 'NotAllowedError' });
+    const res = await C.getContacts({ projection: { name: true, phones: true, emails: true } });
+    return (res.contacts || []).map(c => ({
+        name: [(c.name && (c.name.display || [c.name.given, c.name.family].filter(Boolean).join(' '))) || ''],
+        tel: (c.phones || []).map(p => p.number).filter(Boolean),
+        email: (c.emails || []).map(e => e.address).filter(Boolean)
+    }));
+}
+
 function proposerImportContactsApresInscription() {
-    if (!utilisateur || !contactsPickerDispo()) return;
+    if (!utilisateur) return;
+    if (NATIF) {
+        const dernier = parseInt(localStorage.getItem('evat_contacts_last'), 10) || 0;
+        if (Date.now() - dernier < 12 * 3600 * 1000) return;
+        importerContactsTelephone();
+        return;
+    }
+    if (!contactsPickerDispo()) return;
     if (localStorage.getItem('evat_contacts_import_ok') === '1') return;
     if (Date.now() < (parseInt(localStorage.getItem('evat_contacts_import_later'), 10) || 0)) return;
     afficherInvitationImportContacts();
@@ -1526,7 +1577,7 @@ async function importerContactsTelephone() {
             if (supported.includes('email')) props.push('email');
             if (supported.includes('address')) props.push('address');
         } catch (e) { props.push('email'); }
-        const picked = await navigator.contacts.select(props, { multiple: true });
+        const picked = NATIF ? await lireContactsNatifs() : await navigator.contacts.select(props, { multiple: true });
         if (!picked || !picked.length) { setStatus('Aucun contact sélectionné.'); return; }
         if (!utilisateur.contacts) utilisateur.contacts = [];
         let ajoutes = 0, ignores = 0, maj = 0;
@@ -1560,11 +1611,18 @@ async function importerContactsTelephone() {
         afficherContacts();
         verifierEtSynchroniserContacts();
         localStorage.setItem('evat_contacts_import_ok', '1');
+        localStorage.setItem('evat_contacts_last', String(Date.now()));
         const resume = `✅ Import terminé : ${ajoutes} ajouté(s), ${maj} mis à jour, ${ignores} ignoré(s).`;
         setStatus(resume);
-        montrerNotification(resume);
+        if (!NATIF || ajoutes > 0) montrerNotification(resume);
     } catch (e) {
         if (e && e.name === 'AbortError') { setStatus('Import annulé.'); return; }
+        if (NATIF) {
+            localStorage.setItem('evat_contacts_last', String(Date.now()));   // pas de relance à chaque ouverture
+            setStatus('Import impossible : ' + ((e && e.message) || 'erreur'));
+            if (e && e.name === 'NotAllowedError') montrerNotification('📇 Autorisez l’accès aux contacts dans les réglages Android pour retrouver vos amis sur EVAT.');
+            return;
+        }
         setStatus('Import impossible : ' + ((e && e.message) || 'erreur'));
         alert('Impossible d’importer les contacts. Autorisez l’accès aux contacts pour Chrome/EVAT.');
     }
@@ -3802,17 +3860,17 @@ function urlBase64ToUint8Array(b64) {
 }
 
 function pushSupporte() {
-    return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+    return NATIF || 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 }
 
 function majCartePush() {
     const carte = document.getElementById('pushPrompt');
     const stat = document.getElementById('statPush');
-    const ok = pushSupporte() && Notification.permission === 'granted' && localStorage.getItem('evat_push_ok') === '1';
+    const ok = pushSupporte() && (NATIF || Notification.permission === 'granted') && localStorage.getItem('evat_push_ok') === '1';
     if (carte) carte.style.display = (!pushSupporte() || ok) ? 'none' : 'flex';
     if (stat) stat.textContent = ok ? 'Activées' : (pushSupporte() ? 'À activer' : 'Non dispo');
     const txt = document.getElementById('pushPromptText');
-    if (txt && pushSupporte() && Notification.permission === 'denied') {
+    if (txt && !NATIF && pushSupporte() && Notification.permission === 'denied') {
         txt.textContent = 'Notifications bloquées : autorisez-les dans les réglages du navigateur pour recevoir les appels.';
     }
 }
@@ -3822,6 +3880,7 @@ async function activerPush() {
     if (!pushSupporte()) { window.__pushErreur = 'Ce navigateur ne gère pas les notifications push.'; return false; }
     if (!utilisateur) return false;
     if (!socket.connected) { window.__pushErreur = 'Serveur injoignable.'; return false; }
+    if (NATIF) return activerPushNatif();
     if (Notification.permission !== 'granted') { window.__pushErreur = 'Notifications non autorisées.'; return false; }
     try {
         const { publicKey } = await new Promise(res => socket.emit('get_vapid', null, r => res(r || {})));
@@ -3849,7 +3908,53 @@ async function activerPush() {
     return false;
 }
 
+/* ---------- Notifications natives (Firebase) : appels et messages même appli fermée ---------- */
+let _fcmToken = null, _pushNatifInit = false;
+
+async function envoyerTokenFcm() {
+    if (!_fcmToken || !socket.connected || !utilisateur) return false;
+    const res = await new Promise(r => socket.emit('fcm_register', { token: _fcmToken }, r));
+    if (res && res.ok) { localStorage.setItem('evat_push_ok', '1'); majCartePush(); return true; }
+    return false;
+}
+
+async function activerPushNatif() {
+    window.__pushErreur = '';
+    const PN = plugNatif('PushNotifications');
+    if (!PN) { window.__pushErreur = 'Notifications natives indisponibles dans cette version.'; return false; }
+    try {
+        let perm = await PN.checkPermissions();
+        if (perm.receive !== 'granted') perm = await PN.requestPermissions();
+        if (perm.receive !== 'granted') { window.__pushErreur = 'Notifications refusées : autorisez-les dans les réglages Android.'; return false; }
+        try {
+            await PN.createChannel({ id: 'appels', name: 'Appels', description: 'Appels entrants EVAT', importance: 5, visibility: 1, vibration: true, lights: true });
+            await PN.createChannel({ id: 'messages', name: 'Messages', description: 'Messages EVAT', importance: 4, vibration: true });
+        } catch (e) {}
+        if (!_pushNatifInit) {
+            _pushNatifInit = true;
+            PN.addListener('registration', t => { _fcmToken = t && t.value; envoyerTokenFcm(); });
+            PN.addListener('registrationError', () => { window.__pushErreur = 'Firebase n’est pas configuré dans cette version de l’appli.'; });
+            PN.addListener('pushNotificationActionPerformed', a => {
+                const d = (a && a.notification && a.notification.data) || {};
+                gererOuvertureNotification(d, a && a.actionId && a.actionId !== 'tap' ? a.actionId : '');
+            });
+        }
+        await PN.register();
+        for (let i = 0; i < 24 && !_fcmToken; i++) await new Promise(r => setTimeout(r, 250));
+        if (!_fcmToken) { window.__pushErreur = window.__pushErreur || 'Jeton de notification non reçu (Firebase absent ou pas de services Google).'; return false; }
+        return await envoyerTokenFcm();
+    } catch (e) {
+        window.__pushErreur = 'Notifications natives : ' + ((e && e.message) || 'erreur');
+        return false;
+    }
+}
+
 async function activerNotificationsPush() {
+    if (NATIF) {
+        const ok = await activerPushNatif();
+        montrerNotification(ok ? '🔔 Notifications activées : appels et messages même appli fermée.' : '⚠️ ' + (window.__pushErreur || 'Activation impossible pour le moment.'));
+        return;
+    }
     if (!pushSupporte()) {
         alert('Ce navigateur ne gère pas les notifications. Sur iPhone : ajoutez d’abord EVAT à l’écran d’accueil (Partager → Sur l’écran d’accueil).');
         return;
@@ -3894,7 +3999,7 @@ function gererOuvertureNotification(data, action) {
         if (action === 'accept') autoDecrocher = Date.now();
     } else if (data.type === 'missed') {
         switchTab('appels');
-    } else if (data.type === 'message' && data.from) {
+    } else if ((data.type === 'message' || data.type === 'joined') && data.from) {
         ouvrirMessagerie(data.from);
     }
 }
@@ -4099,7 +4204,7 @@ function reinscrireCompte() {
             utilisateur.recoveryPin = res.recoveryPin;
             sauverProfil();
             if (st) { st.textContent = '🟢 Connexion active'; st.style.color = ''; }
-            verifierEtSynchroniserContacts(); chargerHistorique(); activerPush();
+            verifierEtSynchroniserContacts(); chargerHistorique(); activerPush(); if (NATIF) setTimeout(proposerImportContactsApresInscription, 2500);
             alert('Votre compte a été reconnecté au serveur ✅\n\nNouveau code de récupération : ' + res.recoveryPin + '\n\nNotez-le : il remplace l’ancien.');
         } else {
             if (st) { st.textContent = '🟠 Compte non reconnu — Menu → Refaire l’enregistrement'; st.style.color = 'var(--warning, #f59e0b)'; }

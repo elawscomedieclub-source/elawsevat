@@ -13,3 +13,5 @@ Nouveautes de cette version :
   reconnexion au changement de reseau
 - Contacts : fenetre d'invitation a importer les contacts du telephone
 - Appels : si deux personnes s appellent en meme temps, l appel aboutit au lieu d echouer
+- Contacts : notification « votre contact vient de s'inscrire » (serveur + appli, y compris app fermee)
+- Appli native : voir EVAT-native.zip (projet APK) ; serveur : variable FIREBASE_SERVICE_ACCOUNT pour les notifications natives
