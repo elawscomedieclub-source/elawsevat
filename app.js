@@ -1479,15 +1479,34 @@ function proposerRestaurationCloud() {
 }
 
 function proposerImportContactsApresInscription() {
-    if (!utilisateur) return;
+    if (!utilisateur || !contactsPickerDispo()) return;
     if (localStorage.getItem('evat_contacts_import_ok') === '1') return;
-    if (contactsPickerDispo()) {
-        if (confirm('Voulez-vous importer des contacts de votre téléphone dans EVAT ?\\n\\nVous choisirez lesquels synchroniser (nom, numéro, e-mail).')) {
-            importerContactsTelephone();
-        } else {
-            localStorage.setItem('evat_contacts_import_ok', '1');
-        }
-    }
+    if (Date.now() < (parseInt(localStorage.getItem('evat_contacts_import_later'), 10) || 0)) return;
+    afficherInvitationImportContacts();
+}
+
+// Fenêtre propre à l'appli : le bouton déclenche directement le sélecteur de contacts
+// (Chrome exige un vrai toucher de l'utilisateur ; un confirm() le faisait échouer).
+function afficherInvitationImportContacts() {
+    if (document.getElementById('invitImportContacts')) return;
+    const fond = document.createElement('div');
+    fond.id = 'invitImportContacts';
+    fond.setAttribute('role', 'dialog');
+    fond.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.65);padding:20px;';
+    fond.innerHTML =
+        '<div style="background:#fff;color:#111;border-radius:18px;padding:22px;max-width:360px;width:100%;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.4);">' +
+        '<div style="font-size:42px;">📇</div>' +
+        '<h3 style="margin:8px 0;color:#111;">Retrouvez vos contacts sur EVAT</h3>' +
+        '<p style="font-size:14px;line-height:1.45;margin:0 0 14px;color:#333;">Importez les contacts de votre téléphone : EVAT montre tout de suite lesquels sont déjà sur l’application, pour les appeler ou leur écrire.<br><br><b>Astuce :</b> dans la liste Android, touchez « Tout sélectionner » puis « Terminé ».</p>' +
+        '<button type="button" id="btnInvitImporter" style="width:100%;padding:14px;border:0;border-radius:12px;background:#16a34a;color:#fff;font-size:16px;font-weight:700;">📥 Importer mes contacts</button>' +
+        '<button type="button" id="btnInvitPlusTard" style="width:100%;padding:10px;margin-top:8px;border:0;background:transparent;color:#555;font-size:14px;">Plus tard</button>' +
+        '<button type="button" id="btnInvitJamais" style="width:100%;padding:6px;border:0;background:transparent;color:#999;font-size:12px;">Ne plus demander</button>' +
+        '</div>';
+    document.body.appendChild(fond);
+    const fermer = () => fond.remove();
+    document.getElementById('btnInvitImporter').onclick = () => { fermer(); importerContactsTelephone(); };
+    document.getElementById('btnInvitPlusTard').onclick = () => { localStorage.setItem('evat_contacts_import_later', String(Date.now() + 3 * 86400000)); fermer(); };
+    document.getElementById('btnInvitJamais').onclick = () => { localStorage.setItem('evat_contacts_import_ok', '1'); fermer(); };
 }
 
 async function importerContactsTelephone() {
@@ -1496,7 +1515,7 @@ async function importerContactsTelephone() {
     if (!utilisateur) { alert('Connectez-vous d’abord.'); return; }
     if (!contactsPickerDispo()) {
         setStatus('Import auto non supporté sur ce navigateur. Utilisez Chrome Android, ou ajoutez manuellement.');
-        alert('L’import des contacts du téléphone n’est pas disponible ici.\\n\\nSur Android : ouvrez EVAT dans Chrome, puis réessayez.');
+        alert('L’import des contacts du téléphone n’est pas disponible ici.\n\nSur Android : ouvrez EVAT dans Chrome, puis réessayez.');
         return;
     }
     try {
@@ -2518,7 +2537,8 @@ async function lancerAppelDirectPeer(type, telOverride) {
     demanderPermissionNotifications();
     Object.assign(Call, {
         state: 'calling', id: nouvelIdAppel(), peer: cible, type, isCaller: true,
-        pendingOffer: null, pendingCandidates: [], remote: null, restarts: 0, muted: false, camOff: false, speaker: false
+        pendingOffer: null, pendingCandidates: [], remote: null, restarts: 0, muted: false, camOff: false, speaker: false,
+        glareOffer: null, glareCandidates: []
     });
     const idLocal = Call.id;
     afficherEcranAppel(cible);
@@ -2668,7 +2688,7 @@ function terminerAppel(message, notifier, cause) {
     Object.assign(Call, {
         state: 'idle', id: null, peer: null, pc: null, local: null, remote: null,
         pendingOffer: null, pendingCandidates: [], isCaller: false, restarts: 0, startedAt: 0,
-        qualite: null, _debitVideo: 0, _debloquage: false
+        qualite: null, _debitVideo: 0, _debloquage: false, glareOffer: null, glareCandidates: []
     });
     if (message) montrerNotification(message);
 }
@@ -2754,6 +2774,44 @@ function basculerCamera() {
     majBoutonsAppel();
 }
 
+/** Nouvelle sonnerie entrante (appelée par la signalisation, ou après une collision d'appels) */
+function recevoirOffreEntrante(data) {
+    if (!utilisateur) return;
+    if (Call.id && data.callId === Call.id) return;        // doublon (rejeu après réouverture)
+    if (Call.state !== 'idle') {
+        // occupé : on prévient l'appelant sans perturber l'appel en cours
+        socket.emit('p2p_signal', { type: 'busy', target: data.sender, callId: data.callId });
+        return;
+    }
+    Object.assign(Call, {
+        state: 'ringing', id: data.callId, peer: data.sender, type: data.callType || 'audio',
+        isCaller: false, pendingOffer: data.offer, pendingCandidates: [], remote: null,
+        restarts: 0, muted: false, camOff: false, speaker: false
+    });
+    signaler('ringing');
+    afficherModalAppelEntrant(data.sender, Call.type);
+    jouerSonSonnerie('entrant');
+    notifierAppelEntrant(nomPourTel(data.sender), Call.type);
+    if (Date.now() - autoDecrocher < 60000) { autoDecrocher = 0; setTimeout(() => accepterAppelEntrant(), 300); }
+    Call.timers.ring = setTimeout(() => {
+        if (Call.state === 'ringing') {
+            signaler('hangup');
+            terminerAppel(null, false, 'manque');
+        }
+    }, 35000);
+
+}
+
+/** Collision d'appels : on abandonne notre appel sortant et on décroche celui de l'autre personne */
+function basculerVersAppelPrioritaire() {
+    const g = Call.glareOffer, cands = (Call.glareCandidates || []).slice();
+    Call.state = 'idle';            // pas de journal ni de « raccroché » envoyé : cet appel sortant est simplement abandonné
+    terminerAppel(null, false);
+    autoDecrocher = Date.now();     // les deux voulaient se parler : on décroche tout de suite
+    recevoirOffreEntrante(g);
+    if (Call.id === g.callId) Call.pendingCandidates = cands;
+}
+
 /* ---------- Signalisation entrante ---------- */
 socket.on('p2p_signal', async (data) => {
     if (!data || !data.type) return;
@@ -2762,29 +2820,23 @@ socket.on('p2p_signal', async (data) => {
         if (data.type === 'offer' && !data.renegotiate) {
             if (!utilisateur) return;
             if (Call.id && data.callId === Call.id) return;        // doublon (rejeu après réouverture)
-            if (Call.state !== 'idle') {
-                // occupé : on prévient l'appelant sans perturber l'appel en cours
-                socket.emit('p2p_signal', { type: 'busy', target: data.sender, callId: data.callId });
+            // Collision : nous appelons déjà cette personne et elle nous appelle au même moment.
+            // On garde son offre de côté : si le serveur donne la priorité à son appel, on décroche automatiquement.
+            if (Call.state === 'calling' && data.sender === Call.peer) {
+                Call.glareOffer = data;
+                Call.glareCandidates = [];
                 return;
             }
-            Object.assign(Call, {
-                state: 'ringing', id: data.callId, peer: data.sender, type: data.callType || 'audio',
-                isCaller: false, pendingOffer: data.offer, pendingCandidates: [], remote: null,
-                restarts: 0, muted: false, camOff: false, speaker: false
-            });
-            signaler('ringing');
-            afficherModalAppelEntrant(data.sender, Call.type);
-            jouerSonSonnerie('entrant');
-            notifierAppelEntrant(nomPourTel(data.sender), Call.type);
-            if (Date.now() - autoDecrocher < 60000) { autoDecrocher = 0; setTimeout(() => accepterAppelEntrant(), 300); }
-            Call.timers.ring = setTimeout(() => {
-                if (Call.state === 'ringing') {
-                    signaler('hangup');
-                    terminerAppel(null, false, 'manque');
-                }
-            }, 35000);
+            recevoirOffreEntrante(data);
             return;
         }
+
+        // Candidats ICE de l'appel prioritaire, reçus pendant la collision
+        if (data.type === 'ice_candidate' && Call.glareOffer && data.callId === Call.glareOffer.callId) {
+            if (data.candidate) Call.glareCandidates.push(data.candidate);
+            return;
+        }
+
 
         // Tout le reste doit concerner l'appel en cours
         if (Call.state === 'idle') return;
@@ -2830,6 +2882,7 @@ socket.on('p2p_signal', async (data) => {
                 break;
 
             case 'busy':
+                if (Call.state === 'calling' && Call.glareOffer && Call.glareOffer.sender === Call.peer) { basculerVersAppelPrioritaire(); break; }
                 terminerAppel('📵 ' + nomPourTel(Call.peer) + ' est déjà en ligne.', false, 'occupe');
                 break;
             case 'user_unknown':

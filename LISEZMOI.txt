@@ -1,0 +1,15 @@
+EVAT Continuum - dossier complet
+
+SITE (Vercel) : index.html, app.js, style.css, sw.js, manifest.webmanifest, admin.html,
+                logo_evat.svg, icon-192.png, icon-512.png, icon-maskable-512.png, apple-touch-icon.png
+SERVEUR (Render) : server.js + package.json  (npm install puis npm start)
+
+APK : fabriquez-le avec pwabuilder.com (adresse du site -> Android), renommez-le evat.apk
+      et placez-le a cote de index.html : le bouton des Parametres le telechargera.
+
+Nouveautes de cette version :
+- Parametres : bouton de telechargement de l'APK
+- Appels : son non double en video, deblocage du son, Opus optimise, indicateur de qualite,
+  reconnexion au changement de reseau
+- Contacts : fenetre d'invitation a importer les contacts du telephone
+- Appels : si deux personnes s appellent en meme temps, l appel aboutit au lieu d echouer
