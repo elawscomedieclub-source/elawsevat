@@ -5323,3 +5323,52 @@ async function demanderPermissionsEtActiverProfil() {
     sauvegarderProfilBase();
     setTimeout(activerPush, 1500);
 }
+
+/* Studio ELAWS EVAT */
+let studioTypeActif = 'storyboard', studioEnCours = false, studioDernierTexte = '';
+function studioChoisirType(btn) {
+    document.querySelectorAll('#studioTypes .studio-chip').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    studioTypeActif = btn.getAttribute('data-type') || 'storyboard';
+}
+function studioCopier() {
+    const el = document.getElementById('studioResultContent');
+    if (!el) return;
+    navigator.clipboard.writeText(el.innerText || '').then(() => montrerNotification('Copié')).catch(() => {});
+}
+function studioLireAudio() {
+    if (!studioDernierTexte || !window.speechSynthesis) return;
+    if (speechSynthesis.speaking) { speechSynthesis.cancel(); return; }
+    const u = new SpeechSynthesisUtterance(studioDernierTexte.replace(/#{1,6}\s*/g, '').slice(0, 3500));
+    u.lang = 'fr-FR';
+    speechSynthesis.speak(u);
+}
+function studioGenerer() {
+    if (!utilisateur) return montrerNotification('Connectez-vous d’abord');
+    if (studioEnCours) return;
+    const texte = ((document.getElementById('studioPrompt') || {}).value || '').trim();
+    if (!texte) return montrerNotification('Écrivez ce que vous voulez créer');
+    const consignes = {
+        storyboard: 'Produis un storyboard plan par plan : durée, image, action, voix-off, texte à l’écran. Puis un prompt visuel court.',
+        spot: 'Produis un spot de 20 à 30 secondes : voix-off, version courte, et storyboard plan par plan.',
+        podcast: 'Produis un script de podcast oral de 4 à 6 minutes, avec une section TEXTE À LIRE.',
+        reseaux: 'Produis 3 posts prêts à publier, avec hashtags.'
+    };
+    const prompt = (consignes[studioTypeActif] || consignes.storyboard) + '\n\nDemande :\n' + texte + '\n\nRéponds en français, avec des titres ##.';
+    const status = document.getElementById('studioStatus');
+    const box = document.getElementById('studioResultats');
+    const content = document.getElementById('studioResultContent');
+    const btn = document.getElementById('studioGenerateBtn');
+    if (status) { status.style.display = 'block'; status.textContent = 'Génération…'; }
+    if (box) box.style.display = 'none';
+    if (btn) btn.disabled = true;
+    studioEnCours = true;
+    const reqId = 'studio' + Date.now().toString(36);
+    let buf = '';
+    const off = () => { socket.off('ai_chunk', onChunk); socket.off('ai_done', onDone); socket.off('ai_error', onErr); studioEnCours = false; if (btn) btn.disabled = false; };
+    const onChunk = d => { if (!d || d.reqId !== reqId) return; buf += d.text || ''; if (content) content.innerHTML = typeof mdVersHtml === 'function' ? mdVersHtml(buf) : buf.replace(/</g,'<'); if (box) box.style.display = 'block'; };
+    const onDone = d => { if (!d || d.reqId !== reqId) return; off(); if (status) status.style.display = 'none'; studioDernierTexte = (d.text || buf || '').trim(); if (content) content.innerHTML = typeof mdVersHtml === 'function' ? mdVersHtml(studioDernierTexte) : studioDernierTexte.replace(/</g,'<'); if (box) box.style.display = 'block'; };
+    const onErr = d => { if (!d || d.reqId !== reqId) return; off(); if (status) { status.style.display = 'block'; status.textContent = d.error || 'Erreur'; } };
+    socket.on('ai_chunk', onChunk); socket.on('ai_done', onDone); socket.on('ai_error', onErr);
+    socket.emit('ai_ask', { mode: 'general', reqId, texte: prompt, studio: true }, res => { if (!res || !res.ok) onErr({ reqId, error: (res && res.error) || 'IA indisponible' }); });
+}
