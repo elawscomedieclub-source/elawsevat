@@ -5349,10 +5349,36 @@ function studioGenerer() {
     const texte = ((document.getElementById('studioPrompt') || {}).value || '').trim();
     if (!texte) return montrerNotification('Écrivez ce que vous voulez créer');
     const consignes = {
-        storyboard: 'Produis un storyboard plan par plan : durée, image, action, voix-off, texte à l’écran. Puis un prompt visuel court.',
-        spot: 'Produis un spot de 20 à 30 secondes : voix-off, version courte, et storyboard plan par plan.',
-        podcast: 'Produis un script de podcast oral de 4 à 6 minutes, avec une section TEXTE À LIRE.',
-        reseaux: 'Produis 3 posts prêts à publier, avec hashtags.'
+        storyboard: `Produis un STORYBOARD professionnel prêt à tourner.
+
+Pour CHAQUE plan, utilise exactement ce format :
+### Plan N — Xs
+- **Cadre :** plan large / moyen / serré + angle
+- **Image :** décor, personnages, lumière, mouvement
+- **Action :** ce qui se passe
+- **Voix-off / dialogue :** texte exact (ou silence)
+- **Son :** musique / ambiance / effet
+- **Texte à l'écran :** si utile
+
+À la fin :
+## Résumé timing (total)
+## Prompt visuel global (1 paragraphe pour génération vidéo IA)
+## Conseils de tournage (3 points max)
+
+Sois concret et utilisable tout de suite.`,
+        spot: `Produis un SPOT publicitaire 15–30 secondes.
+1) Voix-off complète
+2) Version ultra-courte (8 s)
+3) 3 accroches alternatives
+4) Storyboard plan par plan (cadre, image, action, voix, durée)
+5) Prompt visuel global pour IA vidéo
+Contenu prêt à l'emploi.`,
+        podcast: `Produis un script de PODCAST oral (4–7 min).
+Structure : intro accrocheuse, 2–3 parties, conclusion + appel à l'action.
+Indique le ton (chaleureux, pro, énergique…).
+Termine par une section ## TEXTE À LIRE (script propre pour synthèse vocale, sans indications techniques).`,
+        reseaux: `Produis 3 posts réseaux prêts à publier (variantes de ton).
+Pour chaque post : texte + 5–10 hashtags + idée de visuel en une ligne.`
     };
     const prompt = (consignes[studioTypeActif] || consignes.storyboard) + '\n\nDemande :\n' + texte + '\n\nRéponds en français, avec des titres ##.';
     const status = document.getElementById('studioStatus');

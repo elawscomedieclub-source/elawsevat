@@ -5,6 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>EVAT | Mister ELAWS</title>
     <link rel="stylesheet" href="style.css">
+
+    <style>
+    .studio-wrap{padding:12px 12px 90px;max-width:720px;margin:0 auto}
+    .studio-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+    .studio-head strong{color:#67e8f9;font-size:17px}
+    .studio-head span{display:block;font-size:12px;color:#9fb4d3}
+    .studio-types{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+    .studio-chip{border:1px solid #1e3a6e;background:#0b1630;color:#eaf4ff;border-radius:20px;padding:7px 12px;font-size:12.5px;cursor:pointer}
+    .studio-chip.active{border-color:#22d3ee;color:#67e8f9}
+    .studio-box{background:#0b1630;border:1px solid #1e3a6e;border-radius:14px;margin-top:12px}
+    .studio-box-h{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid #1e3a6e}
+    .studio-body{padding:12px;font-size:14px;line-height:1.55;white-space:pre-wrap}
+    </style>
+
     <link rel="manifest" href="manifest.webmanifest">
     <meta name="description" content="EVAT — messagerie, appels audio/vidéo P2P, GPS et assistant ELAWS">
     <link rel="icon" href="icon-192.png" type="image/png">
@@ -163,10 +177,11 @@
 
                 <div class="nav-module" data-module="elaws">
                     <button type="button" class="nav-module-btn" onclick="toggleGrandModule('elaws');">
-                        ⚡ 4 · ELAWS, Quêtes, Outils & Stratégie <span class="nav-chevron">▼</span>
+                        ⚡ 4 · ELAWS · Studio · Quêtes <span class="nav-chevron">▼</span>
                     </button>
                     <div class="nav-sous">
                         <a href="#" class="nav-link" id="link-elaws-ia" onclick="ouvrirSousModule('elaws-ia');return false;">🔮 Mister ELAWS (répond à tout)</a>
+                        <a href="#" class="nav-link" id="link-studio-elaws" onclick="ouvrirSousModule('studio-elaws');return false;">🎬 Studio ELAWS EVAT — spots, storyboard, podcast</a>
                         <a href="#" class="nav-link" id="link-ia-metier" onclick="ouvrirSousModule('ia-metier');return false;">💼 Mister I (mon métier)</a>
                         <a href="#" class="nav-link" id="link-outils" onclick="ouvrirSousModule('outils');return false;">🛠️ Bloc-notes</a>
                         <a href="#" class="nav-link" id="link-parametres" onclick="ouvrirSousModule('parametres');return false;">⚙️ Paramètres</a>
@@ -237,8 +252,7 @@
                         <span class="ia-card-text"><strong>Mister ELAWS</strong><small>Répond à tout · cherche sur Internet</small></span>
                     </button>
                 </div>
-
-                <div id="pushPrompt" class="push-card" style="display:none;">
+<div id="pushPrompt" class="push-card" style="display:none;">
                     <div>
                         <strong>🔔 Recevez vos appels même app fermée</strong>
                         <span id="pushPromptText">Activez les notifications pour que le téléphone sonne et pour voir les messages sans ouvrir EVAT.</span>
@@ -298,6 +312,38 @@
                         <textarea id="metierInput" class="input input-message" rows="1" placeholder="Question sur votre métier…" enterkeyhint="send" oninput="autoResize(this)" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();actionEnvoiIA('metier');}"></textarea>
                         <button type="button" onclick="basculerEcouteVocaleIA('metier')" class="btn-icon btn-mic-round" aria-label="Dicter">🎙️</button>
                         <button type="button" id="metierSend" onclick="actionEnvoiIA('metier')" class="btn-send-round" aria-label="Envoyer">➤</button>
+                    </div>
+                </div>
+            </section>
+
+
+            <section id="tab-studio-elaws" class="tab-content" style="display:none;">
+                <div class="studio-wrap">
+                    <div class="studio-head">
+                        <button type="button" class="btn-icon" onclick="switchTab('dashboard')" aria-label="Retour">‹</button>
+                        <div><strong>Studio ELAWS EVAT</strong><span>Dans le menu · Spot · Storyboard · Podcast · Audio</span></div>
+                    </div>
+                    <div class="card">
+                        <label>Que voulez-vous créer ?</label>
+                        <textarea id="studioPrompt" class="input" rows="4" placeholder="Ex. : storyboard d'un spot de 30 secondes pour mon restaurant"></textarea>
+                        <div class="studio-types" id="studioTypes">
+                            <button type="button" class="studio-chip active" data-type="storyboard" onclick="studioChoisirType(this)">Storyboard</button>
+                            <button type="button" class="studio-chip" data-type="spot" onclick="studioChoisirType(this)">Spot</button>
+                            <button type="button" class="studio-chip" data-type="podcast" onclick="studioChoisirType(this)">Podcast</button>
+                            <button type="button" class="studio-chip" data-type="reseaux" onclick="studioChoisirType(this)">Réseaux</button>
+                        </div>
+                        <button type="button" id="studioGenerateBtn" class="btn-action btn-success" onclick="studioGenerer()">Générer</button>
+                        <p class="hint-box" style="margin-top:8px;">Gratuit. L'audio se lit sur le téléphone. La vidéo reste un storyboard tant qu'aucune clé vidéo n'est sur le serveur.</p>
+                    </div>
+                    <div id="studioStatus" class="hint-box" style="display:none;margin-top:10px;"></div>
+                    <div id="studioResultats" class="studio-box" style="display:none;">
+                        <div class="studio-box-h"><strong>Résultat</strong>
+                            <span>
+                                <button type="button" class="btn-icon" onclick="studioLireAudio()">🔊</button>
+                                <button type="button" class="btn-icon" onclick="studioCopier()">📋</button>
+                            </span>
+                        </div>
+                        <div id="studioResultContent" class="studio-body"></div>
                     </div>
                 </div>
             </section>
