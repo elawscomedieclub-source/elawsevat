@@ -3739,9 +3739,9 @@ function rendreFil(forcerBas) {
                 <span class="msg-audio-dur">${fmtDureeVocal(m.audioDur)}</span></div>`
             : '';
         const txtHtml = (m.texte && m.texte !== '📷 Photo' && m.texte !== '🎤 Message vocal')
-            ? `<p>${escapeHtml(m.texte)}</p>`
-            : ((m.image || m.audio) ? '' : `<p>${escapeHtml(m.texte || '')}</p>`);
-        html += `<div class="msg-bubble ${moi ? 'me' : 'other'}">${auteur}${imgHtml}${audioHtml}${txtHtml}` +
+            ? texteMsgHtml(m.texte)
+            : ((m.image || m.audio) ? '' : texteMsgHtml(m.texte || ''));
+        html += `<div class="msg-bubble ${moi ? 'me' : 'other'}" data-mid="${escapeHtml(String(m.id || m.cid || ''))}">${auteur}${imgHtml}${audioHtml}${txtHtml}` +
                 `<div class="msg-meta"><span class="msg-time">${escapeHtml(m.ts ? heureCourte(m.ts) : (m.heure || ''))}</span>${coches(m)}</div></div>`;
     });
     container.innerHTML = html;
@@ -3775,7 +3775,7 @@ function rendreListeConversations() {
         const nom = nomConvo(k);
         const c = k !== 'general' ? (utilisateur.contacts || []).find(x => x.telephone === k) : null;
         const n = nonLus[k] || 0;
-        const apercu = m ? ((m.fromMe ? 'Vous : ' : ((k === 'general' || estCleGroupe(k)) ? m.expediteur + ' : ' : '')) + (m.audio ? '🎤 Message vocal' : (m.image && (!m.texte || m.texte === '📷 Photo') ? '📷 Photo' : (m.texte || '')))) : 'Aucun message';
+        const apercu = m ? ((m.fromMe ? 'Vous : ' : ((k === 'general' || estCleGroupe(k)) ? m.expediteur + ' : ' : '')) + (m.audio ? '🎤 Message vocal' : (m.image && (!m.texte || m.texte === '📷 Photo') ? '📷 Photo' : texteApercu(m.texte || '')))) : 'Aucun message';
         const avatar = k === 'general' ? '🌐' : (estCleGroupe(k) ? '👥' : escapeHtml(initialesDe(nom)));
         return `<button type="button" class="conv-item ${n ? 'unread' : ''}" data-conv="${escapeHtml(k)}">
             <span class="avatar ${k === 'general' ? 'net' : ''} ${estCleGroupe(k) ? 'grp' : ''}">${avatar}${c && c.online ? '<i class="dot-on"></i>' : ''}</span>
@@ -3810,7 +3810,9 @@ function fusionnerHistorique(msgs) {
     utilisateur.messagesLocaux = utilisateur.messagesLocaux || [];
     const parId = new Map(utilisateur.messagesLocaux.map(x => [x.id, x]));
     let change = false;
+    const supprimes = new Set(utilisateur.messagesSupprimes || []);
     msgs.forEach(m => {
+        if (supprimes.has(m.id)) return;
         const fromMe = m.from === utilisateur.telephone;
         const etat = fromMe && m.to ? (m.read ? 'read' : (m.delivered ? 'delivered' : 'sent')) : null;
         const ex = parId.get(m.id) || (m.cid && parId.get(m.cid));
@@ -5398,3 +5400,154 @@ Pour chaque post : texte + 5–10 hashtags + idée de visuel en une ligne.`
     socket.on('ai_chunk', onChunk); socket.on('ai_done', onDone); socket.on('ai_error', onErr);
     socket.emit('ai_ask', { mode: 'general', reqId, texte: prompt, studio: true }, res => { if (!res || !res.ok) onErr({ reqId, error: (res && res.error) || 'IA indisponible' }); });
 }
+
+/* ============================================================
+   Améliorations v4.11 : actions sur les messages (répondre / copier / supprimer),
+   bandeau de connexion, alerte « nouvelle version »
+   ============================================================ */
+const APP_BUILD = '4.11.0';
+
+// Aperçu d'une conversation : on saute la citation d'une réponse
+function texteApercu(t) {
+    t = String(t || '');
+    return (t.startsWith('↩️ ') && t.indexOf('\n') > 0) ? t.slice(t.indexOf('\n') + 1) : t;
+}
+
+// Message de réponse : la 1re ligne « ↩️ Nom : « extrait » » est affichée comme une citation
+function texteMsgHtml(t) {
+    t = String(t || '');
+    if (t.startsWith('↩️ ') && t.indexOf('\n') > 0) {
+        const i = t.indexOf('\n');
+        const reste = t.slice(i + 1);
+        return '<blockquote class="msg-quote">' + escapeHtml(t.slice(3, i)) + '</blockquote>' + (reste ? '<p>' + escapeHtml(reste) + '</p>' : '');
+    }
+    return '<p>' + escapeHtml(t) + '</p>';
+}
+
+(function () {
+    const st = document.createElement('style');
+    st.textContent =
+        '.msg-bubble{-webkit-touch-callout:none}' +
+        '.evat-msg-menu{position:fixed;z-index:10050;background:#16213e;color:#fff;border:1px solid rgba(120,160,255,.35);border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.45);padding:6px;min-width:200px}' +
+        '.evat-msg-menu button{display:block;width:100%;text-align:left;background:none;border:0;color:inherit;padding:12px;border-radius:8px;font-size:15px;font-family:inherit}' +
+        '.evat-msg-menu button:hover,.evat-msg-menu button:active{background:rgba(120,160,255,.2)}' +
+        '.msg-quote{margin:0 0 6px;padding:6px 9px;border-left:3px solid #5aa0ff;background:rgba(255,255,255,.1);border-radius:6px;font-size:.85em;opacity:.92;white-space:pre-wrap;word-break:break-word}' +
+        '#evatNetBar{display:none;position:fixed;left:0;right:0;top:0;z-index:9000;padding:calc(6px + env(safe-area-inset-top,0px)) 12px 6px;text-align:center;font-size:13px;background:#b45309;color:#fff}' +
+        '#evatMajBar{position:fixed;left:12px;right:12px;bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:10040;display:flex;gap:10px;align-items:center;justify-content:space-between;padding:12px 14px;border-radius:14px;background:#16a34a;color:#fff;font-size:14px;box-shadow:0 8px 30px rgba(0,0,0,.4)}' +
+        '#evatMajBar button{border:0;border-radius:10px;padding:9px 14px;background:#fff;color:#166534;font-weight:700;font-size:14px}';
+    document.head.appendChild(st);
+
+    /* ----- Menu d'un message : appui long (téléphone) ou clic droit (ordinateur) ----- */
+    let menu = null, minuteur = null, depart = null;
+    const fermerMenu = () => { if (menu) { menu.remove(); menu = null; } };
+    const msgDe = (bulle) => {
+        const id = bulle && bulle.dataset.mid;
+        return id ? (utilisateur.messagesLocaux || []).find(z => String(z.id) === id || z.cid === id) : null;
+    };
+    const copier = (t) => {
+        const ok = () => montrerNotification('📋 Message copié');
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(ok).catch(() => {});
+        else { const a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); try { document.execCommand('copy'); ok(); } catch (e) {} a.remove(); }
+    };
+    const repondre = (m) => {
+        const input = document.getElementById('chatLocalInput');
+        if (!input) return;
+        const brut = (m.texte && m.texte !== '📷 Photo' && m.texte !== '🎤 Message vocal') ? m.texte.replace(/^↩️ [^\n]*\n/, '') : (m.image ? '📷 Photo' : '🎤 Message vocal');
+        const extrait = brut.replace(/\s+/g, ' ').slice(0, 70) + (brut.length > 70 ? '…' : '');
+        const qui = m.fromMe ? 'Vous' : (m.expediteur || 'Contact');
+        input.value = '↩️ ' + qui + ' : « ' + extrait + ' »\n';
+        if (typeof autoResize === 'function') autoResize(input);
+        input.focus();
+    };
+    const supprimer = (m) => {
+        utilisateur.messagesLocaux = (utilisateur.messagesLocaux || []).filter(z => z !== m);
+        const sup = utilisateur.messagesSupprimes = utilisateur.messagesSupprimes || [];
+        if (m.id) sup.push(m.id);
+        if (m.cid && m.cid !== m.id) sup.push(m.cid);
+        if (sup.length > 500) utilisateur.messagesSupprimes = sup.slice(-500);
+        sauverProfil();
+        rendreMessagesLocaux();
+        montrerNotification('🗑️ Message supprimé de cet appareil');
+    };
+    function ouvrirMenu(bulle, x, y) {
+        const m = utilisateur && msgDe(bulle);
+        if (!m) return;
+        fermerMenu();
+        menu = document.createElement('div');
+        menu.className = 'evat-msg-menu';
+        const actions = [['↩️ Répondre', () => repondre(m)]];
+        if (m.texte && m.texte !== '📷 Photo' && m.texte !== '🎤 Message vocal') actions.push(['📋 Copier le texte', () => copier(m.texte.replace(/^↩️ [^\n]*\n/, ''))]);
+        actions.push(['🗑️ Supprimer pour moi', () => supprimer(m)]);
+        actions.forEach(([libelle, fn]) => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.textContent = libelle;
+            b.onclick = () => { fermerMenu(); fn(); };
+            menu.appendChild(b);
+        });
+        document.body.appendChild(menu);
+        const r = menu.getBoundingClientRect();
+        menu.style.left = Math.max(8, Math.min(x, innerWidth - r.width - 8)) + 'px';
+        menu.style.top = Math.max(8, Math.min(y, innerHeight - r.height - 8)) + 'px';
+    }
+    const bulleSous = (e) => e.target.closest && e.target.closest('#listeMessagesLocaux .msg-bubble');
+    document.addEventListener('contextmenu', (e) => {
+        const b = bulleSous(e);
+        if (!b) return;
+        e.preventDefault();
+        if (!menu) ouvrirMenu(b, e.clientX, e.clientY);
+    });
+    document.addEventListener('touchstart', (e) => {
+        const b = bulleSous(e);
+        if (!b || e.target.closest('.msg-audio-play, img')) return;
+        const t = e.touches[0];
+        depart = { x: t.clientX, y: t.clientY };
+        clearTimeout(minuteur);
+        minuteur = setTimeout(() => { if (!menu) ouvrirMenu(b, depart.x, depart.y); }, 500);
+    }, { passive: true });
+    const annuler = () => clearTimeout(minuteur);
+    document.addEventListener('touchmove', (e) => {
+        if (!depart) return;
+        const t = e.touches[0];
+        if (Math.abs(t.clientX - depart.x) > 10 || Math.abs(t.clientY - depart.y) > 10) annuler();
+    }, { passive: true });
+    document.addEventListener('touchend', annuler, { passive: true });
+    document.addEventListener('touchcancel', annuler, { passive: true });
+    document.addEventListener('pointerdown', (e) => { if (menu && !e.target.closest('.evat-msg-menu')) fermerMenu(); }, true);
+    document.addEventListener('scroll', fermerMenu, true);
+
+    /* ----- Bandeau de connexion (le serveur gratuit met jusqu'à 30-50 s à se réveiller) ----- */
+    const barre = document.createElement('div');
+    barre.id = 'evatNetBar';
+    document.body.appendChild(barre);
+    let coupeDepuis = 0;
+    function majBarre() {
+        let t = '';
+        if (!navigator.onLine) t = '📡 Hors ligne — vos messages partiront dès le retour du réseau';
+        else if (utilisateur && !socket.connected) {
+            if (!coupeDepuis) coupeDepuis = Date.now();
+            if (Date.now() - coupeDepuis > 4000) t = '🔄 Connexion au serveur… (au réveil, cela peut prendre jusqu’à 30 secondes)';
+        }
+        if (socket.connected) coupeDepuis = 0;
+        barre.textContent = t;
+        barre.style.display = t ? 'block' : 'none';
+    }
+    window.addEventListener('online', majBarre);
+    window.addEventListener('offline', majBarre);
+    socket.on('connect', majBarre);
+    socket.on('disconnect', majBarre);
+    setInterval(majBarre, 2000);
+
+    /* ----- « Nouvelle version disponible » : s'affiche quand le service worker a été mis à jour ----- */
+    if ('serviceWorker' in navigator) {
+        const avaitUnControleur = !!navigator.serviceWorker.controller;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (!avaitUnControleur || document.getElementById('evatMajBar')) return;
+            const b = document.createElement('div');
+            b.id = 'evatMajBar';
+            b.innerHTML = '<span>✨ Nouvelle version d’EVAT prête</span><button type="button">Mettre à jour</button>';
+            b.querySelector('button').onclick = () => location.reload();
+            document.body.appendChild(b);
+        });
+    }
+})();
