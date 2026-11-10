@@ -3742,7 +3742,7 @@ function rendreFil(forcerBas) {
             ? texteMsgHtml(m.texte)
             : ((m.image || m.audio) ? '' : texteMsgHtml(m.texte || ''));
         html += `<div class="msg-bubble ${moi ? 'me' : 'other'}" data-mid="${escapeHtml(String(m.id || m.cid || ''))}">${auteur}${imgHtml}${audioHtml}${txtHtml}` +
-                `<div class="msg-meta"><span class="msg-time">${escapeHtml(m.ts ? heureCourte(m.ts) : (m.heure || ''))}</span>${coches(m)}</div></div>`;
+                `${reactionsHtml(m)}<div class="msg-meta"><span class="msg-time">${escapeHtml(m.ts ? heureCourte(m.ts) : (m.heure || ''))}</span>${coches(m)}</div></div>`;
     });
     container.innerHTML = html;
     if (forcerBas || procheDuBas) container.scrollTop = container.scrollHeight;
@@ -3818,11 +3818,12 @@ function fusionnerHistorique(msgs) {
         const ex = parId.get(m.id) || (m.cid && parId.get(m.cid));
         if (ex) {
             if (fromMe && etat && ex.etat !== etat && ex.etat !== 'read') { ex.etat = etat; change = true; }
+            if (JSON.stringify(ex.reactions || null) !== JSON.stringify(m.reactions || null)) { ex.reactions = m.reactions || null; change = true; }
             return;
         }
         const nouveau = {
             id: m.id, cid: m.cid || null, expediteur: m.fromName || m.from, from: m.from, texte: m.texte,
-            heure: m.heure, fromMe, to: m.to || null, ts: m.timestamp, etat
+            heure: m.heure, fromMe, to: m.to || null, ts: m.timestamp, etat, reactions: m.reactions || null
         };
         utilisateur.messagesLocaux.push(nouveau);
         if (!fromMe) {
@@ -5475,6 +5476,10 @@ function texteMsgHtml(t) {
         fermerMenu();
         menu = document.createElement('div');
         menu.className = 'evat-msg-menu';
+        const rangee = document.createElement('div');
+        rangee.className = 'evat-msg-reacts';
+        REACTIONS.forEach(em => { const b = document.createElement('button'); b.type = 'button'; b.textContent = em; b.onclick = () => { fermerMenu(); reagirAuMessage(m, em); }; rangee.appendChild(b); });
+        menu.appendChild(rangee);
         const actions = [['↩️ Répondre', () => repondre(m)]];
         if (m.texte && m.texte !== '📷 Photo' && m.texte !== '🎤 Message vocal') actions.push(['📋 Copier le texte', () => copier(m.texte.replace(/^↩️ [^\n]*\n/, ''))]);
         actions.push(['🗑️ Supprimer pour moi', () => supprimer(m)]);
@@ -5551,3 +5556,194 @@ function texteMsgHtml(t) {
         });
     }
 })();
+
+/* ============================================================
+   v4.12 : réactions aux messages, une interface dédiée par grand titre, thème clair/sombre
+   ============================================================ */
+const REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+
+function reactionsHtml(m) {
+    const r = m && m.reactions;
+    if (!r) return '';
+    const moi = utilisateur && utilisateur.telephone;
+    const puces = Object.keys(r).filter(e => r[e] && r[e].length).map(e =>
+        '<button type="button" class="msg-react' + (r[e].includes(moi) ? ' mine' : '') + '" data-react="' + escapeHtml(e) + '" data-mid="' + escapeHtml(String(m.id || m.cid || '')) + '">' + e + (r[e].length > 1 ? ' <i>' + r[e].length + '</i>' : '') + '</button>');
+    return puces.length ? '<div class="msg-reacts">' + puces.join('') + '</div>' : '';
+}
+
+function reagirAuMessage(m, emoji) {
+    if (!m || !utilisateur || !m.id || m.etat === 'pending' || m.etat === 'failed') { montrerNotification('⏳ Attendez que le message soit envoyé.'); return; }
+    const moi = utilisateur.telephone;
+    const r = m.reactions = m.reactions || {};
+    const avait = (r[emoji] || []).includes(moi);
+    Object.keys(r).forEach(e => { r[e] = r[e].filter(t => t !== moi); if (!r[e].length) delete r[e]; });
+    if (!avait) (r[emoji] = r[emoji] || []).push(moi);
+    if (!Object.keys(r).length) m.reactions = null;
+    sauverProfil();
+    rendreMessagesLocaux();
+    socket.emit('react_message', { id: m.id, emoji }, (res) => { if (!res || !res.ok) montrerNotification('⚠️ Réaction non envoyée.'); });
+}
+
+socket.on('message_reaction', (d) => {
+    if (!utilisateur || !d || !d.id) return;
+    const m = (utilisateur.messagesLocaux || []).find(x => x.id === d.id);
+    if (!m) return;
+    m.reactions = (d.reactions && Object.keys(d.reactions).length) ? d.reactions : null;
+    sauverProfil();
+    rendreMessagesLocaux();
+});
+
+document.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('.msg-react');
+    if (!b || !utilisateur) return;
+    const id = b.dataset.mid;
+    const m = (utilisateur.messagesLocaux || []).find(z => String(z.id) === id || z.cid === id);
+    if (m) reagirAuMessage(m, b.dataset.react);
+});
+
+/* ---------- Une interface dédiée par grand titre ---------- */
+const HUBS = [
+    { id: 'communication', icone: '💬', nav: 'Communication', titre: 'Communication', desc: 'Messages, contacts, appels, carte GPS',
+      tabs: [['messagerie', '💬', 'Messages'], ['contacts', '👥', 'Contacts'], ['appels', '📞', 'Appels'], ['map', '🗺️', 'Carte & GPS']], aussi: ['communications'] },
+    { id: 'ia', icone: '🔮', nav: 'IA & Studio', titre: 'Intelligence & Studio', desc: 'Mister ELAWS, Mister I, Studio vidéo',
+      tabs: [['elaws-ia', '🔮', 'Mister ELAWS'], ['ia-metier', '💼', 'Mister I'], ['studio-elaws', '🎬', 'Studio']] },
+    { id: 'outils', icone: '🧰', nav: 'Outils', titre: 'Outils & Évolution', desc: 'Bloc-notes, voyage, sauvegarde, quêtes',
+      tabs: [['outils', '🛠️', 'Bloc-notes'], ['voyage', '✈️', 'Voyage'], ['sync', '☁️', 'Sauvegarde'], ['quetes', '⚡', 'Quêtes'], ['succes1000', '💎', 'Stratégie']] },
+    { id: 'moi', icone: '👤', nav: 'Moi', titre: 'Mon compte', desc: 'Profil, sécurité, paramètres, sonneries, appli Android',
+      tabs: [['profil', '👤', 'Profil'], ['parametres', '⚙️', 'Paramètres']] }
+];
+const hubDeTab = (t) => HUBS.find(h => h.tabs.some(x => x[0] === t) || (h.aussi || []).includes(t)) || null;
+
+function ouvrirHub(id) {
+    const h = HUBS.find(x => x.id === id);
+    if (!h) return;
+    let t = null;
+    try { t = localStorage.getItem('evat_hub_' + id); } catch (e) {}
+    if (!t || !h.tabs.some(x => x[0] === t)) t = h.tabs[0][0];
+    switchTab(t);
+}
+
+(function () {
+    const st = document.createElement('style');
+    st.textContent =
+        '.msg-reacts{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0 0}' +
+        '.msg-react{border:1px solid rgba(120,160,255,.35);background:rgba(120,160,255,.14);color:inherit;border-radius:999px;padding:1px 8px;font-size:14px;line-height:22px;cursor:pointer;font-family:inherit}' +
+        '.msg-react.mine{background:rgba(59,156,255,.35);border-color:#3b9cff}.msg-react i{font-style:normal;font-size:12px;opacity:.85}' +
+        '.evat-msg-reacts{display:flex;gap:2px;padding:4px 4px 6px;border-bottom:1px solid rgba(120,160,255,.2);margin-bottom:4px}' +
+        '.evat-msg-reacts button{flex:1;text-align:center;padding:6px 0;font-size:22px}' +
+        /* accueil : grandes tuiles */
+        '.hub-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 0 16px}' +
+        '.hub-tile{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;padding:16px 14px;border-radius:18px;border:1px solid var(--border-color);background:var(--card-bg);color:var(--text-primary);box-shadow:var(--glow);cursor:pointer;font-family:inherit;min-height:128px}' +
+        '.hub-tile:active{transform:scale(.98)}' +
+        '.hub-tile .hub-ico{font-size:30px;line-height:1}' +
+        '.hub-tile strong{font-size:16px}' +
+        '.hub-tile span.hub-desc{font-size:12.5px;color:var(--text-secondary);line-height:1.35}' +
+        '.hub-tile .badge{position:absolute;top:10px;right:10px}' +
+        /* barre de l'interface ouverte */
+        '#hubBar{position:sticky;top:var(--header-h,56px);z-index:1050;background:rgba(4,10,26,.9);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border-bottom:1px solid var(--border-color);padding:8px 12px 8px}' +
+        '#hubBar[hidden]{display:none}' +
+        '#hubBar .hub-top{display:flex;align-items:center;gap:8px;margin-bottom:6px}' +
+        '#hubBar .hub-back{border:0;background:var(--card-bg);color:var(--text-primary);width:34px;height:34px;border-radius:50%;font-size:20px;line-height:1;cursor:pointer;border:1px solid var(--border-color)}' +
+        '#hubBar .hub-titre{font-size:17px;font-weight:700;color:var(--text-primary)}' +
+        '#hubBar .hub-chips{display:none;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}' +
+        '#hubBar .hub-chips.on{display:flex}#hubBar .hub-chips::-webkit-scrollbar{display:none}' +
+        '#hubBar .hub-chip{position:relative;flex:0 0 auto;border:1px solid var(--border-color);background:var(--card-bg);color:var(--text-secondary);border-radius:999px;padding:8px 14px;font-size:14px;font-family:inherit;cursor:pointer;white-space:nowrap}' +
+        '#hubBar .hub-chip.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}' +
+        '#hubBar .hub-chip .badge{position:static;margin-left:6px;vertical-align:middle}' +
+        'body.in-chat #hubBar{display:none}';
+    document.head.appendChild(st);
+
+    /* ----- Barre de navigation du bas : un bouton par grand titre ----- */
+    const nav = document.getElementById('bottomNav');
+    const svgAccueil = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>';
+    if (nav) {
+        nav.innerHTML =
+            '<button type="button" data-hub="accueil" class="active" onclick="switchTab(\'dashboard\')">' + svgAccueil + '<span>Accueil</span></button>' +
+            HUBS.map(h => '<button type="button" data-hub="' + h.id + '" onclick="ouvrirHub(\'' + h.id + '\')"><span class="hub-nav-ico" style="font-size:22px;line-height:23px">' + h.icone + '</span>' +
+                (h.id === 'communication' ? '<b id="badgeComm" class="badge" hidden>0</b>' : '') + '<span>' + h.nav + '</span></button>').join('');
+    }
+
+    /* ----- Barre de l'interface ouverte (retour + sections de ce titre) ----- */
+    const main = document.querySelector('main');
+    const barre = document.createElement('div');
+    barre.id = 'hubBar';
+    barre.hidden = true;
+    barre.innerHTML = '<div class="hub-top"><button type="button" class="hub-back" aria-label="Retour à l’accueil" onclick="switchTab(\'dashboard\')">‹</button><span class="hub-titre"></span></div>' +
+        HUBS.map(h => '<div class="hub-chips" data-hub="' + h.id + '">' + h.tabs.map(([t, ic, nom]) =>
+            '<button type="button" class="hub-chip" data-tab="' + t + '" onclick="switchTab(\'' + t + '\')">' + ic + ' ' + nom +
+            (t === 'messagerie' ? ' <b id="badgeMsg" class="badge" hidden>0</b>' : '') + (t === 'appels' ? ' <b id="badgeAppels" class="badge" hidden>0</b>' : '') + '</button>').join('') + '</div>').join('');
+    if (main) main.insertBefore(barre, main.firstChild);
+
+    /* ----- Accueil : grandes tuiles ----- */
+    const dash = document.getElementById('tab-dashboard');
+    if (dash) {
+        const grille = document.createElement('div');
+        grille.className = 'hub-grid';
+        grille.innerHTML = HUBS.map(h => '<button type="button" class="hub-tile" onclick="ouvrirHub(\'' + h.id + '\')"><span class="hub-ico">' + h.icone + '</span><strong>' + h.titre + '</strong><span class="hub-desc">' + h.desc + '</span>' +
+            (h.id === 'communication' ? '<b id="badgeTuileComm" class="badge" hidden>0</b>' : '') + '</button>').join('');
+        dash.insertBefore(grille, dash.firstChild);
+    }
+
+    /* ----- Menu ☰ : mêmes grands titres ----- */
+    const racine = document.getElementById('navModulesRoot');
+    if (racine) {
+        racine.innerHTML = '<p class="nav-hint">Choisissez une interface</p>' +
+            '<div class="nav-module"><button type="button" class="nav-module-btn" onclick="switchTab(\'dashboard\')">🏠 Accueil</button></div>' +
+            HUBS.map(h => '<div class="nav-module"><button type="button" class="nav-module-btn" onclick="ouvrirHub(\'' + h.id + '\')">' + h.icone + ' ' + h.titre + '</button></div>').join('');
+    }
+    const bandeau = document.querySelector('.nav-hint');
+    void bandeau;
+
+    const majHauteurEntete = () => { const hd = document.querySelector('.header'); if (hd) document.documentElement.style.setProperty('--header-h', hd.offsetHeight + 'px'); };
+    majHauteurEntete(); setTimeout(majHauteurEntete, 800); window.addEventListener('resize', majHauteurEntete);
+
+    /* ----- Mise à jour à chaque changement d'écran ----- */
+    const switchTabOrigine = switchTab;
+    switchTab = function (tabId) {
+        switchTabOrigine(tabId);
+        const h = hubDeTab(tabId);
+        const idHub = h ? h.id : 'accueil';
+        if (h) { try { localStorage.setItem('evat_hub_' + h.id, tabId); } catch (e) {} }
+        document.querySelectorAll('#bottomNav [data-hub]').forEach(b => b.classList.toggle('active', b.dataset.hub === idHub));
+        barre.hidden = !h;
+        if (h) {
+            barre.querySelector('.hub-titre').textContent = h.icone + ' ' + h.titre;
+            barre.querySelectorAll('.hub-chips').forEach(c => c.classList.toggle('on', c.dataset.hub === h.id));
+            barre.querySelectorAll('.hub-chip').forEach(c => c.classList.toggle('active', c.dataset.tab === tabId));
+            const actif = barre.querySelector('.hub-chip.active');
+            if (actif && actif.scrollIntoView) actif.scrollIntoView({ inline: 'center', block: 'nearest' });
+        }
+    };
+
+    /* ----- Pastille « Communication » = messages non lus + appels manqués ----- */
+    const majBadgesOrigine = majBadges;
+    majBadges = function () {
+        majBadgesOrigine();
+        let n = 0;
+        try { n = nbNonLusTotal() + appelsManquesNonVus(); } catch (e) {}
+        ['badgeComm', 'badgeTuileComm'].forEach(id => {
+            const b = document.getElementById(id);
+            if (b) { b.textContent = n > 99 ? '99+' : String(n); b.hidden = n === 0; }
+        });
+    };
+    try { majBadges(); } catch (e) {}
+})();
+
+/* ---------- Thème clair / sombre / automatique ---------- */
+function themeChoisi() { try { return localStorage.getItem('evat_theme') || 'sombre'; } catch (e) { return 'sombre'; } }
+function appliquerTheme() {
+    const t = themeChoisi();
+    const clair = t === 'clair' || (t === 'auto' && window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches);
+    if (clair) document.documentElement.setAttribute('data-theme', 'light'); else document.documentElement.removeAttribute('data-theme');
+    const m = document.querySelector('meta[name="theme-color"]');
+    if (m) m.setAttribute('content', clair ? '#f3f6fb' : '#030712');
+    document.querySelectorAll('[data-theme-choix]').forEach(b => b.classList.toggle('active', b.dataset.themeChoix === t));
+}
+function choisirTheme(t) {
+    try { localStorage.setItem('evat_theme', t); } catch (e) {}
+    appliquerTheme();
+}
+if (window.matchMedia) {
+    try { matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => { if (themeChoisi() === 'auto') appliquerTheme(); }); } catch (e) {}
+}
+appliquerTheme();
