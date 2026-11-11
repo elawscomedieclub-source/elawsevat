@@ -1170,6 +1170,7 @@ function ouvrirFicheContact(index) {
     rendreFicheTelephones(contact);
     rendreFicheEmails(contact);
     rendreFicheHistorique(contact);
+    majInvitationFiche(contact);
 
     document.querySelectorAll('.cf-histo-filtres .cf-chip').forEach(ch => {
         ch.classList.toggle('active', ch.getAttribute('data-hf') === 'tous');
@@ -3000,8 +3001,13 @@ function groupesLocaux() {
     return utilisateur.groupes;
 }
 
+const estCleService = (k) => String(k || '').startsWith('svc-');
 function nomConvo(k) {
     if (k === 'general') return 'Réseau EVAT';
+    if (estCleService(k)) {
+        const m = (utilisateur && utilisateur.messagesLocaux || []).filter(x => x.from === k && x.expediteur).pop();
+        return (m && m.expediteur) || ('🔔 ' + String(k).slice(4).charAt(0).toUpperCase() + String(k).slice(5));
+    }
     if (estCleGroupe(k)) {
         const id = idGroupeDeCle(k);
         const g = groupesLocaux().find(x => x.id === id);
@@ -3631,11 +3637,13 @@ function ouvrirConversation(cle) {
     document.getElementById('convListView').style.display = 'none';
     document.getElementById('chatView').style.display = 'flex';
     document.getElementById('chatPeerName').textContent = nomConvo(cle);
-    document.getElementById('chatPeerAvatar').textContent = cle === 'general' ? '🌐' : (estCleGroupe(cle) ? '👥' : initialesDe(nomConvo(cle)));
-    const prive = cle !== 'general' && !estCleGroupe(cle);
+    document.getElementById('chatPeerAvatar').textContent = cle === 'general' ? '🌐' : (estCleGroupe(cle) ? '👥' : (estCleService(cle) ? '🔔' : initialesDe(nomConvo(cle))));
+    const service = estCleService(cle);
+    document.getElementById('chatView').classList.toggle('convo-service', service);
+    const prive = cle !== 'general' && !estCleGroupe(cle) && !service;
     ['btnChatAudio', 'btnChatVideo'].forEach(id => { const b = document.getElementById(id); if (b) b.style.display = prive ? '' : 'none'; });
     const br = document.getElementById('btnChatResume');
-    if (br) br.style.display = (cle === 'general') ? 'none' : '';
+    if (br) br.style.display = (cle === 'general' || service) ? 'none' : '';
     let btnLeave = document.getElementById('btnChatLeaveGroup');
     if (!btnLeave) {
         const top = document.querySelector('#chatView .chat-top');
@@ -3674,6 +3682,7 @@ function majEntetePeer() {
     if (!el || !convoOuverte) return;
     el.classList.remove('typing');
     if (convoOuverte === 'general') { el.textContent = 'Diffusion à tous les opérateurs'; return; }
+    if (estCleService(convoOuverte)) { el.textContent = 'Messages automatiques · lecture seule'; return; }
     const c = (utilisateur.contacts || []).find(x => x.telephone === convoOuverte);
     if (c && c.online) {
         const st = c.statut || 'disponible';
@@ -3776,7 +3785,7 @@ function rendreListeConversations() {
         const c = k !== 'general' ? (utilisateur.contacts || []).find(x => x.telephone === k) : null;
         const n = nonLus[k] || 0;
         const apercu = m ? ((m.fromMe ? 'Vous : ' : ((k === 'general' || estCleGroupe(k)) ? m.expediteur + ' : ' : '')) + (m.audio ? '🎤 Message vocal' : (m.image && (!m.texte || m.texte === '📷 Photo') ? '📷 Photo' : texteApercu(m.texte || '')))) : 'Aucun message';
-        const avatar = k === 'general' ? '🌐' : (estCleGroupe(k) ? '👥' : escapeHtml(initialesDe(nom)));
+        const avatar = k === 'general' ? '🌐' : (estCleGroupe(k) ? '👥' : (estCleService(k) ? '🔔' : escapeHtml(initialesDe(nom))));
         return `<button type="button" class="conv-item ${n ? 'unread' : ''}" data-conv="${escapeHtml(k)}">
             <span class="avatar ${k === 'general' ? 'net' : ''} ${estCleGroupe(k) ? 'grp' : ''}">${avatar}${c && c.online ? '<i class="dot-on"></i>' : ''}</span>
             <span class="conv-body"><span class="conv-top"><strong>${escapeHtml(nom)}</strong><time>${m && m.ts ? escapeHtml(heureCourte(m.ts)) : ''}</time></span>
@@ -5420,9 +5429,18 @@ function texteMsgHtml(t) {
     if (t.startsWith('↩️ ') && t.indexOf('\n') > 0) {
         const i = t.indexOf('\n');
         const reste = t.slice(i + 1);
-        return '<blockquote class="msg-quote">' + escapeHtml(t.slice(3, i)) + '</blockquote>' + (reste ? '<p>' + escapeHtml(reste) + '</p>' : '');
+        return '<blockquote class="msg-quote">' + escapeHtml(t.slice(3, i)) + '</blockquote>' + (reste ? '<p>' + lierUrls(escapeHtml(reste)) + '</p>' : '');
     }
-    return '<p>' + escapeHtml(t) + '</p>';
+    return '<p>' + lierUrls(escapeHtml(t)) + '</p>';
+}
+
+// Liens http(s) cliquables (le texte est déjà échappé : aucun HTML venant de l'expéditeur ne passe)
+function lierUrls(htmlEchappe) {
+    return htmlEchappe.replace(/\bhttps?:\/\/[^\s<]+/g, (u) => {
+        const fin = (u.match(/[).,;!?]+$/) || [''])[0];
+        const lien = fin ? u.slice(0, -fin.length) : u;
+        return '<a href="' + lien + '" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:underline;word-break:break-all">' + lien + '</a>' + fin;
+    });
 }
 
 (function () {
@@ -5601,28 +5619,6 @@ document.addEventListener('click', (e) => {
     if (m) reagirAuMessage(m, b.dataset.react);
 });
 
-/* ---------- Une interface dédiée par grand titre ---------- */
-const HUBS = [
-    { id: 'communication', icone: '💬', nav: 'Communication', titre: 'Communication', desc: 'Messages, contacts, appels, carte GPS',
-      tabs: [['messagerie', '💬', 'Messages'], ['contacts', '👥', 'Contacts'], ['appels', '📞', 'Appels'], ['map', '🗺️', 'Carte & GPS']], aussi: ['communications'] },
-    { id: 'ia', icone: '🔮', nav: 'IA & Studio', titre: 'Intelligence & Studio', desc: 'Mister ELAWS, Mister I, Studio vidéo',
-      tabs: [['elaws-ia', '🔮', 'Mister ELAWS'], ['ia-metier', '💼', 'Mister I'], ['studio-elaws', '🎬', 'Studio']] },
-    { id: 'outils', icone: '🧰', nav: 'Outils', titre: 'Outils & Évolution', desc: 'Bloc-notes, voyage, sauvegarde, quêtes',
-      tabs: [['outils', '🛠️', 'Bloc-notes'], ['voyage', '✈️', 'Voyage'], ['sync', '☁️', 'Sauvegarde'], ['quetes', '⚡', 'Quêtes'], ['succes1000', '💎', 'Stratégie']] },
-    { id: 'moi', icone: '👤', nav: 'Moi', titre: 'Mon compte', desc: 'Profil, sécurité, paramètres, sonneries, appli Android',
-      tabs: [['profil', '👤', 'Profil'], ['parametres', '⚙️', 'Paramètres']] }
-];
-const hubDeTab = (t) => HUBS.find(h => h.tabs.some(x => x[0] === t) || (h.aussi || []).includes(t)) || null;
-
-function ouvrirHub(id) {
-    const h = HUBS.find(x => x.id === id);
-    if (!h) return;
-    let t = null;
-    try { t = localStorage.getItem('evat_hub_' + id); } catch (e) {}
-    if (!t || !h.tabs.some(x => x[0] === t)) t = h.tabs[0][0];
-    switchTab(t);
-}
-
 (function () {
     const st = document.createElement('style');
     st.textContent =
@@ -5630,103 +5626,8 @@ function ouvrirHub(id) {
         '.msg-react{border:1px solid rgba(120,160,255,.35);background:rgba(120,160,255,.14);color:inherit;border-radius:999px;padding:1px 8px;font-size:14px;line-height:22px;cursor:pointer;font-family:inherit}' +
         '.msg-react.mine{background:rgba(59,156,255,.35);border-color:#3b9cff}.msg-react i{font-style:normal;font-size:12px;opacity:.85}' +
         '.evat-msg-reacts{display:flex;gap:2px;padding:4px 4px 6px;border-bottom:1px solid rgba(120,160,255,.2);margin-bottom:4px}' +
-        '.evat-msg-reacts button{flex:1;text-align:center;padding:6px 0;font-size:22px}' +
-        /* accueil : grandes tuiles */
-        '.hub-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 0 16px}' +
-        '.hub-tile{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;padding:16px 14px;border-radius:18px;border:1px solid var(--border-color);background:var(--card-bg);color:var(--text-primary);box-shadow:var(--glow);cursor:pointer;font-family:inherit;min-height:128px}' +
-        '.hub-tile:active{transform:scale(.98)}' +
-        '.hub-tile .hub-ico{font-size:30px;line-height:1}' +
-        '.hub-tile strong{font-size:16px}' +
-        '.hub-tile span.hub-desc{font-size:12.5px;color:var(--text-secondary);line-height:1.35}' +
-        '.hub-tile .badge{position:absolute;top:10px;right:10px}' +
-        /* barre de l'interface ouverte */
-        '#hubBar{position:sticky;top:var(--header-h,56px);z-index:1050;background:rgba(4,10,26,.9);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border-bottom:1px solid var(--border-color);padding:8px 12px 8px}' +
-        '#hubBar[hidden]{display:none}' +
-        '#hubBar .hub-top{display:flex;align-items:center;gap:8px;margin-bottom:6px}' +
-        '#hubBar .hub-back{border:0;background:var(--card-bg);color:var(--text-primary);width:34px;height:34px;border-radius:50%;font-size:20px;line-height:1;cursor:pointer;border:1px solid var(--border-color)}' +
-        '#hubBar .hub-titre{font-size:17px;font-weight:700;color:var(--text-primary)}' +
-        '#hubBar .hub-chips{display:none;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}' +
-        '#hubBar .hub-chips.on{display:flex}#hubBar .hub-chips::-webkit-scrollbar{display:none}' +
-        '#hubBar .hub-chip{position:relative;flex:0 0 auto;border:1px solid var(--border-color);background:var(--card-bg);color:var(--text-secondary);border-radius:999px;padding:8px 14px;font-size:14px;font-family:inherit;cursor:pointer;white-space:nowrap}' +
-        '#hubBar .hub-chip.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}' +
-        '#hubBar .hub-chip .badge{position:static;margin-left:6px;vertical-align:middle}' +
-        'body.in-chat #hubBar{display:none}';
+        '.evat-msg-reacts button{flex:1;text-align:center;padding:6px 0;font-size:22px}';
     document.head.appendChild(st);
-
-    /* ----- Barre de navigation du bas : un bouton par grand titre ----- */
-    const nav = document.getElementById('bottomNav');
-    const svgAccueil = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>';
-    if (nav) {
-        nav.innerHTML =
-            '<button type="button" data-hub="accueil" class="active" onclick="switchTab(\'dashboard\')">' + svgAccueil + '<span>Accueil</span></button>' +
-            HUBS.map(h => '<button type="button" data-hub="' + h.id + '" onclick="ouvrirHub(\'' + h.id + '\')"><span class="hub-nav-ico" style="font-size:22px;line-height:23px">' + h.icone + '</span>' +
-                (h.id === 'communication' ? '<b id="badgeComm" class="badge" hidden>0</b>' : '') + '<span>' + h.nav + '</span></button>').join('');
-    }
-
-    /* ----- Barre de l'interface ouverte (retour + sections de ce titre) ----- */
-    const main = document.querySelector('main');
-    const barre = document.createElement('div');
-    barre.id = 'hubBar';
-    barre.hidden = true;
-    barre.innerHTML = '<div class="hub-top"><button type="button" class="hub-back" aria-label="Retour à l’accueil" onclick="switchTab(\'dashboard\')">‹</button><span class="hub-titre"></span></div>' +
-        HUBS.map(h => '<div class="hub-chips" data-hub="' + h.id + '">' + h.tabs.map(([t, ic, nom]) =>
-            '<button type="button" class="hub-chip" data-tab="' + t + '" onclick="switchTab(\'' + t + '\')">' + ic + ' ' + nom +
-            (t === 'messagerie' ? ' <b id="badgeMsg" class="badge" hidden>0</b>' : '') + (t === 'appels' ? ' <b id="badgeAppels" class="badge" hidden>0</b>' : '') + '</button>').join('') + '</div>').join('');
-    if (main) main.insertBefore(barre, main.firstChild);
-
-    /* ----- Accueil : grandes tuiles ----- */
-    const dash = document.getElementById('tab-dashboard');
-    if (dash) {
-        const grille = document.createElement('div');
-        grille.className = 'hub-grid';
-        grille.innerHTML = HUBS.map(h => '<button type="button" class="hub-tile" onclick="ouvrirHub(\'' + h.id + '\')"><span class="hub-ico">' + h.icone + '</span><strong>' + h.titre + '</strong><span class="hub-desc">' + h.desc + '</span>' +
-            (h.id === 'communication' ? '<b id="badgeTuileComm" class="badge" hidden>0</b>' : '') + '</button>').join('');
-        dash.insertBefore(grille, dash.firstChild);
-    }
-
-    /* ----- Menu ☰ : mêmes grands titres ----- */
-    const racine = document.getElementById('navModulesRoot');
-    if (racine) {
-        racine.innerHTML = '<p class="nav-hint">Choisissez une interface</p>' +
-            '<div class="nav-module"><button type="button" class="nav-module-btn" onclick="switchTab(\'dashboard\')">🏠 Accueil</button></div>' +
-            HUBS.map(h => '<div class="nav-module"><button type="button" class="nav-module-btn" onclick="ouvrirHub(\'' + h.id + '\')">' + h.icone + ' ' + h.titre + '</button></div>').join('');
-    }
-    const bandeau = document.querySelector('.nav-hint');
-    void bandeau;
-
-    const majHauteurEntete = () => { const hd = document.querySelector('.header'); if (hd) document.documentElement.style.setProperty('--header-h', hd.offsetHeight + 'px'); };
-    majHauteurEntete(); setTimeout(majHauteurEntete, 800); window.addEventListener('resize', majHauteurEntete);
-
-    /* ----- Mise à jour à chaque changement d'écran ----- */
-    const switchTabOrigine = switchTab;
-    switchTab = function (tabId) {
-        switchTabOrigine(tabId);
-        const h = hubDeTab(tabId);
-        const idHub = h ? h.id : 'accueil';
-        if (h) { try { localStorage.setItem('evat_hub_' + h.id, tabId); } catch (e) {} }
-        document.querySelectorAll('#bottomNav [data-hub]').forEach(b => b.classList.toggle('active', b.dataset.hub === idHub));
-        barre.hidden = !h;
-        if (h) {
-            barre.querySelector('.hub-titre').textContent = h.icone + ' ' + h.titre;
-            barre.querySelectorAll('.hub-chips').forEach(c => c.classList.toggle('on', c.dataset.hub === h.id));
-            barre.querySelectorAll('.hub-chip').forEach(c => c.classList.toggle('active', c.dataset.tab === tabId));
-            const actif = barre.querySelector('.hub-chip.active');
-            if (actif && actif.scrollIntoView) actif.scrollIntoView({ inline: 'center', block: 'nearest' });
-        }
-    };
-
-    /* ----- Pastille « Communication » = messages non lus + appels manqués ----- */
-    const majBadgesOrigine = majBadges;
-    majBadges = function () {
-        majBadgesOrigine();
-        let n = 0;
-        try { n = nbNonLusTotal() + appelsManquesNonVus(); } catch (e) {}
-        ['badgeComm', 'badgeTuileComm'].forEach(id => {
-            const b = document.getElementById(id);
-            if (b) { b.textContent = n > 99 ? '99+' : String(n); b.hidden = n === 0; }
-        });
-    };
-    try { majBadges(); } catch (e) {}
 })();
 
 /* ---------- Thème clair / sombre / automatique ---------- */
@@ -5747,3 +5648,305 @@ if (window.matchMedia) {
     try { matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => { if (themeChoisi() === 'auto') appliquerTheme(); }); } catch (e) {}
 }
 appliquerTheme();
+
+/* ============================================================
+   v4.14 : visio de groupe (Jitsi), invitations, messages de partenaires
+   ============================================================ */
+// Visio gratuite via Jitsi Meet : une salle au nom imprévisible, le lien est envoyé dans la discussion (1 à 1 ou groupe)
+function lancerVisioGroupe() {
+    if (!utilisateur || !convoOuverte || estCleService(convoOuverte)) return;
+    const alea = Array.from(crypto.getRandomValues(new Uint8Array(8))).map(b => b.toString(36).padStart(2, '0')).join('').slice(0, 12);
+    const url = 'https://meet.jit.si/EVAT-' + alea;
+    const input = document.getElementById('chatLocalInput');
+    if (!input) return;
+    input.value = '🎥 Rejoins la visio EVAT : ' + url;
+    envoyerMessageChatLocal();
+    window.open(url, '_blank', 'noopener');
+}
+
+// Invitation d'un contact qui n'est pas encore sur EVAT : WhatsApp ou SMS depuis le téléphone de l'utilisateur (gratuit côté EVAT)
+function majInvitationFiche(contact) {
+    const statut = document.getElementById('contactFicheStatut');
+    if (!statut) return;
+    let box = document.getElementById('ficheInviter');
+    if (!box) {
+        box = document.createElement('div');
+        box.id = 'ficheInviter';
+        box.style.cssText = 'display:flex;gap:8px;justify-content:center;margin:10px 0 0;flex-wrap:wrap';
+        statut.insertAdjacentElement('afterend', box);
+    }
+    const tel = contact && contact.telephone;
+    if (!tel || contact.surEVAT) { box.style.display = 'none'; box.innerHTML = ''; return; }
+    const texte = 'Salut ! Je suis sur EVAT : messages, appels et visio gratuits. Rejoins-moi : ' + location.origin;
+    const num = String(tel).replace(/[^\d]/g, '');
+    box.style.display = 'flex';
+    box.innerHTML = '<span style="width:100%;text-align:center;font-size:12px;opacity:.8">Pas encore sur EVAT — invitez-le :</span>' +
+        '<a class="btn-mini success" style="text-decoration:none" target="_blank" rel="noopener" href="https://wa.me/' + num + '?text=' + encodeURIComponent(texte) + '">💬 WhatsApp</a>' +
+        '<a class="btn-mini" style="text-decoration:none;color:#fff;background:rgba(120,160,255,.25);border-radius:999px;padding:6px 12px" href="sms:' + escapeHtml(tel) + '?&body=' + encodeURIComponent(texte) + '">✉️ SMS</a>';
+}
+
+(function () {
+    const st = document.createElement('style');
+    st.textContent = '#chatView.convo-service .chat-toolbar{display:none!important}#chatView.convo-service #btnChatVisio{display:none}';
+    document.head.appendChild(st);
+})();
+
+/* ============================================================
+   v4.15 : Statuts de 24 heures (texte sur fond coloré ou photo), visibles par vos contacts
+   ============================================================ */
+let statutsCache = [];
+const _statutImages = new Map();
+const STATUT_COULEURS = ['#0e7490', '#16a34a', '#7c3aed', '#db2777', '#ea580c', '#1d4ed8', '#374151'];
+
+function ilYaStatut(ts) {
+    const m = Math.max(0, Math.round((Date.now() - ts) / 60000));
+    if (m < 1) return 'à l’instant';
+    if (m < 60) return 'il y a ' + m + ' min';
+    return 'il y a ' + Math.round(m / 60) + ' h';
+}
+function nomPosteurStatut(tel, nomServeur) {
+    if (utilisateur && tel === utilisateur.telephone) return 'Mon statut';
+    const c = (utilisateur && utilisateur.contacts || []).find(x => x.telephone === tel);
+    return (c && c.nom) || nomServeur || tel;
+}
+
+function chargerStatuts() {
+    if (!utilisateur || !socket.connected) return;
+    socket.emit('statuts_lister', { telephones: (utilisateur.contacts || []).map(c => c.telephone).filter(Boolean) }, (res) => {
+        if (!res || !res.ok) return;
+        statutsCache = res.statuts || [];
+        rendreBandeStatuts();
+    });
+}
+
+function groupesStatuts() {
+    const g = new Map();
+    statutsCache.forEach(s => { if (!g.has(s.from)) g.set(s.from, []); g.get(s.from).push(s); });
+    g.forEach(l => l.sort((a, b) => a.ts - b.ts));
+    return g;
+}
+
+function rendreBandeStatuts() {
+    const bande = document.getElementById('statutBande');
+    if (!bande || !utilisateur) return;
+    const g = groupesStatuts();
+    const moi = utilisateur.telephone;
+    const miens = g.get(moi) || [];
+    const autres = [...g.entries()].filter(([t]) => t !== moi).map(([t, l]) => ({
+        tel: t, nom: nomPosteurStatut(t, l[0].nom), nonVu: l.some(x => !x.vu), dernier: l[l.length - 1].ts
+    })).sort((a, b) => (b.nonVu - a.nonVu) || (b.dernier - a.dernier));
+    const item = (tel, nom, etat, plus) =>
+        '<div class="statut-item" data-tel="' + escapeHtml(tel) + '"><span class="statut-anneau ' + etat + '"><span class="statut-avatar">' + escapeHtml(initialesDe(nom === 'Mon statut' ? (utilisateur.nom || 'Moi') : nom)) + '</span>' +
+        (plus ? '<button type="button" class="statut-plus" data-act="nouveau" aria-label="Ajouter un statut">+</button>' : '') + '</span><span class="statut-nom">' + escapeHtml(nom) + '</span></div>';
+    bande.innerHTML = item(moi, 'Mon statut', miens.length ? 'vu' : 'aucun', true) + autres.map(a => item(a.tel, a.nom, a.nonVu ? 'nonvu' : 'vu', false)).join('');
+}
+
+document.addEventListener('click', (e) => {
+    const bande = e.target.closest && e.target.closest('#statutBande');
+    if (!bande) return;
+    if (e.target.closest('[data-act="nouveau"]')) { ouvrirComposerStatut(); return; }
+    const it = e.target.closest('.statut-item');
+    if (!it) return;
+    const tel = it.dataset.tel;
+    const liste = groupesStatuts().get(tel);
+    if (liste && liste.length) {
+        let depart = liste.findIndex(x => !x.vu);
+        ouvrirVisionneuseStatut(tel, depart < 0 ? 0 : depart);
+    } else if (tel === utilisateur.telephone) ouvrirComposerStatut();
+});
+
+/* ----- Création d'un statut ----- */
+let _statutPhoto = null, _statutBg = STATUT_COULEURS[0];
+function ouvrirComposerStatut() {
+    fermerComposerStatut();
+    _statutPhoto = null; _statutBg = STATUT_COULEURS[0];
+    const o = document.createElement('div');
+    o.id = 'statutComposer';
+    o.className = 'statut-overlay';
+    o.innerHTML =
+        '<div class="statut-ecran" id="statutEcran">' +
+        '<div class="statut-haut"><button type="button" class="statut-btn" id="stCancel" aria-label="Annuler">✕</button><span>Nouveau statut · 24 h</span><span></span></div>' +
+        '<textarea id="statutTexte" maxlength="700" placeholder="Écrivez votre statut…" aria-label="Texte du statut"></textarea>' +
+        '<div class="statut-bas"><div class="statut-palette" id="statutPalette"></div>' +
+        '<div class="statut-actions"><label class="statut-btn" for="statutFichier" title="Ajouter une photo">📷 Photo</label><input type="file" id="statutFichier" accept="image/*" hidden>' +
+        '<button type="button" class="statut-publier" id="stPublier">Publier ➤</button></div>' +
+        '<small class="statut-info">Visible 24 h par les personnes qui ont votre numéro dans leurs contacts.</small></div></div>';
+    document.body.appendChild(o);
+    const ecran = document.getElementById('statutEcran');
+    const appliquerFond = () => {
+        ecran.style.background = _statutPhoto ? '#000 center/contain no-repeat url(' + _statutPhoto + ')' : _statutBg;
+        document.getElementById('statutTexte').placeholder = _statutPhoto ? 'Ajouter une légende…' : 'Écrivez votre statut…';
+        ecran.classList.toggle('avec-photo', !!_statutPhoto);
+    };
+    document.getElementById('statutPalette').innerHTML = STATUT_COULEURS.map(c => '<button type="button" class="statut-couleur" data-c="' + c + '" style="background:' + c + '" aria-label="Couleur"></button>').join('');
+    document.getElementById('statutPalette').onclick = (e) => { const b = e.target.closest('[data-c]'); if (b) { _statutBg = b.dataset.c; _statutPhoto = null; appliquerFond(); } };
+    document.getElementById('stCancel').onclick = fermerComposerStatut;
+    document.getElementById('statutFichier').onchange = async (e) => {
+        const f = e.target.files && e.target.files[0];
+        if (!f) return;
+        try {
+            const url = await compresserImageChat(f);
+            if (!url) { montrerNotification('⚠️ Photo trop lourde, choisissez-en une autre.'); return; }
+            _statutPhoto = url; appliquerFond();
+        } catch (err) { montrerNotification('⚠️ Photo illisible.'); }
+    };
+    document.getElementById('stPublier').onclick = () => {
+        const texte = document.getElementById('statutTexte').value.trim();
+        if (!texte && !_statutPhoto) { montrerNotification('✍️ Écrivez un texte ou ajoutez une photo.'); return; }
+        const btn = document.getElementById('stPublier');
+        btn.disabled = true; btn.textContent = 'Envoi…';
+        socket.emit('statut_publier', { texte, bg: _statutBg, image: _statutPhoto }, (res) => {
+            if (res && res.ok) { fermerComposerStatut(); montrerNotification('✅ Statut publié pour 24 h'); chargerStatuts(); }
+            else { btn.disabled = false; btn.textContent = 'Publier ➤'; montrerNotification('⚠️ ' + ((res && res.error) || 'Publication impossible, réessayez.')); }
+        });
+    };
+    appliquerFond();
+    setTimeout(() => { const t = document.getElementById('statutTexte'); if (t) t.focus(); }, 100);
+}
+function fermerComposerStatut() { const o = document.getElementById('statutComposer'); if (o) o.remove(); }
+
+/* ----- Lecture des statuts ----- */
+let _sv = null;
+function fermerVisionneuseStatut() {
+    if (_sv && _sv.timer) clearTimeout(_sv.timer);
+    const o = document.getElementById('statutViewer'); if (o) o.remove();
+    document.removeEventListener('keydown', _svTouches);
+    _sv = null;
+    rendreBandeStatuts();
+}
+function _svTouches(e) {
+    if (!_sv) return;
+    if (e.key === 'Escape') fermerVisionneuseStatut();
+    else if (e.key === 'ArrowRight') statutSuivant();
+    else if (e.key === 'ArrowLeft') statutPrecedent();
+}
+function ouvrirVisionneuseStatut(tel, depart) {
+    const liste = groupesStatuts().get(tel);
+    if (!liste || !liste.length) return;
+    if (document.getElementById('statutViewer')) fermerVisionneuseStatut();
+    _sv = { tel, liste: liste.slice(), i: Math.min(depart || 0, liste.length - 1), timer: null, proprio: tel === utilisateur.telephone };
+    const o = document.createElement('div');
+    o.id = 'statutViewer';
+    o.className = 'statut-overlay';
+    o.innerHTML =
+        '<div class="statut-ecran" id="svEcran">' +
+        '<div class="sv-barres" id="svBarres"></div>' +
+        '<div class="sv-entete"><span class="statut-avatar petit" id="svAvatar"></span><div class="sv-qui"><strong id="svNom"></strong><small id="svHeure"></small></div><button type="button" class="statut-btn" id="svFermer" aria-label="Fermer">✕</button></div>' +
+        '<div class="sv-zone" id="svZone"><div class="sv-texte" id="svTexte"></div></div>' +
+        '<div class="sv-pied" id="svPied"></div>' +
+        '<div class="sv-vues" id="svVues" hidden></div></div>';
+    document.body.appendChild(o);
+    document.addEventListener('keydown', _svTouches);
+    document.getElementById('svFermer').onclick = fermerVisionneuseStatut;
+    document.getElementById('svZone').onclick = (e) => {
+        const r = e.currentTarget.getBoundingClientRect();
+        (e.clientX - r.left < r.width * 0.3) ? statutPrecedent() : statutSuivant();
+    };
+    afficherStatutCourant();
+}
+function statutSuivant() { if (!_sv) return; if (_sv.i + 1 >= _sv.liste.length) fermerVisionneuseStatut(); else { _sv.i++; afficherStatutCourant(); } }
+function statutPrecedent() { if (!_sv) return; if (_sv.i > 0) _sv.i--; afficherStatutCourant(); }
+
+function afficherStatutCourant() {
+    if (!_sv) return;
+    clearTimeout(_sv.timer);
+    const s = _sv.liste[_sv.i];
+    const ecran = document.getElementById('svEcran');
+    const barres = document.getElementById('svBarres');
+    barres.innerHTML = _sv.liste.map((x, k) => '<span class="sv-barre"><i class="' + (k < _sv.i ? 'plein' : '') + '"></i></span>').join('');
+    document.getElementById('svNom').textContent = nomPosteurStatut(s.from, s.nom);
+    document.getElementById('svHeure').textContent = ilYaStatut(s.ts);
+    document.getElementById('svAvatar').textContent = initialesDe(nomPosteurStatut(s.from, s.nom) === 'Mon statut' ? (utilisateur.nom || 'Moi') : nomPosteurStatut(s.from, s.nom));
+    const texteEl = document.getElementById('svTexte');
+    texteEl.textContent = s.texte || '';
+    texteEl.className = 'sv-texte' + (s.hasImage ? ' legende' : '') + ((s.texte || '').length > 120 ? ' long' : '');
+    ecran.style.background = s.hasImage ? '#000' : s.bg;
+    document.getElementById('svVues').hidden = true;
+    const pied = document.getElementById('svPied');
+    pied.innerHTML = _sv.proprio ? '<button type="button" class="statut-btn" id="svVoirVues">👁 ' + (s.nbVues || 0) + ' vue' + ((s.nbVues || 0) > 1 ? 's' : '') + '</button><button type="button" class="statut-btn" id="svSuppr">🗑️ Supprimer</button>' : '';
+    if (_sv.proprio) {
+        document.getElementById('svSuppr').onclick = () => {
+            if (!confirm('Supprimer ce statut ?')) return;
+            socket.emit('statut_supprimer', { id: s.id }, (res) => {
+                if (!res || !res.ok) { montrerNotification('⚠️ Suppression impossible.'); return; }
+                statutsCache = statutsCache.filter(x => x.id !== s.id);
+                _sv.liste.splice(_sv.i, 1);
+                if (!_sv.liste.length) fermerVisionneuseStatut(); else { _sv.i = Math.min(_sv.i, _sv.liste.length - 1); afficherStatutCourant(); }
+            });
+        };
+        document.getElementById('svVoirVues').onclick = () => {
+            clearTimeout(_sv.timer);
+            const box = document.getElementById('svVues');
+            box.hidden = false; box.textContent = 'Chargement…';
+            socket.emit('statut_vues', { id: s.id }, (res) => {
+                box.textContent = (res && res.ok && res.vues && res.vues.length) ? 'Vu par : ' + res.vues.map(v => nomPosteurStatut(v.telephone, v.nom)).join(', ') : 'Personne n’a encore vu ce statut.';
+            });
+        };
+    }
+    // lecture : marque comme vu, puis défilement automatique
+    if (!_sv.proprio && !s.vu) { s.vu = true; socket.emit('statut_vu', { id: s.id }); }
+    const demarrer = (duree) => {
+        const barre = barres.children[_sv.i] && barres.children[_sv.i].firstChild;
+        if (barre) { barre.style.transition = 'none'; barre.style.width = '0%'; void barre.offsetWidth; barre.style.transition = 'width ' + duree + 'ms linear'; barre.style.width = '100%'; }
+        _sv.timer = setTimeout(statutSuivant, duree);
+    };
+    const nbCar = (s.texte || '').length;
+    if (!s.hasImage) { ecran.style.backgroundImage = 'none'; demarrer(Math.min(10000, 5000 + Math.floor(nbCar / 80) * 1000)); return; }
+    const poser = (img) => { ecran.style.background = '#000 center/contain no-repeat url(' + img + ')'; demarrer(7000); };
+    if (_statutImages.has(s.id)) poser(_statutImages.get(s.id));
+    else socket.emit('statut_image', { id: s.id }, (res) => {
+        if (!_sv || _sv.liste[_sv.i] !== s) return;
+        if (res && res.ok) { _statutImages.set(s.id, res.image); if (_statutImages.size > 20) _statutImages.delete(_statutImages.keys().next().value); poser(res.image); }
+        else { texteEl.textContent = s.texte || 'Photo indisponible'; demarrer(4000); }
+    });
+}
+
+socket.on('statut_nouveau', () => chargerStatuts());
+socket.on('statut_retire', () => chargerStatuts());
+socket.on('connect', () => setTimeout(chargerStatuts, 1800));
+setInterval(() => { if (!document.hidden) chargerStatuts(); }, 120000);
+
+(function () {
+    const st = document.createElement('style');
+    st.textContent =
+        '.statut-bande{display:flex;gap:14px;overflow-x:auto;padding:4px 2px 12px;scrollbar-width:none}.statut-bande::-webkit-scrollbar{display:none}' +
+        '.statut-item{flex:0 0 auto;width:66px;text-align:center;cursor:pointer}' +
+        '.statut-anneau{position:relative;display:flex;align-items:center;justify-content:center;width:62px;height:62px;border-radius:50%;padding:3px;border:2px solid var(--border-color)}' +
+        '.statut-anneau.nonvu{border:3px solid transparent;background:linear-gradient(var(--bg-color),var(--bg-color)) padding-box,linear-gradient(135deg,#22d3ee,#16a34a) border-box;padding:2px}' +
+        '.statut-anneau.vu{border-color:rgba(130,150,180,.55)}.statut-anneau.aucun{border-style:dashed}' +
+        '.statut-avatar{display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:50%;background:linear-gradient(135deg,#3b9cff,#22d3ee);color:#fff;font-weight:700;font-size:17px}' +
+        '.statut-avatar.petit{width:38px;height:38px;flex:0 0 38px;font-size:14px}' +
+        '.statut-plus{position:absolute;right:-4px;bottom:-4px;width:24px;height:24px;border-radius:50%;border:2px solid var(--bg-color);background:#16a34a;color:#fff;font-size:17px;line-height:18px;padding:0;cursor:pointer}' +
+        '.statut-nom{display:block;margin-top:5px;font-size:11.5px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+        '.statut-overlay{position:fixed;inset:0;z-index:10060;background:#000;display:flex;align-items:center;justify-content:center}' +
+        '.statut-ecran{position:relative;width:100%;max-width:520px;height:100%;display:flex;flex-direction:column;color:#fff;overflow:hidden}' +
+        '.statut-haut{display:flex;align-items:center;justify-content:space-between;padding:calc(12px + env(safe-area-inset-top,0px)) 14px 8px;font-weight:600;z-index:2}' +
+        '.statut-btn{border:0;background:rgba(0,0,0,.35);color:#fff;border-radius:999px;padding:9px 14px;font-size:14px;font-family:inherit;cursor:pointer}' +
+        '#statutTexte{flex:1;width:100%;background:transparent;border:0;outline:0;color:#fff;text-align:center;font-size:26px;font-weight:600;padding:18px;resize:none;font-family:inherit;display:block}' +
+        '#statutTexte::placeholder{color:rgba(255,255,255,.7)}.avec-photo #statutTexte{flex:0 0 90px;font-size:17px;background:rgba(0,0,0,.45);margin-top:auto}' +
+        '.statut-bas{padding:10px 14px calc(14px + env(safe-area-inset-bottom,0px));background:rgba(0,0,0,.25)}' +
+        '.statut-palette{display:flex;gap:10px;justify-content:center;margin-bottom:10px}' +
+        '.statut-couleur{width:30px;height:30px;border-radius:50%;border:2px solid rgba(255,255,255,.8);cursor:pointer;padding:0}' +
+        '.statut-actions{display:flex;justify-content:space-between;align-items:center;gap:10px}' +
+        '.statut-publier{border:0;border-radius:999px;padding:12px 22px;background:#16a34a;color:#fff;font-weight:700;font-size:16px;font-family:inherit;cursor:pointer}.statut-publier:disabled{opacity:.6}' +
+        '.statut-info{display:block;text-align:center;margin-top:8px;font-size:11.5px;opacity:.85}' +
+        '.sv-barres{display:flex;gap:4px;padding:calc(10px + env(safe-area-inset-top,0px)) 10px 0;z-index:3}' +
+        '.sv-barre{flex:1;height:3px;border-radius:3px;background:rgba(255,255,255,.35);overflow:hidden}.sv-barre i{display:block;height:100%;width:0;background:#fff}.sv-barre i.plein{width:100%}' +
+        '.sv-entete{display:flex;align-items:center;gap:10px;padding:10px 12px;z-index:3}.sv-qui{flex:1;display:flex;flex-direction:column;line-height:1.25}.sv-qui small{opacity:.85;font-size:12px}' +
+        '.sv-zone{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:90px 22px 90px;z-index:1}' +
+        '.sv-texte{font-size:26px;font-weight:600;text-align:center;white-space:pre-wrap;word-break:break-word;text-shadow:0 1px 6px rgba(0,0,0,.35)}.sv-texte.long{font-size:19px}' +
+        '.sv-texte.legende{position:absolute;left:0;right:0;bottom:0;padding:16px 18px calc(18px + env(safe-area-inset-bottom,0px));font-size:17px;background:linear-gradient(transparent,rgba(0,0,0,.7))}' +
+        '.sv-pied{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-between;padding:12px 14px calc(14px + env(safe-area-inset-bottom,0px));z-index:3}' +
+        '.sv-vues{position:absolute;left:12px;right:12px;bottom:70px;z-index:4;background:rgba(0,0,0,.8);border-radius:12px;padding:12px 14px;font-size:14px}';
+    document.head.appendChild(st);
+    const tete = document.querySelector('#convListView .conv-head');
+    if (tete && !document.getElementById('statutBande')) {
+        const b = document.createElement('div');
+        b.id = 'statutBande';
+        b.className = 'statut-bande';
+        tete.insertAdjacentElement('afterend', b);
+    }
+    const aml = afficherMessagesLocaux;
+    afficherMessagesLocaux = function () { aml.apply(this, arguments); rendreBandeStatuts(); };
+    if (utilisateur) { rendreBandeStatuts(); setTimeout(chargerStatuts, 1500); }
+})();

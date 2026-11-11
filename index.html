@@ -519,6 +519,7 @@
                         <input type="file" id="chatImageInput" accept="image/*" capture="environment" hidden onchange="onChatImageChoisie(event)">
                         <button type="button" class="btn-icon" onclick="document.getElementById('chatImageInput').click()" aria-label="Photo" title="Envoyer une photo">📷</button>
                         <button type="button" id="btnChatVocal" class="btn-icon btn-vocal" onclick="toggleVocalChat(event)" aria-label="Message vocal" title="Appuyer pour enregistrer / appuyer pour envoyer">🎙️</button>
+                        <button type="button" id="btnChatVisio" class="btn-icon" onclick="lancerVisioGroupe()" aria-label="Visio de groupe" title="Lancer une visio (Jitsi) et envoyer le lien">🎥</button>
                         <textarea id="chatLocalInput" class="input input-message" rows="1" placeholder="Message" enterkeyhint="send" oninput="autoResize(this);signalerEcriture()" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();envoyerMessageChatLocal();}"></textarea>
                         <button type="button" onclick="envoyerMessageChatLocal()" class="btn-send-round" aria-label="Envoyer">➤</button>
                     </div>
