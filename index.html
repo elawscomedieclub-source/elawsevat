@@ -125,7 +125,19 @@
 
                 <label>Code de récupération (6 chiffres) :</label>
                 <input type="text" id="inputPinRecover" class="input" placeholder="123456" maxlength="8" inputmode="numeric" value="">
-                <p class="hint-box" style="margin-top:6px;">🔑 Code perdu ou oublié ? Contactez l’administrateur d’EVAT : il vous donnera un nouveau code.</p>
+                <div class="hint-box" id="recupOtpBox" style="margin-top:8px;">
+                    <strong>🔑 Code perdu ou oublié ?</strong> Recevez un code de vérification pour ce numéro :
+                    <div style="display:flex;gap:8px;margin:8px 0 4px;">
+                        <button type="button" class="btn-action" style="flex:1" onclick="demanderCodeRecuperation('sms')">📱 Par SMS</button>
+                        <button type="button" class="btn-action" style="flex:1" onclick="demanderCodeRecuperation('email')">📧 Par e-mail</button>
+                    </div>
+                    <div id="recupOtpSaisie" style="display:none;margin-top:8px;">
+                        <input type="text" id="inputCodeOtp" class="input" placeholder="Code reçu (6 chiffres)" maxlength="6" inputmode="numeric" autocomplete="one-time-code">
+                        <button type="button" class="btn-action btn-success" onclick="validerCodeRecuperation()">✅ Valider et récupérer mon compte</button>
+                    </div>
+                    <small id="recupOtpInfo" style="display:block;margin-top:6px;opacity:.9;"></small>
+                    <small style="display:block;margin-top:6px;opacity:.8;">L’e-mail n’est disponible que si vous l’avez confirmé auparavant (Menu → Sauvegarde). Sinon, contactez l’administrateur d’EVAT.</small>
+                </div>
 
                 <label>Métier (optionnel) :</label>
                 <input type="text" id="inputMetierRecover" class="input" placeholder="Votre métier" value="">
@@ -618,6 +630,28 @@
                     <h2>☁️ Sauvegarde Cloud</h2>
                     <p class="subtitle">Téléchargez une copie JSON de votre profil, notes et messages.</p>
                     <button onclick="exporterDonneesCloud()" class="btn-action btn-success">📥 Télécharger la sauvegarde</button>
+                </div>
+
+                <div class="card" id="carteSauvegardeAuto">
+                    <h2>🔄 Sauvegarde automatique</h2>
+                    <p class="subtitle">Vos messages, contacts, notes et réglages sont sauvegardés sur le serveur : si vous changez de téléphone, tout revient après « Récupérer mon compte ». Les photos et messages vocaux ne sont pas inclus.</p>
+                    <p id="etatSauvegardeAuto" class="hint-box">Vérification…</p>
+                    <div style="display:flex;gap:8px;">
+                        <button type="button" class="btn-action btn-success" style="flex:1" onclick="sauvegarderMaintenant()">☁️ Sauvegarder maintenant</button>
+                        <button type="button" class="btn-action" style="flex:1" onclick="restaurerSauvegardeManuelle()">⬇️ Restaurer</button>
+                    </div>
+                </div>
+
+                <div class="card" id="carteRecuperation">
+                    <h2>🔐 Récupération du compte</h2>
+                    <p class="subtitle">Quand vous changez de téléphone : « Récupérer mon compte », puis un code est envoyé sur votre numéro (SMS) ou votre e-mail. Un nouveau code secret est alors créé et l’ancien téléphone est déconnecté.</p>
+                    <p id="etatEmailRecup" class="hint-box">Vérification…</p>
+                    <input type="email" id="inputEmailRecup" class="input" placeholder="Votre e-mail de récupération" autocomplete="email">
+                    <button type="button" class="btn-action" onclick="envoyerCodeEmailRecup()">📧 Envoyer le code de confirmation</button>
+                    <div id="blocCodeEmailRecup" style="display:none;margin-top:8px;">
+                        <input type="text" id="inputCodeEmailRecup" class="input" placeholder="Code reçu par e-mail (6 chiffres)" maxlength="6" inputmode="numeric">
+                        <button type="button" class="btn-action btn-success" onclick="confirmerEmailRecup()">✅ Confirmer mon e-mail</button>
+                    </div>
                 </div>
             </section>
 

@@ -49,7 +49,7 @@ function sauverProfilMaintenant() {
 
 function effacerProfilLocal() {
     clearTimeout(_saveTimer); _saveTimer = null;
-    ['evat_profil', 'evat_ringtone', 'evat_photo'].forEach(k => localStorage.removeItem(k));
+    ['evat_profil', 'evat_ringtone', 'evat_photo', 'evat_bk_at', 'evat_bk_attente_restore'].forEach(k => localStorage.removeItem(k));
     _ringSauvee = _photoSauvee = null;
 }
 
@@ -330,6 +330,12 @@ socket.on('connect', () => {
                 if (res.supprime) {                         // compte supprimé par l'administrateur : retour à l'inscription
                     effacerProfilLocal(); localStorage.removeItem('elaws_presentee');
                     alert(res.error || 'Ce compte a été supprimé par l’administrateur.');
+                    location.reload();
+                    return;
+                }
+                if (res.revoque) {                          // compte récupéré sur un autre téléphone : cet appareil est déconnecté
+                    effacerProfilLocal(); localStorage.removeItem('elaws_presentee');
+                    alert('Votre compte a été récupéré sur un autre téléphone. Cet appareil est déconnecté et ses données locales sont supprimées.');
                     location.reload();
                     return;
                 }
@@ -867,6 +873,7 @@ function recupererCompteExistant() {
             return;
         }
 
+        localStorage.setItem('evat_bk_attente_restore', '1');   // pas de sauvegarde tant que la restauration n'est pas faite
         const p = res.profil;
         // Nouveau code d'activation (l'ancien n'est plus valide)
         const nouveauPin = res.recoveryPin || pin;
@@ -887,7 +894,7 @@ function recupererCompteExistant() {
         appliquerInfosProfil();
         verifierEtSynchroniserContacts();
         montrerNotification(`Compte récupéré : ${utilisateur.nom} — notez le nouveau code`);
-        setTimeout(() => { proposerImportContactsApresInscription(); majBoostOnboarding(); proposerRestaurationCloud(); }, 1200);
+        setTimeout(() => { proposerImportContactsApresInscription(); majBoostOnboarding(); proposerRestaurationCloud(); restaurerSauvegardeComplete(true); }, 1200);
     });
 }
 
@@ -5949,4 +5956,250 @@ setInterval(() => { if (!document.hidden) chargerStatuts(); }, 120000);
     const aml = afficherMessagesLocaux;
     afficherMessagesLocaux = function () { aml.apply(this, arguments); rendreBandeStatuts(); };
     if (utilisateur) { rendreBandeStatuts(); setTimeout(chargerStatuts, 1500); }
+})();
+
+/* ============================================================
+   v4.16 : sauvegarde complète du compte dans le cloud + récupération par code (SMS / e-mail)
+   ============================================================ */
+const BK_TAILLE = 300000;
+let _bkSale = false, _bkMinuteur = null, _bkEnCours = false;
+
+function emettre(evt, data, ms) {
+    return new Promise((resolve) => {
+        let fini = false;
+        const t = setTimeout(() => { if (!fini) { fini = true; resolve(null); } }, ms || 20000);
+        socket.emit(evt, data, (r) => { if (!fini) { fini = true; clearTimeout(t); resolve(r); } });
+    });
+}
+const dureeDepuis = (ts) => {
+    const m = Math.max(0, Math.round((Date.now() - ts) / 60000));
+    return m < 1 ? 'à l’instant' : m < 60 ? 'il y a ' + m + ' min' : m < 1440 ? 'il y a ' + Math.round(m / 60) + ' h' : 'il y a ' + Math.round(m / 1440) + ' j';
+};
+
+/* ----- Sauvegarde ----- */
+function construireSauvegarde() {
+    const u = utilisateur;
+    const nettoyer = (m) => {
+        const { image, audio, audioDur, ...r } = m;                 // photos et vocaux : trop lourds, non sauvegardés
+        if (image && !r.texte) r.texte = '📷 Photo';
+        if (audio && !r.texte) r.texte = '🎤 Message vocal';
+        return r;
+    };
+    const data = {
+        v: 1, at: Date.now(),
+        profil: { email: u.email || '', entreprise: u.entreprise || '', ville: u.ville || '', bio: u.bio || '', qubits: u.qubits || 0, pays: u.pays || '' },
+        parametres: Object.assign({}, u.parametres || {}, { customRingtoneBase64: null }),
+        notes: u.notes || [], contacts: u.contacts || [], historiqueElaws: (u.historiqueElaws || []).slice(-200),
+        messagesSupprimes: u.messagesSupprimes || [], messages: (u.messagesLocaux || []).map(nettoyer)
+    };
+    let json = JSON.stringify(data);
+    while (json.length > 3000000 && data.messages.length > 50) {    // trop gros : on retire les plus anciens messages
+        data.messages = data.messages.slice(Math.ceil(data.messages.length * 0.2));
+        json = JSON.stringify(data);
+    }
+    return json;
+}
+
+async function envoyerSauvegarde() {
+    if (!utilisateur || !socket.connected || _bkEnCours) return false;
+    if (localStorage.getItem('evat_bk_attente_restore') === '1') return false;   // restauration pas encore faite : on n'écrase rien
+    _bkEnCours = true;
+    try {
+        const json = construireSauvegarde();
+        const total = Math.max(1, Math.ceil(json.length / BK_TAILLE));
+        let dernier = null;
+        for (let i = 0; i < total; i++) {
+            dernier = await emettre('backup_envoyer', { part: i, total, data: json.slice(i * BK_TAILLE, (i + 1) * BK_TAILLE) }, 30000);
+            if (!dernier || !dernier.ok) throw new Error((dernier && dernier.error) || 'serveur injoignable');
+        }
+        localStorage.setItem('evat_bk_at', String(dernier.at || Date.now()));
+        _bkSale = false;
+        majEtatSauvegardeAuto();
+        return true;
+    } catch (e) {
+        majEtatSauvegardeAuto('⚠️ Sauvegarde impossible : ' + e.message);
+        return false;
+    } finally { _bkEnCours = false; }
+}
+
+function planifierSauvegarde(delai) {
+    if (_bkMinuteur) return;
+    _bkMinuteur = setTimeout(async () => { _bkMinuteur = null; if (_bkSale) await envoyerSauvegarde(); }, delai || 90000);
+}
+const _sauverProfilOrigine = sauverProfil;
+sauverProfil = function () { _bkSale = true; planifierSauvegarde(); return _sauverProfilOrigine.apply(this, arguments); };
+document.addEventListener('visibilitychange', () => { if (document.hidden && _bkSale) envoyerSauvegarde(); });
+socket.on('connect', () => setTimeout(() => {
+    if (!utilisateur) return;
+    const at = parseInt(localStorage.getItem('evat_bk_at'), 10) || 0;
+    if (Date.now() - at > 24 * 3600 * 1000) { _bkSale = true; planifierSauvegarde(15000); }   // au moins une sauvegarde par jour
+}, 8000));
+
+/* ----- Restauration ----- */
+async function lireSauvegardeCloud() {
+    let texte = '', total = 1;
+    for (let p = 0; p < total; p++) {
+        const r = await emettre('backup_restaurer', { part: p }, 30000);
+        if (!r || !r.ok) return false;
+        if (r.aucune) return null;
+        total = r.total; texte += r.data;
+    }
+    return JSON.parse(texte);
+}
+
+function fusionnerSauvegarde(d) {
+    const u = utilisateur;
+    const ids = new Set((u.messagesLocaux || []).map(m => String(m.id || m.cid)));
+    const supprimes = new Set([...(u.messagesSupprimes || []), ...(d.messagesSupprimes || [])]);
+    let nbMsg = 0;
+    (d.messages || []).forEach(m => {
+        const cle = String(m.id || m.cid);
+        if (!cle || ids.has(cle) || supprimes.has(m.id)) return;
+        u.messagesLocaux.push(m); ids.add(cle); nbMsg++;
+    });
+    u.messagesLocaux.sort((a, b) => (a.ts || 0) - (b.ts || 0));
+    u.messagesSupprimes = [...supprimes].slice(-500);
+    let nbContacts = 0;
+    const tels = new Set((u.contacts || []).map(c => c.telephone));
+    (d.contacts || []).forEach(c => {
+        const nc = normaliserContact(c);
+        if (nc && nc.telephone && !tels.has(nc.telephone)) { u.contacts.push(nc); tels.add(nc.telephone); nbContacts++; }
+    });
+    if (!(u.notes || []).length && Array.isArray(d.notes)) u.notes = d.notes;
+    if (!(u.historiqueElaws || []).length && Array.isArray(d.historiqueElaws)) u.historiqueElaws = d.historiqueElaws;
+    const p = d.profil || {};
+    ['email', 'entreprise', 'ville', 'bio', 'pays'].forEach(k => { if (!u[k] && p[k]) u[k] = p[k]; });
+    u.qubits = Math.max(u.qubits || 0, p.qubits || 0);
+    const ring = u.parametres && u.parametres.customRingtoneBase64;
+    u.parametres = Object.assign({}, u.parametres, d.parametres || {}, { customRingtoneBase64: ring || null });
+    return { nbMsg, nbContacts };
+}
+
+async function restaurerSauvegardeComplete(silencieux) {
+    if (!utilisateur || !socket.connected) return false;
+    try {
+        const d = await lireSauvegardeCloud();
+        if (d === false) throw new Error('serveur injoignable');
+        if (d === null) {                                           // aucune sauvegarde : on peut recommencer à sauvegarder
+            localStorage.removeItem('evat_bk_attente_restore');
+            if (!silencieux) montrerNotification('ℹ️ Aucune sauvegarde trouvée pour ce compte.');
+            return true;
+        }
+        const r = fusionnerSauvegarde(d);
+        localStorage.removeItem('evat_bk_attente_restore');
+        sauverProfilMaintenant();
+        appliquerInfosProfil(); afficherContacts(); afficherMessagesLocaux(); majStatsAccueil();
+        verifierEtSynchroniserContacts();
+        montrerNotification('✅ Sauvegarde restaurée : ' + r.nbMsg + ' message(s), ' + r.nbContacts + ' contact(s) retrouvé(s).');
+        return true;
+    } catch (e) {
+        montrerNotification('⚠️ Restauration impossible (' + (e.message || 'erreur') + '). Réessayez dans Menu → Sauvegarde.');
+        return false;
+    }
+}
+
+async function restaurerSauvegardeManuelle() {
+    if (!confirm('Restaurer la dernière sauvegarde du cloud ?\nLes messages et contacts manquants seront ajoutés ; rien n’est supprimé.')) return;
+    montrerNotification('⏳ Restauration en cours…');
+    await restaurerSauvegardeComplete(false);
+    majEtatSauvegardeAuto();
+}
+async function sauvegarderMaintenant() {
+    if (localStorage.getItem('evat_bk_attente_restore') === '1') { montrerNotification('⚠️ Restaurez d’abord votre sauvegarde (bouton « Restaurer »).'); return; }
+    montrerNotification('⏳ Sauvegarde en cours…');
+    const ok = await envoyerSauvegarde();
+    if (ok) montrerNotification('✅ Sauvegarde envoyée sur le serveur.');
+}
+
+async function majEtatSauvegardeAuto(erreur) {
+    const el = document.getElementById('etatSauvegardeAuto');
+    if (!el) return;
+    if (erreur) { el.textContent = erreur; return; }
+    const at = parseInt(localStorage.getItem('evat_bk_at'), 10) || 0;
+    const info = socket.connected ? await emettre('backup_info', null, 8000) : null;
+    let t = at ? '✅ Dernière sauvegarde de cet appareil : ' + dureeDepuis(at) + '.' : 'Aucune sauvegarde envoyée depuis cet appareil pour le moment.';
+    if (info && info.ok) {
+        if (!info.existe && !at) t = 'Aucune sauvegarde sur le serveur pour le moment.';
+        t += info.chiffre ? ' 🔒 Chiffrée sur le serveur.' : '';
+        if (!info.persistant) t += '\n⚠️ Le serveur n’a pas de base de données durable (Upstash) : une sauvegarde peut être perdue si le serveur redémarre.';
+    } else if (!socket.connected) t += ' (Serveur hors ligne)';
+    el.style.whiteSpace = 'pre-line';
+    el.textContent = t;
+}
+
+/* ----- E-mail de récupération ----- */
+async function majEtatEmailRecup() {
+    const el = document.getElementById('etatEmailRecup');
+    if (!el) return;
+    const r = socket.connected ? await emettre('recup_canaux', null, 8000) : null;
+    if (!r || !r.ok) { el.textContent = 'Serveur hors ligne : état indisponible.'; return; }
+    let t = r.email ? '✅ E-mail de récupération confirmé : ' + r.email : (r.emailDispo ? '⚠️ Aucun e-mail confirmé : ajoutez-en un pour pouvoir récupérer votre compte par e-mail.' : 'ℹ️ L’envoi d’e-mails n’est pas encore activé sur le serveur.');
+    t += r.smsDispo ? '\n📱 Récupération par SMS : disponible sur votre numéro.' : '\n📱 Récupération par SMS : pas encore activée sur le serveur.';
+    el.style.whiteSpace = 'pre-line';
+    el.textContent = t;
+}
+async function envoyerCodeEmailRecup() {
+    const email = (document.getElementById('inputEmailRecup').value || '').trim();
+    if (!email.includes('@')) { montrerNotification('⚠️ Entrez une adresse e-mail valide.'); return; }
+    const r = await emettre('email_recup_envoyer', { email }, 25000);
+    if (!r || !r.ok) { montrerNotification('⚠️ ' + ((r && r.error) || 'Envoi impossible.')); return; }
+    document.getElementById('blocCodeEmailRecup').style.display = 'block';
+    montrerNotification('📧 Code envoyé à ' + r.destinataire);
+}
+async function confirmerEmailRecup() {
+    const code = (document.getElementById('inputCodeEmailRecup').value || '').trim();
+    const r = await emettre('email_recup_confirmer', { code }, 15000);
+    if (!r || !r.ok) { montrerNotification('⚠️ ' + ((r && r.error) || 'Confirmation impossible.')); return; }
+    document.getElementById('blocCodeEmailRecup').style.display = 'none';
+    document.getElementById('inputCodeEmailRecup').value = '';
+    montrerNotification('✅ E-mail de récupération confirmé : ' + r.email);
+    majEtatEmailRecup();
+}
+
+/* ----- Récupération par code (écran « Récupérer mon compte ») ----- */
+function infoRecupOtp(t) { const e = document.getElementById('recupOtpInfo'); if (e) e.textContent = t || ''; }
+function demanderCodeRecuperation(canal) {
+    const tel = normaliserTel((document.getElementById('inputTelRecover') || {}).value || '');
+    afficherErreurAuth('authRecoverError', '');
+    if (!tel || !telEstValideClient(tel)) { afficherErreurAuth('authRecoverError', 'Entrez d’abord le numéro du compte, avec l’indicatif du pays.'); return; }
+    if (!socket.connected) { afficherErreurAuth('authRecoverError', 'Serveur hors ligne. Réessayez dans un instant.'); return; }
+    infoRecupOtp('⏳ Envoi du code…');
+    socket.emit('recup_code_demander', { telephone: tel, canal }, (res) => {
+        if (!res || !res.ok) { infoRecupOtp(''); afficherErreurAuth('authRecoverError', (res && res.error) || 'Envoi impossible.'); return; }
+        document.getElementById('recupOtpSaisie').style.display = 'block';
+        infoRecupOtp('📨 Code envoyé à ' + res.destinataire + ' (valable 10 minutes).');
+        const c = document.getElementById('inputCodeOtp'); if (c) c.focus();
+    });
+}
+function validerCodeRecuperation() {
+    const tel = normaliserTel((document.getElementById('inputTelRecover') || {}).value || '');
+    const code = ((document.getElementById('inputCodeOtp') || {}).value || '').trim();
+    const metier = ((document.getElementById('inputMetierRecover') || {}).value || '').trim();
+    afficherErreurAuth('authRecoverError', '');
+    if (!/^\d{6}$/.test(code)) { afficherErreurAuth('authRecoverError', 'Entrez le code à 6 chiffres reçu.'); return; }
+    socket.emit('recup_code_verifier', { telephone: tel, code }, (res) => {
+        if (!res || !res.ok) { afficherErreurAuth('authRecoverError', (res && res.error) || 'Code incorrect ou expiré.'); return; }
+        localStorage.setItem('evat_bk_attente_restore', '1');
+        const p = res.profil;
+        utilisateur = creerProfilLocal(p.nom, p.telephone, p.metier || metier, res.recoveryPin);
+        sauverProfilMaintenant();
+        const welcomeModal = document.getElementById('welcomeModal');
+        if (welcomeModal) welcomeModal.style.display = 'none';
+        const pinModal = document.getElementById('pinModal'), pinDisplay = document.getElementById('pinDisplay');
+        if (pinDisplay) pinDisplay.textContent = res.recoveryPin;
+        if (pinModal) pinModal.style.display = 'flex';
+        appliquerInfosProfil();
+        verifierEtSynchroniserContacts();
+        montrerNotification('Compte récupéré : ' + utilisateur.nom + ' — notez le nouveau code secret');
+        setTimeout(() => { proposerImportContactsApresInscription(); majBoostOnboarding(); restaurerSauvegardeComplete(true); }, 1200);
+    });
+}
+
+/* ----- Rafraîchit les états quand on ouvre l'onglet Sauvegarde ----- */
+(function () {
+    const swOrigine = switchTab;
+    switchTab = function (tabId) {
+        swOrigine.apply(this, arguments);
+        if (tabId === 'sync') { majEtatSauvegardeAuto(); majEtatEmailRecup(); }
+    };
 })();
