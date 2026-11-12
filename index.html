@@ -548,6 +548,18 @@
 
             <!-- PARAMÈTRES -->
             <section id="tab-parametres" class="tab-content" style="display:none;">
+                <div class="card" id="carteTraduction">
+                    <h2>🌐 Traduction</h2>
+                    <p class="subtitle">Comprenez les messages écrits dans une autre langue. Appui long sur un message → « Traduire ».</p>
+                    <label for="selLangueCible">Traduire dans ma langue :</label>
+                    <select id="selLangueCible" class="input" onchange="changerLangueCible(this.value)"></select>
+                    <label style="display:flex;gap:10px;align-items:center;margin-top:10px;">
+                        <input type="checkbox" id="chkTradAuto" onchange="changerTraductionAuto(this.checked)">
+                        <span>Traduire automatiquement les messages reçus</span>
+                    </label>
+                    <small style="display:block;margin-top:8px;opacity:.8;">Le texte du message est envoyé au serveur d’EVAT puis à son service d’IA pour être traduit. Les traductions des langues africaines peuvent être moins précises.</small>
+                </div>
+
                 <div class="card" id="carteApparence">
                     <h2>🎨 Apparence</h2>
                     <p class="subtitle">Choisissez le thème de l'application.</p>

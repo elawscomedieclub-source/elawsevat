@@ -3758,7 +3758,7 @@ function rendreFil(forcerBas) {
             ? texteMsgHtml(m.texte)
             : ((m.image || m.audio) ? '' : texteMsgHtml(m.texte || ''));
         html += `<div class="msg-bubble ${moi ? 'me' : 'other'}" data-mid="${escapeHtml(String(m.id || m.cid || ''))}">${auteur}${imgHtml}${audioHtml}${txtHtml}` +
-                `${reactionsHtml(m)}<div class="msg-meta"><span class="msg-time">${escapeHtml(m.ts ? heureCourte(m.ts) : (m.heure || ''))}</span>${coches(m)}</div></div>`;
+                `${tradHtml(m)}${reactionsHtml(m)}<div class="msg-meta"><span class="msg-time">${escapeHtml(m.ts ? heureCourte(m.ts) : (m.heure || ''))}</span>${coches(m)}</div></div>`;
     });
     container.innerHTML = html;
     if (forcerBas || procheDuBas) container.scrollTop = container.scrollHeight;
@@ -5507,6 +5507,7 @@ function lierUrls(htmlEchappe) {
         menu.appendChild(rangee);
         const actions = [['↩️ Répondre', () => repondre(m)]];
         if (m.texte && m.texte !== '📷 Photo' && m.texte !== '🎤 Message vocal') actions.push(['📋 Copier le texte', () => copier(m.texte.replace(/^↩️ [^\n]*\n/, ''))]);
+        if (m.texte && m.texte !== '📷 Photo' && m.texte !== '🎤 Message vocal') actions.push([m.trad && !m.tradMasquee ? '🌐 Masquer la traduction' : '🌐 Traduire', () => (m.trad && !m.tradMasquee) ? masquerTraduction(m) : traduireMessage(m, true)]);
         actions.push(['🗑️ Supprimer pour moi', () => supprimer(m)]);
         actions.forEach(([libelle, fn]) => {
             const b = document.createElement('button');
@@ -6202,4 +6203,97 @@ function validerCodeRecuperation() {
         swOrigine.apply(this, arguments);
         if (tabId === 'sync') { majEtatSauvegardeAuto(); majEtatEmailRecup(); }
     };
+})();
+
+/* ============================================================
+   v4.17 : traduction automatique des messages
+   ============================================================ */
+const LANGUES_NOMS = { fr: 'français', en: 'anglais', es: 'espagnol', pt: 'portugais', de: 'allemand', it: 'italien', ar: 'arabe', zh: 'chinois',
+    sw: 'swahili', ha: 'haoussa', yo: 'yoruba', ee: 'éwé', tw: 'twi' };
+const LANGUES_LIBELLES = { fr: 'Français', en: 'English', es: 'Español', pt: 'Português', de: 'Deutsch', it: 'Italiano', ar: 'العربية', zh: '中文',
+    sw: 'Kiswahili', ha: 'Hausa', yo: 'Yorùbá', ee: 'Eʋegbe (éwé) — qualité variable', tw: 'Twi — qualité variable' };
+
+function langueCible() {
+    const c = utilisateur && utilisateur.parametres && utilisateur.parametres.langueCible;
+    if (c && LANGUES_NOMS[c]) return c;
+    const nav = String(navigator.language || 'fr').slice(0, 2).toLowerCase();
+    return LANGUES_NOMS[nav] ? nav : 'fr';
+}
+const traductionAuto = () => !!(utilisateur && utilisateur.parametres && utilisateur.parametres.traductionAuto);
+
+function tradHtml(m) {
+    if (!m || !m.trad || m.tradMasquee) return '';
+    const de = m.trad.langue && LANGUES_NOMS[m.trad.langue] ? ' · de ' + LANGUES_NOMS[m.trad.langue] : '';
+    return '<div class="msg-trad"><p>🌐 ' + lierUrls(escapeHtml(m.trad.texte)) + '</p><small>Traduction automatique' + de +
+        ' · <button type="button" class="msg-trad-masquer" data-mid="' + escapeHtml(String(m.id || m.cid || '')) + '">masquer</button></small></div>';
+}
+function masquerTraduction(m) { m.tradMasquee = true; sauverProfil(); rendreMessagesLocaux(); }
+
+async function traduireMessage(m, manuel) {
+    if (!m || !utilisateur || !m.texte || m.texte === '📷 Photo' || m.texte === '🎤 Message vocal') return;
+    if (m.trad) { if (manuel) { m.tradMasquee = false; sauverProfil(); rendreMessagesLocaux(); } return; }
+    if (m.tradVu && !manuel) return;
+    const brut = m.texte.replace(/^↩️ [^\n]*\n/, '').trim();
+    if (brut.length < 2) return;
+    if (!socket.connected) { if (manuel) montrerNotification('⚠️ Connexion au serveur nécessaire pour traduire.'); return; }
+    const cible = langueCible();
+    if (manuel) montrerNotification('🌐 Traduction en cours…');
+    const r = await emettre('traduire', { texte: brut, cible }, 25000);
+    if (!r || !r.ok) { if (manuel) montrerNotification('⚠️ ' + ((r && r.error) || 'Traduction impossible.')); return; }
+    m.tradVu = true;
+    if (r.identique) { if (manuel) montrerNotification('ℹ️ Ce message est déjà en ' + LANGUES_NOMS[cible] + '.'); sauverProfil(); return; }
+    m.trad = { texte: r.texte, langue: r.langue || '', cible };
+    m.tradMasquee = false;
+    sauverProfil();
+    rendreMessagesLocaux();
+}
+
+document.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('.msg-trad-masquer');
+    if (!b || !utilisateur) return;
+    const m = (utilisateur.messagesLocaux || []).find(z => String(z.id) === b.dataset.mid || z.cid === b.dataset.mid);
+    if (m) masquerTraduction(m);
+});
+
+// Traduction automatique des messages reçus (si activée)
+socket.on('new_message', (msg) => {
+    if (!utilisateur || !traductionAuto() || !msg || msg.from === utilisateur.telephone || !msg.texte) return;
+    setTimeout(() => {
+        const m = (utilisateur.messagesLocaux || []).find(x => x.id === msg.id);
+        if (m) traduireMessage(m, false);
+    }, 400);
+});
+
+/* ----- Réglages ----- */
+function remplirReglagesTraduction() {
+    const sel = document.getElementById('selLangueCible');
+    if (!sel || !utilisateur) return;
+    if (!sel.options.length) sel.innerHTML = Object.keys(LANGUES_NOMS).map(k => '<option value="' + k + '">' + LANGUES_LIBELLES[k] + '</option>').join('');
+    sel.value = langueCible();
+    const chk = document.getElementById('chkTradAuto');
+    if (chk) chk.checked = traductionAuto();
+}
+function changerLangueCible(v) {
+    if (!utilisateur || !LANGUES_NOMS[v]) return;
+    if (!utilisateur.parametres) utilisateur.parametres = {};
+    utilisateur.parametres.langueCible = v;
+    sauverProfil();
+    montrerNotification('🌐 Langue de traduction : ' + LANGUES_NOMS[v]);
+}
+function changerTraductionAuto(actif) {
+    if (!utilisateur) return;
+    if (!utilisateur.parametres) utilisateur.parametres = {};
+    utilisateur.parametres.traductionAuto = !!actif;
+    sauverProfil();
+    montrerNotification(actif ? '🌐 Les messages reçus dans une autre langue seront traduits en ' + LANGUES_NOMS[langueCible()] + '.' : '🌐 Traduction automatique désactivée.');
+}
+
+(function () {
+    const st = document.createElement('style');
+    st.textContent = '.msg-trad{margin:6px 0 2px;padding-top:6px;border-top:1px dashed rgba(255,255,255,.3)}[data-theme="light"] .msg-bubble.other .msg-trad{border-top-color:rgba(15,23,42,.25)}' +
+        '.msg-trad p{margin:0;font-style:italic;opacity:.95}.msg-trad small{display:block;margin-top:2px;opacity:.75;font-size:11px}' +
+        '.msg-trad-masquer{border:0;background:none;color:inherit;text-decoration:underline;font-size:11px;padding:0;cursor:pointer;font-family:inherit}';
+    document.head.appendChild(st);
+    const swOrigine2 = switchTab;
+    switchTab = function (tabId) { swOrigine2.apply(this, arguments); if (tabId === 'parametres') remplirReglagesTraduction(); };
 })();
