@@ -233,6 +233,12 @@
                     </button>
                 </div>
 
+                <div class="nav-module" data-module="marche">
+                    <button type="button" class="nav-module-btn" onclick="ouvrirSousModule('marche');">
+                        🛒 Marché &amp; Commerce
+                    </button>
+                </div>
+
                 <div class="nav-module" data-module="elaws">
                     <button type="button" class="nav-module-btn" onclick="toggleGrandModule('elaws');">
                         ⚡ 4 · ELAWS · Studio · Quêtes <span class="nav-chevron">▼</span>
@@ -241,6 +247,7 @@
                         <a href="#" class="nav-link" id="link-elaws-ia" onclick="ouvrirSousModule('elaws-ia');return false;">🔮 Mister ELAWS (répond à tout)</a>
                         <a href="#" class="nav-link" id="link-studio-elaws" onclick="ouvrirSousModule('studio-elaws');return false;">🎬 Studio ELAWS EVAT — spots, storyboard, podcast</a>
                         <a href="#" class="nav-link" id="link-ia-metier" onclick="ouvrirSousModule('ia-metier');return false;">💼 Mister I (mon métier)</a>
+                        <a href="#" class="nav-link" id="link-recherche-metier" onclick="switchTab('recherche-metier');return false;">🔎 Recherche métier (Internet)</a>
                         <a href="#" class="nav-link" id="link-outils" onclick="ouvrirSousModule('outils');return false;">🛠️ Bloc-notes</a>
                         <a href="#" class="nav-link" id="link-parametres" onclick="ouvrirSousModule('parametres');return false;">⚙️ Paramètres</a>
                         <a href="#" class="nav-link" id="link-voyage" onclick="ouvrirSousModule('voyage');return false;">✈️ Voyage</a>
@@ -361,6 +368,7 @@
                     <div class="ia-top">
                         <span class="orb orb-md metier"></span>
                         <div class="ia-title"><strong><span id="iaMetierTop">Mister I</span></strong><span id="iaMetierSousTop">Spécialiste de votre activité</span></div>
+                        <button type="button" class="btn-icon" onclick="switchTab('recherche-metier')" aria-label="Recherche métier sur Internet" title="Recherche métier sur Internet">🔎</button>
                         <button type="button" class="btn-icon" onclick="nouvelleDiscussionIA('metier')" aria-label="Nouvelle discussion" title="Nouvelle discussion">🗑️</button>
                     </div>
                     <div id="metierChatBox" class="ia-thread"></div>
@@ -374,6 +382,48 @@
                 </div>
             </section>
 
+
+            <section id="tab-marche" class="tab-content" style="display:none;">
+                <div class="studio-wrap">
+                    <div class="studio-head">
+                        <div><strong>🛒 Marché &amp; Commerce</strong><span>Annonces de Lomé · stocks · reçus</span></div>
+                    </div>
+                    <div class="mk-onglets" id="mkOnglets">
+                        <button type="button" class="rm-onglet active" data-s="annonces">🛍️ Annonces</button>
+                        <button type="button" class="rm-onglet" data-s="publier">➕ Publier</button>
+                        <button type="button" class="rm-onglet" data-s="mes">📋 Mes annonces</button>
+                        <button type="button" class="rm-onglet" data-s="pub">⭐ Pub</button>
+                        <button type="button" class="rm-onglet" data-s="stocks">📦 Stocks</button>
+                        <button type="button" class="rm-onglet" data-s="recus">🧾 Reçus</button>
+                    </div>
+                    <div id="mkContenu"></div>
+                </div>
+            </section>
+
+            <section id="tab-recherche-metier" class="tab-content" style="display:none;">
+                <div class="studio-wrap">
+                    <div class="studio-head">
+                        <button type="button" class="btn-icon" onclick="switchTab('ia-metier')" aria-label="Retour">‹</button>
+                        <div><strong>🔎 Recherche métier</strong><span>Résultats réels d'Internet · sans IA</span></div>
+                    </div>
+                    <div class="card">
+                        <label for="rmBesoin">Décrivez votre besoin ou votre problème</label>
+                        <textarea id="rmBesoin" class="input" rows="3" maxlength="160" placeholder="Ex. : modèle de robe en wax, machine à coudre industrielle, logo pour mon salon, panne de climatiseur…"></textarea>
+                        <label class="rm-opt"><input type="checkbox" id="rmMetier" checked> <span id="rmMetierTxt">Adapter à mon métier</span></label>
+                        <label class="rm-opt"><input type="checkbox" id="rmPres"> <span id="rmPresTxt">Chercher près de moi</span></label>
+                        <div class="rm-chips" id="rmChips"></div>
+                        <button type="button" id="rmBtn" class="btn-action btn-success" onclick="lancerRechercheMetier()">🔎 Chercher sur Internet</button>
+                    </div>
+                    <div class="rm-onglets" id="rmOnglets">
+                        <button type="button" class="rm-onglet active" data-type="web" onclick="rmChoisirType('web')">🌐 Sites</button>
+                        <button type="button" class="rm-onglet" data-type="images" onclick="rmChoisirType('images')">🖼️ Images</button>
+                        <button type="button" class="rm-onglet" data-type="videos" onclick="rmChoisirType('videos')">▶️ Vidéos</button>
+                    </div>
+                    <div id="rmStatut" class="hint-box" style="display:none;margin-top:10px;"></div>
+                    <div id="rmResultats"></div>
+                    <p class="hint-box" id="rmAvis" style="display:none;margin-top:10px;font-size:12px;">Résultats d'Internet affichés tels quels : EVAT ne les modifie pas et n'est pas responsable du contenu des sites externes. Vérifiez toujours les prix et les informations auprès du vendeur.</p>
+                </div>
+            </section>
 
             <section id="tab-studio-elaws" class="tab-content" style="display:none;">
                 <div class="studio-wrap">

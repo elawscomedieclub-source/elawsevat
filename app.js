@@ -4681,7 +4681,7 @@ function rendreOutilsMetier() {
         head = `<div class="kit-metier-banner"><strong>🧰 Indiquez votre métier</strong>` +
             `<span class="kit-metier-soft">Profil → métier pour débloquer le kit sectoriel</span></div>`;
     }
-    box.innerHTML = head + liste.map((o, i) =>
+    box.innerHTML = head + '<button type="button" class="ia-tool web" onclick="switchTab(\'recherche-metier\')" title="Résultats réels d’Internet, sans IA"><span>🔎</span>Recherche Internet</button>' + liste.map((o, i) =>
         `<button type="button" class="ia-tool${o.web ? ' web' : ''}" data-tool="${i}" title="${o.web ? 'Utilise Internet' : ''}"><span>${o.ico}</span>${escapeHtml(o.nom)}</button>`).join('');
 }
 
@@ -5991,7 +5991,8 @@ function construireSauvegarde() {
         profil: { email: u.email || '', entreprise: u.entreprise || '', ville: u.ville || '', bio: u.bio || '', qubits: u.qubits || 0, pays: u.pays || '' },
         parametres: Object.assign({}, u.parametres || {}, { customRingtoneBase64: null }),
         notes: u.notes || [], contacts: u.contacts || [], historiqueElaws: (u.historiqueElaws || []).slice(-200),
-        messagesSupprimes: u.messagesSupprimes || [], messages: (u.messagesLocaux || []).map(nettoyer)
+        messagesSupprimes: u.messagesSupprimes || [], messages: (u.messagesLocaux || []).map(nettoyer),
+        stocks: u.stocks || [], ventes: (u.ventes || []).slice(-1500)
     };
     let json = JSON.stringify(data);
     while (json.length > 3000000 && data.messages.length > 50) {    // trop gros : on retire les plus anciens messages
@@ -6067,6 +6068,11 @@ function fusionnerSauvegarde(d) {
         if (nc && nc.telephone && !tels.has(nc.telephone)) { u.contacts.push(nc); tels.add(nc.telephone); nbContacts++; }
     });
     if (!(u.notes || []).length && Array.isArray(d.notes)) u.notes = d.notes;
+    ['stocks', 'ventes'].forEach(k => {
+        const ids = new Set((u[k] || []).map(x => String(x.id)));
+        u[k] = u[k] || [];
+        (Array.isArray(d[k]) ? d[k] : []).forEach(x => { if (x && x.id != null && !ids.has(String(x.id))) u[k].push(x); });
+    });
     if (!(u.historiqueElaws || []).length && Array.isArray(d.historiqueElaws)) u.historiqueElaws = d.historiqueElaws;
     const p = d.profil || {};
     ['email', 'entreprise', 'ville', 'bio', 'pays'].forEach(k => { if (!u[k] && p[k]) u[k] = p[k]; });
@@ -6296,4 +6302,435 @@ function changerTraductionAuto(actif) {
     document.head.appendChild(st);
     const swOrigine2 = switchTab;
     switchTab = function (tabId) { swOrigine2.apply(this, arguments); if (tabId === 'parametres') remplirReglagesTraduction(); };
+})();
+
+/* ============================================================
+   v4.18 : Recherche métier directement sur Internet (résultats réels, sans IA)
+   ============================================================ */
+const RM_PRESETS = [
+    { id: 'modeles', ico: '🖼️', nom: 'Modèles & idées', type: 'images', suffixe: 'modèle exemple idée' },
+    { id: 'acheter', ico: '🛒', nom: 'Où acheter', type: 'web', suffixe: 'acheter fournisseur prix' },
+    { id: 'prix', ico: '💰', nom: 'Prix & tarifs', type: 'web', suffixe: 'prix tarif' },
+    { id: 'tuto', ico: '🎓', nom: 'Tutoriels', type: 'videos', suffixe: 'tutoriel comment faire' },
+    { id: 'regles', ico: '📜', nom: 'Règles & obligations', type: 'web', suffixe: 'réglementation obligations légales' }
+];
+let _rm = { type: 'web', preset: null, envoi: false };
+
+function rmNomPays(code) {
+    try { if (/^[A-Za-z]{2}$/.test(code || '')) return new Intl.DisplayNames(['fr'], { type: 'region' }).of(String(code).toUpperCase()) || ''; } catch (e) {}
+    return code || '';
+}
+function rmContexte() {
+    const u = utilisateur || {};
+    const lieu = [u.ville, rmNomPays(u.pays)].filter(Boolean).join(', ');
+    return { metier: (u.metier || '').trim(), lieu, pays: /^[A-Za-z]{2}$/.test(u.pays || '') ? String(u.pays).toUpperCase() : '' };
+}
+function initRechercheMetier() {
+    const c = rmContexte();
+    const m = document.getElementById('rmMetierTxt'), p = document.getElementById('rmPresTxt');
+    if (m) m.textContent = c.metier && c.metier !== 'Opérateur' ? 'Adapter à mon métier (' + c.metier + ')' : 'Adapter à mon métier (renseignez-le dans votre profil)';
+    if (p) p.textContent = c.lieu ? 'Chercher près de moi (' + c.lieu + ')' : 'Chercher près de moi (ajoutez votre ville dans le profil)';
+    const chips = document.getElementById('rmChips');
+    if (chips && !chips.children.length) chips.innerHTML = RM_PRESETS.map(x => '<button type="button" class="rm-chip" data-id="' + x.id + '"><span>' + x.ico + '</span>' + x.nom + '</button>').join('');
+}
+function rmMarquerOnglet() {
+    document.querySelectorAll('#rmOnglets .rm-onglet').forEach(b => b.classList.toggle('active', b.dataset.type === _rm.type));
+    document.querySelectorAll('#rmChips .rm-chip').forEach(b => b.classList.toggle('active', !!_rm.preset && b.dataset.id === _rm.preset.id));
+}
+function rmChoisirType(type) {
+    _rm.type = type; _rm.preset = null; rmMarquerOnglet();
+    if ((document.getElementById('rmBesoin') || {}).value.trim()) lancerRechercheMetier();
+}
+document.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('#rmChips .rm-chip');
+    if (!b) return;
+    const pr = RM_PRESETS.find(x => x.id === b.dataset.id);
+    if (!pr) return;
+    _rm.preset = pr; _rm.type = pr.type; rmMarquerOnglet();
+    if ((document.getElementById('rmBesoin') || {}).value.trim()) lancerRechercheMetier();
+    else { const t = document.getElementById('rmStatut'); t.style.display = 'block'; t.textContent = 'Décrivez d’abord votre besoin ci-dessus, puis touchez « ' + pr.nom + ' » ou « Chercher ».'; }
+});
+
+function rmRequete() {
+    const besoin = (document.getElementById('rmBesoin').value || '').replace(/\s+/g, ' ').trim();
+    const c = rmContexte();
+    let q = besoin;
+    if (_rm.preset) q += ' ' + _rm.preset.suffixe;
+    if (document.getElementById('rmMetier').checked && c.metier && c.metier !== 'Opérateur' && !normaliserMotMetier(besoin).includes(normaliserMotMetier(c.metier))) q += ' ' + c.metier;
+    const pres = document.getElementById('rmPres').checked && c.lieu;
+    if (pres) q += ' ' + c.lieu;
+    return { besoin, q: q.trim().slice(0, 200), pays: pres ? c.pays : '' };
+}
+
+async function lancerRechercheMetier() {
+    if (_rm.envoi) return;
+    const { besoin, q, pays } = rmRequete();
+    const st = document.getElementById('rmStatut'), res = document.getElementById('rmResultats'), avis = document.getElementById('rmAvis');
+    if (besoin.length < 2) { st.style.display = 'block'; st.textContent = '✍️ Décrivez votre besoin ou votre problème en quelques mots.'; return; }
+    if (!socket.connected) { st.style.display = 'block'; st.textContent = '📡 Connexion au serveur nécessaire pour chercher sur Internet.'; return; }
+    _rm.envoi = true;
+    rmMarquerOnglet();
+    const btn = document.getElementById('rmBtn'); btn.disabled = true; btn.textContent = '⏳ Recherche…';
+    st.style.display = 'block'; st.textContent = '🔎 Recherche : « ' + q + ' »';
+    res.innerHTML = '';
+    const r = await emettre('recherche_metier', { q, type: _rm.type, lang: langueCible(), pays }, 25000);
+    _rm.envoi = false; btn.disabled = false; btn.textContent = '🔎 Chercher sur Internet';
+    if (!r || !r.ok) { st.textContent = '⚠️ ' + ((r && r.error) || 'Recherche impossible pour le moment.'); return; }
+    if (!r.resultats.length) { st.textContent = (r.info || 'Aucun résultat pour « ' + q + ' ». Essayez avec d’autres mots, plus simples.'); avis.style.display = 'none'; return; }
+    st.textContent = '🔎 ' + r.resultats.length + ' résultat(s) pour « ' + q + ' » — ' + (r.source === 'brave' ? 'source : Brave Search' : 'sources : Wikipédia et Wikimedia Commons');
+    res.innerHTML = rmRendre(r.type, r.resultats);
+    avis.style.display = 'block';
+}
+
+function rmLien(u) { return /^https?:\/\//i.test(u || '') ? escapeHtml(u) : '#'; }
+function rmRendre(type, liste) {
+    if (type === 'images') {
+        return '<div class="rm-grille">' + liste.map(x => '<a class="rm-img" href="' + rmLien(x.page) + '" target="_blank" rel="noopener noreferrer nofollow"><img loading="lazy" referrerpolicy="no-referrer" src="' + rmLien(x.image) + '" alt="' + escapeHtml(x.titre) + '"><small>' + escapeHtml(x.titre) + '<br><i>' + escapeHtml(x.source) + '</i></small></a>').join('') + '</div>';
+    }
+    if (type === 'videos') {
+        return liste.map(x => '<a class="rm-res rm-video" href="' + rmLien(x.url) + '" target="_blank" rel="noopener noreferrer nofollow">' +
+            (x.image ? '<span class="rm-vignette"><img loading="lazy" referrerpolicy="no-referrer" src="' + rmLien(x.image) + '" alt="">' + (x.duree ? '<b>' + escapeHtml(x.duree) + '</b>' : '') + '</span>' : '') +
+            '<span class="rm-corps"><span class="rm-site">' + escapeHtml(x.site) + (x.age ? ' · ' + escapeHtml(x.age) : '') + '</span><strong>' + escapeHtml(x.titre) + '</strong><span class="rm-ext">' + escapeHtml(x.extrait) + '</span></span></a>').join('');
+    }
+    return liste.map(x => '<a class="rm-res" href="' + rmLien(x.url) + '" target="_blank" rel="noopener noreferrer nofollow"><span class="rm-corps"><span class="rm-site">' + escapeHtml(x.site) + (x.age ? ' · ' + escapeHtml(x.age) : '') +
+        '</span><strong>' + escapeHtml(x.titre) + '</strong><span class="rm-ext">' + escapeHtml(x.extrait) + '</span></span>' +
+        (x.image ? '<img class="rm-mini" loading="lazy" referrerpolicy="no-referrer" src="' + rmLien(x.image) + '" alt="">' : '') + '</a>').join('');
+}
+
+document.addEventListener('keydown', (e) => {
+    if (e.target && e.target.id === 'rmBesoin' && e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); lancerRechercheMetier(); }
+});
+
+(function () {
+    const st = document.createElement('style');
+    st.textContent =
+        '.rm-opt{display:flex;gap:10px;align-items:center;margin:8px 0;font-size:14px}.rm-opt input{width:18px;height:18px}' +
+        '.rm-chips{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 12px}' +
+        '.rm-chip,.rm-onglet{border:1px solid var(--border-color);background:var(--card-bg);color:var(--text-primary);border-radius:999px;padding:8px 13px;font-size:13.5px;font-family:inherit;cursor:pointer}' +
+        '.rm-chip span{margin-right:5px}.rm-chip.active,.rm-onglet.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}' +
+        '.rm-onglets{display:flex;gap:8px;margin:14px 0 6px}.rm-onglet{flex:1;text-align:center}' +
+        '.rm-res{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;margin:10px 0;padding:12px 14px;border-radius:14px;border:1px solid var(--border-color);background:var(--card-bg);color:var(--text-primary);text-decoration:none}' +
+        '.rm-corps{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}.rm-site{font-size:12px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
+        '.rm-res strong{font-size:15.5px;line-height:1.3;color:var(--accent);word-break:break-word}.rm-ext{font-size:13.5px;line-height:1.4;color:var(--text-secondary)}' +
+        '.rm-mini{width:64px;height:64px;object-fit:cover;border-radius:10px;flex:0 0 64px}' +
+        '.rm-vignette{position:relative;flex:0 0 120px;height:68px;border-radius:10px;overflow:hidden;background:#000}.rm-vignette img{width:100%;height:100%;object-fit:cover}' +
+        '.rm-vignette b{position:absolute;right:4px;bottom:4px;background:rgba(0,0,0,.75);color:#fff;font-size:11px;padding:1px 5px;border-radius:5px}' +
+        '.rm-grille{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}' +
+        '.rm-img{display:block;border-radius:12px;overflow:hidden;border:1px solid var(--border-color);background:var(--card-bg);color:var(--text-primary);text-decoration:none}' +
+        '.rm-img img{display:block;width:100%;height:130px;object-fit:cover;background:#111}.rm-img small{display:block;padding:6px 8px 8px;font-size:11.5px;line-height:1.3;color:var(--text-secondary)}.rm-img i{opacity:.8}';
+    document.head.appendChild(st);
+    const swOrigine3 = switchTab;
+    switchTab = function (tabId) { swOrigine3.apply(this, arguments); if (tabId === 'recherche-metier') { initRechercheMetier(); rmMarquerOnglet(); } };
+})();
+
+/* ============================================================
+   v4.19 : MARCHÉ & COMMERCE (ELOSIA fusionné) — annonces, publication, publicité, stocks, reçus
+   Les comptes sont ceux d'EVAT (numéro de téléphone) ; stocks et reçus sont sauvegardés avec le compte
+   (récupérables par SMS / e-mail en changeant de téléphone).
+   ============================================================ */
+const MK_TYPES = { agro: '🍗 Élevage & Agro', boutique: '🛍️ Boutique & Vente', service: '💼 Service', besoin: '🔎 Besoin recherché' };
+const MK_QUARTIERS = ['Kodjoviakopé', 'Agoè', 'Bè', 'Tokoin', 'Adidogomé', 'Centre-Ville', 'Nyékonakpoè'];
+const MK_STATUTS = { active: '✅ En ligne', attente_paiement: '⏳ À payer', attente_admin: '🕓 Paiement en cours de validation', masquee: '🚫 Masquée' };
+const MK_PAIEMENTS = ['T-Money', 'Flooz', 'Espèces', 'PayPal'];
+let _mk = { section: 'annonces', annonces: [], params: null, photo: null, filtre: { q: '', type: '', quartier: '' }, emailOk: null };
+const _mkImgs = new Map();
+const fcfa = (n) => (Number(n) || 0).toLocaleString('fr-FR') + ' FCFA';
+
+function mkNotif(t) { montrerNotification(t); }
+function mkZone() { return document.getElementById('mkContenu'); }
+
+function mkSection(sec) {
+    _mk.section = sec || _mk.section;
+    document.querySelectorAll('#mkOnglets .rm-onglet').forEach(b => b.classList.toggle('active', b.dataset.s === _mk.section));
+    const z = mkZone(); if (!z) return;
+    ({ annonces: mkVueAnnonces, publier: mkVuePublier, mes: mkVueMes, pub: mkVuePub, stocks: mkVueStocks, recus: mkVueRecus }[_mk.section] || mkVueAnnonces)();
+}
+function ouvrirMarche(sec) { switchTab('marche'); mkSection(sec); }
+
+async function mkVerifierEmail() {
+    if (_mk.emailOk !== null || !socket.connected) return;
+    const r = await emettre('recup_canaux', null, 6000);
+    if (r && r.ok) _mk.emailOk = !!r.email;
+}
+function mkAvisEmail() {
+    if (_mk.emailOk !== false) return '';
+    return '<div class="hint-box mk-avis">📧 Confirmez votre e-mail pour retrouver vos annonces, stocks et reçus si vous changez de téléphone. <button type="button" class="btn-mini" data-act="email">Confirmer mon e-mail</button></div>';
+}
+
+/* ----- Annonces ----- */
+async function mkVueAnnonces(mine) {
+    const z = mkZone();
+    const f = _mk.filtre;
+    z.innerHTML =
+        '<div class="card"><input id="mkQ" class="input" placeholder="Que cherchez-vous ? (poulet, riz, couture…)" value="' + escapeHtml(f.q) + '">' +
+        '<div class="mk-ligne"><select id="mkT" class="input"><option value="">Tous les types</option>' + Object.keys(MK_TYPES).map(k => '<option value="' + k + '"' + (f.type === k ? ' selected' : '') + '>' + MK_TYPES[k] + '</option>').join('') + '</select>' +
+        '<input id="mkQuartier" class="input" list="mkQuartiers" placeholder="Quartier" value="' + escapeHtml(f.quartier) + '"><datalist id="mkQuartiers">' + MK_QUARTIERS.map(q => '<option value="' + q + '">').join('') + '</datalist></div>' +
+        '<button type="button" class="btn-action btn-success" data-act="chercher">🔎 Chercher</button></div><div id="mkListe"><p class="hint-box">Chargement…</p></div>';
+    mkCharger(false);
+}
+async function mkCharger(mine) {
+    const liste = document.getElementById('mkListe'); if (!liste) return;
+    if (!socket.connected) { liste.innerHTML = '<p class="hint-box">📡 Connexion au serveur nécessaire.</p>'; return; }
+    const f = _mk.filtre;
+    const r = await emettre('marche_lister', { q: f.q, type: f.type, quartier: f.quartier, mine: !!mine }, 20000);
+    if (!r || !r.ok) { liste.innerHTML = '<p class="hint-box">⚠️ ' + escapeHtml((r && r.error) || 'Chargement impossible.') + '</p>'; return; }
+    _mk.annonces = r.annonces; _mk.params = r.params;
+    if (!document.getElementById('mkListe')) return;
+    liste.innerHTML = r.annonces.length ? r.annonces.map(a => mkCarte(a, mine)).join('') + (r.total > r.annonces.length ? '<p class="hint-box">Affinez la recherche pour voir les ' + (r.total - r.annonces.length) + ' autres annonces.</p>' : '') :
+        '<p class="hint-box">' + (mine ? 'Vous n’avez pas encore d’annonce.' : 'Aucune annonce pour cette recherche. Soyez le premier à publier !') + '</p>';
+    mkChargerImages();
+}
+function mkCarte(a, mine) {
+    const jours = Math.max(0, Math.ceil((a.expiresAt - Date.now()) / 86400000));
+    const num = String(a.contact || '').replace(/[^\d]/g, '');
+    const texteWa = 'Bonjour, je suis intéressé(e) par votre annonce « ' + a.titre + ' » sur EVAT.';
+    return '<div class="mk-carte' + (a.sponsorisee ? ' sponso' : '') + '" data-id="' + escapeHtml(a.id) + '">' +
+        (a.hasImage ? '<img class="mk-photo" data-mkimg="' + escapeHtml(a.id) + '" alt="' + escapeHtml(a.titre) + '"' + (_mkImgs.has(a.id) ? ' src="' + _mkImgs.get(a.id) + '"' : '') + '>' : '') +
+        '<div class="mk-corps"><div class="mk-tags">' + (a.sponsorisee ? '<b class="mk-badge">⭐ Sponsorisée</b>' : '') + '<span>' + (MK_TYPES[a.type] || '') + '</span>' + (mine && a.statut ? '<span>' + (MK_STATUTS[a.statut] || a.statut) + '</span>' : '') + '</div>' +
+        '<strong class="mk-titre">' + escapeHtml(a.titre) + '</strong><div class="mk-prix">' + escapeHtml(a.prix) + '</div>' +
+        '<p class="mk-desc">' + escapeHtml(a.desc) + '</p>' +
+        '<small class="mk-meta">📍 ' + escapeHtml(a.quartier) + ' · ' + escapeHtml(a.nom) + ' · ' + jours + ' j restants</small>' +
+        '<div class="mk-tags">' + (a.paiements || []).map(p => '<span>💳 ' + escapeHtml(p) + '</span>').join('') + '</div>' +
+        (mine ? '<div class="mk-actions">' + (a.statut === 'attente_paiement' ? '<button type="button" class="btn-mini success" data-act="payer" data-id="' + escapeHtml(a.id) + '">💳 Payer</button>' : '') +
+            '<button type="button" class="btn-mini" data-act="supprimer" data-id="' + escapeHtml(a.id) + '">🗑️ Supprimer</button></div>' :
+        '<div class="mk-actions"><button type="button" class="btn-mini success" data-act="ecrire" data-tel="' + escapeHtml(a.vendeur) + '">💬 Écrire</button>' +
+            '<a class="btn-mini mk-lien" href="tel:' + escapeHtml(a.contact) + '">📞 Appeler</a>' +
+            '<a class="btn-mini mk-lien" target="_blank" rel="noopener noreferrer" href="https://wa.me/' + num + '?text=' + encodeURIComponent(texteWa) + '">🟢 WhatsApp</a>' +
+            '<button type="button" class="btn-mini" data-act="signaler" data-id="' + escapeHtml(a.id) + '">🚩</button></div>') + '</div></div>';
+}
+async function mkChargerImages() {
+    const imgs = [...document.querySelectorAll('#mkContenu img[data-mkimg]')].filter(i => !i.getAttribute('src'));
+    let k = 0;
+    const travailleur = async () => {
+        while (k < imgs.length) {
+            const img = imgs[k++], id = img.dataset.mkimg;
+            const r = await emettre('marche_image', { id }, 15000);
+            if (r && r.ok) { _mkImgs.set(id, r.image); if (_mkImgs.size > 60) _mkImgs.delete(_mkImgs.keys().next().value); img.src = r.image; } else img.remove();
+        }
+    };
+    await Promise.all([travailleur(), travailleur(), travailleur()]);
+}
+
+/* ----- Publier ----- */
+async function mkVuePublier() {
+    const z = mkZone();
+    const u = utilisateur || {};
+    z.innerHTML = '<div class="card"><p id="mkInfoFrais" class="hint-box">Chargement…</p>' +
+        '<label>Type</label><select id="pTypeA" class="input">' + Object.keys(MK_TYPES).map(k => '<option value="' + k + '">' + MK_TYPES[k] + '</option>').join('') + '</select>' +
+        '<label>Titre</label><input id="pTitre" class="input" maxlength="80" placeholder="Ex. : Poulet de chair local, prêt à cuire">' +
+        '<label>Description</label><textarea id="pDesc" class="input" rows="4" maxlength="1000" placeholder="Décrivez votre produit ou service : quantité, qualité, livraison…"></textarea>' +
+        '<label>Prix</label><input id="pPrix" class="input" maxlength="40" placeholder="Ex. : 3 500 FCFA">' +
+        '<label>Quartier</label><input id="pQuartier" class="input" list="mkQuartiers2" value="Lomé"><datalist id="mkQuartiers2">' + MK_QUARTIERS.map(q => '<option value="' + q + '">').join('') + '</datalist>' +
+        '<label>Durée de l’annonce</label><select id="pDuree" class="input"><option value="7">7 jours</option><option value="15">15 jours</option><option value="30" selected>30 jours</option><option value="60">60 jours</option><option value="90">90 jours</option></select>' +
+        '<label>Paiements acceptés</label><div class="mk-tags mk-choix">' + MK_PAIEMENTS.map((p, i) => '<label><input type="checkbox" class="pPaiement" value="' + p + '"' + (i === 2 ? ' checked' : '') + '> ' + p + '</label>').join('') + '</div>' +
+        '<label>Numéro de contact</label><input id="pContact" class="input" value="' + escapeHtml(u.telephone || '') + '" placeholder="+228…">' +
+        '<label>Photo (facultative)</label><input type="file" id="pPhoto" accept="image/*" class="input"><img id="pApercu" class="mk-photo" style="display:none" alt="Aperçu">' +
+        '<button type="button" class="btn-action btn-success" id="pEnvoyer" data-act="publier">📣 Publier mon annonce</button></div>';
+    const r = await emettre('marche_lister', { mine: true }, 15000);
+    const info = document.getElementById('mkInfoFrais');
+    if (r && r.ok) {
+        _mk.params = r.params;
+        const p = r.params;
+        info.textContent = p.fraisPublication <= 0 ? '🎁 La publication est gratuite pour le moment.' :
+            (p.gratuitesRestantes > 0 ? '🎁 Il vous reste ' + p.gratuitesRestantes + ' annonce(s) gratuite(s). Ensuite : ' + fcfa(p.fraisPublication) + ' par annonce.' : '💳 Frais de publication : ' + fcfa(p.fraisPublication) + ' par annonce (paiement mobile).');
+    } else info.textContent = '⚠️ ' + ((r && r.error) || 'Serveur injoignable.');
+    document.getElementById('pPhoto').onchange = async (e) => {
+        const f = e.target.files && e.target.files[0];
+        const ap = document.getElementById('pApercu');
+        _mk.photo = null; ap.style.display = 'none';
+        if (!f) return;
+        try { _mk.photo = await mkCompresserPhoto(f); ap.src = _mk.photo; ap.style.display = 'block'; } catch (err) { mkNotif('⚠️ Photo illisible ou trop lourde.'); }
+    };
+}
+function mkCompresserPhoto(file) {
+    return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+            URL.revokeObjectURL(url);
+            let larg = 800;
+            for (let essai = 0; essai < 6; essai++) {
+                const ech = Math.min(1, larg / Math.max(img.width, img.height));
+                const c = document.createElement('canvas'); c.width = Math.round(img.width * ech); c.height = Math.round(img.height * ech);
+                c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+                const d = c.toDataURL('image/jpeg', 0.7);
+                if (d.length <= 140000) return resolve(d);
+                larg = Math.round(larg * 0.8);
+            }
+            reject(new Error('trop lourde'));
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('illisible')); };
+        img.src = url;
+    });
+}
+async function mkPublier() {
+    const val = (id) => (document.getElementById(id) || {}).value || '';
+    const btn = document.getElementById('pEnvoyer');
+    const data = { type: val('pTypeA'), titre: val('pTitre').trim(), desc: val('pDesc').trim(), prix: val('pPrix').trim(), quartier: val('pQuartier').trim(), duree: val('pDuree'),
+                   contact: normaliserTel(val('pContact')), paiements: [...document.querySelectorAll('.pPaiement:checked')].map(c => c.value), image: _mk.photo || undefined };
+    if (data.titre.length < 3 || data.desc.length < 10 || !data.prix) { mkNotif('✍️ Titre, description (10 lettres minimum) et prix sont obligatoires.'); return; }
+    btn.disabled = true; btn.textContent = '⏳ Publication…';
+    const r = await emettre('marche_publier', data, 30000);
+    btn.disabled = false; btn.textContent = '📣 Publier mon annonce';
+    if (!r || !r.ok) { mkNotif('⚠️ ' + ((r && r.error) || 'Publication impossible.')); return; }
+    _mk.photo = null;
+    if (r.aPayer > 0) { mkNotif('📝 Annonce enregistrée : il reste à payer ' + fcfa(r.aPayer) + '.'); await mkPayer(r.annonce.id); }
+    else mkNotif('✅ Votre annonce est en ligne !');
+    mkSection('mes');
+}
+async function mkPayer(id) {
+    const r = await emettre('marche_payer', { id }, 30000);
+    if (!r || !r.ok) { mkNotif('⚠️ ' + ((r && r.error) || 'Paiement indisponible.')); return; }
+    if (r.manuel) mkNotif('🕓 Paiement en attente : l’administrateur valide votre annonce dès réception (T-Money / Flooz / espèces).');
+    else if (r.url) { window.open(r.url, '_blank', 'noopener'); mkNotif('💳 Payez sur la page ouverte : l’annonce sera publiée automatiquement.'); }
+}
+
+/* ----- Mes annonces ----- */
+async function mkVueMes() {
+    const z = mkZone();
+    z.innerHTML = '<div id="mkAvis"></div><div id="mkListe"><p class="hint-box">Chargement…</p></div>';
+    await mkVerifierEmail();
+    const av = document.getElementById('mkAvis'); if (av) av.innerHTML = mkAvisEmail();
+    mkCharger(true);
+}
+
+/* ----- Publicité (forfaits) ----- */
+async function mkVuePub() {
+    const z = mkZone();
+    z.innerHTML = '<p class="hint-box">Chargement…</p>';
+    const [f, m] = await Promise.all([emettre('marche_forfaits', null, 15000), emettre('marche_lister', { mine: true }, 15000)]);
+    if (!f || !f.ok || !m || !m.ok) { z.innerHTML = '<p class="hint-box">⚠️ Chargement impossible. Réessayez.</p>'; return; }
+    const actives = m.annonces.filter(a => a.statut === 'active');
+    z.innerHTML = '<p class="hint-box">⭐ Une annonce sponsorisée passe en tête de liste avec un badge. Choisissez un forfait puis vos annonces.' + (f.paiementEnLigne ? '' : ' Le paiement est validé manuellement par l’administrateur.') + '</p>' +
+        f.forfaits.map(x => '<div class="card mk-forfait"><strong>' + escapeHtml(x.nom) + ' — ' + fcfa(x.prix) + '</strong><small>' + escapeHtml(x.desc) + '</small>' +
+            (actives.length ? '<div class="mk-choix">' + actives.map(a => '<label><input type="checkbox" class="fo-' + escapeHtml(x.id) + '" value="' + escapeHtml(a.id) + '"> ' + escapeHtml(a.titre) + '</label>').join('') + '</div>' +
+                '<button type="button" class="btn-action btn-success" data-act="commander" data-f="' + escapeHtml(x.id) + '" data-max="' + x.slots + '">Commander · ' + fcfa(x.prix) + '</button>' : '<small>Publiez d’abord une annonce pour la sponsoriser.</small>') + '</div>').join('');
+}
+async function mkCommander(fid, max) {
+    const ids = [...document.querySelectorAll('.fo-' + fid + ':checked')].map(c => c.value);
+    if (!ids.length) { mkNotif('☑️ Cochez au moins une annonce.'); return; }
+    if (ids.length > max) { mkNotif('Ce forfait couvre ' + max + ' annonce(s) au maximum.'); return; }
+    const r = await emettre('marche_commander_pub', { forfaitId: fid, annonceIds: ids }, 30000);
+    if (!r || !r.ok) { mkNotif('⚠️ ' + ((r && r.error) || 'Commande impossible.')); return; }
+    if (r.manuel) mkNotif('🕓 Commande enregistrée : l’administrateur l’active dès réception du paiement.');
+    else if (r.url) { window.open(r.url, '_blank', 'noopener'); mkNotif('💳 Payez sur la page ouverte : vos annonces seront mises en avant automatiquement.'); }
+}
+
+/* ----- Stocks (données locales + sauvegarde cloud) ----- */
+function mkStocks() { if (!utilisateur.stocks) utilisateur.stocks = []; return utilisateur.stocks; }
+function mkVentes() { if (!utilisateur.ventes) utilisateur.ventes = []; return utilisateur.ventes; }
+async function mkVueStocks() {
+    const z = mkZone();
+    await mkVerifierEmail();
+    const st = mkStocks();
+    z.innerHTML = '<div id="mkAvis">' + mkAvisEmail() + '</div><div class="card"><div class="mk-ligne"><input id="sNom" class="input" placeholder="Produit"><input id="sPrix" class="input" type="number" min="0" inputmode="decimal" placeholder="Prix (FCFA)"></div>' +
+        '<div class="mk-ligne"><input id="sQte" class="input" type="number" min="0" inputmode="numeric" placeholder="Quantité en stock"><button type="button" class="btn-action btn-success" data-act="addstock">➕ Ajouter</button></div></div>' +
+        (st.length ? '<button type="button" class="btn-action btn-success" data-act="vente" style="margin:6px 0 10px">🧾 Nouvelle vente / reçu</button>' : '') +
+        (st.length ? st.map(s => '<div class="card mk-stock' + (s.qte <= 3 ? ' bas' : '') + '"><div><strong>' + escapeHtml(s.nom) + '</strong><small>' + fcfa(s.prix) + (s.qte <= 3 ? ' · ⚠️ stock bas' : '') + '</small></div>' +
+            '<div class="mk-qte"><button type="button" class="btn-mini" data-act="qte" data-id="' + escapeHtml(String(s.id)) + '" data-d="-1">−</button><b>' + s.qte + '</b><button type="button" class="btn-mini" data-act="qte" data-id="' + escapeHtml(String(s.id)) + '" data-d="1">+</button>' +
+            '<button type="button" class="btn-mini" data-act="delstock" data-id="' + escapeHtml(String(s.id)) + '">🗑️</button></div></div>').join('') : '<p class="hint-box">Aucun produit en stock. Ajoutez vos produits ci-dessus : chaque vente met le stock à jour et crée un reçu.</p>');
+}
+function mkAjouterStock() {
+    const nom = document.getElementById('sNom').value.trim(), prix = parseFloat(document.getElementById('sPrix').value), qte = parseInt(document.getElementById('sQte').value, 10);
+    if (!nom || !(prix >= 0) || !(qte >= 0)) { mkNotif('✍️ Produit, prix et quantité sont obligatoires.'); return; }
+    mkStocks().unshift({ id: Date.now(), nom: nom.slice(0, 60), prix: Math.round(prix), qte });
+    sauverProfil(); mkVueStocks(); mkNotif('✅ Produit ajouté');
+}
+function mkVente() {
+    const st = mkStocks().filter(s => s.qte > 0);
+    if (!st.length) { mkNotif('Aucun produit en stock à vendre.'); return; }
+    const o = document.createElement('div');
+    o.id = 'mkVenteOverlay'; o.className = 'statut-overlay mk-overlay';
+    o.innerHTML = '<div class="mk-modal"><h3>🧾 Nouvelle vente</h3><div class="mk-lignes">' + st.map(s => '<div class="mk-vl"><span>' + escapeHtml(s.nom) + '<small>' + fcfa(s.prix) + ' · stock ' + s.qte + '</small></span><input type="number" min="0" max="' + s.qte + '" value="0" inputmode="numeric" data-id="' + escapeHtml(String(s.id)) + '"></div>').join('') + '</div>' +
+        '<input id="vClient" class="input" placeholder="Client (facultatif)"><select id="vMode" class="input"><option>Espèces</option><option>T-Money</option><option>Flooz</option><option>Autre</option></select>' +
+        '<div class="mk-total">Total : <b id="vTotal">0 FCFA</b></div><div class="mk-ligne"><button type="button" class="btn-action" id="vAnnuler">Annuler</button><button type="button" class="btn-action btn-success" id="vOk">✅ Encaisser</button></div></div>';
+    document.body.appendChild(o);
+    const calc = () => { let t = 0; o.querySelectorAll('input[data-id]').forEach(i => { const s = mkStocks().find(x => String(x.id) === i.dataset.id); const brut = parseInt(i.value, 10) || 0; const q = Math.max(0, Math.min(s.qte, brut)); if (i.value !== '' && brut !== q) i.value = q; t += q * s.prix; }); document.getElementById('vTotal').textContent = fcfa(t); return t; };
+    o.addEventListener('input', calc);
+    document.getElementById('vAnnuler').onclick = () => o.remove();
+    document.getElementById('vOk').onclick = () => {
+        const lignes = [];
+        o.querySelectorAll('input[data-id]').forEach(i => { const s = mkStocks().find(x => String(x.id) === i.dataset.id); const q = Math.max(0, Math.min(s.qte, parseInt(i.value, 10) || 0)); if (q > 0) lignes.push({ nom: s.nom, prix: s.prix, qte: q, sid: s.id }); });
+        if (!lignes.length) { mkNotif('Choisissez au moins un produit.'); return; }
+        lignes.forEach(l => { const s = mkStocks().find(x => x.id === l.sid); s.qte -= l.qte; delete l.sid; });
+        const maintenant = new Date();
+        const jour = maintenant.toISOString().slice(0, 10).replace(/-/g, '');
+        const n = mkVentes().filter(v => String(v.numero || '').startsWith('R-' + jour)).length + 1;
+        const v = { id: Date.now(), numero: 'R-' + jour + '-' + String(n).padStart(3, '0'), ts: maintenant.getTime(), client: document.getElementById('vClient').value.trim().slice(0, 60), mode: document.getElementById('vMode').value, lignes, total: lignes.reduce((t, l) => t + l.prix * l.qte, 0) };
+        mkVentes().push(v);
+        sauverProfil(); o.remove(); mkVueStocks(); mkNotif('✅ Vente enregistrée : ' + fcfa(v.total));
+        mkPartagerRecu(v);
+    };
+}
+function mkTexteRecu(v) {
+    const d = new Date(v.ts);
+    return '🧾 REÇU N° ' + v.numero + '\n' + (utilisateur.entreprise || utilisateur.nom || 'EVAT') + '\n' + d.toLocaleDateString('fr-FR') + ' ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) + '\n------------------\n' +
+        v.lignes.map(l => l.qte + ' × ' + l.nom + ' — ' + fcfa(l.prix * l.qte)).join('\n') + '\n------------------\nTOTAL : ' + fcfa(v.total) + '\nPayé en : ' + v.mode + (v.client ? '\nClient : ' + v.client : '') + '\nMerci de votre confiance !';
+}
+function mkPartagerRecu(v) {
+    const t = mkTexteRecu(v);
+    if (navigator.share) navigator.share({ text: t }).catch(() => {});
+    else if (navigator.clipboard) navigator.clipboard.writeText(t).then(() => mkNotif('📋 Reçu copié : collez-le dans une discussion.')).catch(() => {});
+}
+
+/* ----- Reçus ----- */
+function mkVueRecus() {
+    const z = mkZone();
+    const ventes = mkVentes().slice().sort((a, b) => b.ts - a.ts);
+    const auj = new Date().toDateString(), mois = new Date().getMonth() + '/' + new Date().getFullYear();
+    const totJour = ventes.filter(v => new Date(v.ts).toDateString() === auj).reduce((t, v) => t + v.total, 0);
+    const totMois = ventes.filter(v => { const d = new Date(v.ts); return d.getMonth() + '/' + d.getFullYear() === mois; }).reduce((t, v) => t + v.total, 0);
+    z.innerHTML = '<div class="mk-ligne"><div class="card mk-stat"><small>Aujourd’hui</small><b>' + fcfa(totJour) + '</b></div><div class="card mk-stat"><small>Ce mois-ci</small><b>' + fcfa(totMois) + '</b></div></div>' +
+        (ventes.length ? ventes.slice(0, 100).map(v => '<div class="card mk-recu"><div><strong>' + escapeHtml(v.numero) + '</strong><small>' + new Date(v.ts).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) + ' · ' + escapeHtml(v.mode) + (v.client ? ' · ' + escapeHtml(v.client) : '') + '</small>' +
+            '<small>' + v.lignes.map(l => l.qte + '× ' + escapeHtml(l.nom)).join(', ') + '</small></div><div class="mk-qte"><b>' + fcfa(v.total) + '</b><button type="button" class="btn-mini success" data-act="partager" data-id="' + v.id + '">📤</button></div></div>').join('') :
+            '<p class="hint-box">Aucune vente pour le moment. Les reçus apparaissent ici après chaque vente enregistrée dans « Stocks ».</p>');
+}
+
+/* ----- Actions (délégation) ----- */
+document.addEventListener('click', async (e) => {
+    const onglet = e.target.closest && e.target.closest('#mkOnglets .rm-onglet');
+    if (onglet) { mkSection(onglet.dataset.s); return; }
+    const b = e.target.closest && e.target.closest('#tab-marche [data-act]');
+    if (!b || !utilisateur) return;
+    const act = b.dataset.act, id = b.dataset.id;
+    if (act === 'chercher') { _mk.filtre = { q: document.getElementById('mkQ').value.trim(), type: document.getElementById('mkT').value, quartier: document.getElementById('mkQuartier').value.trim() }; mkCharger(false); }
+    else if (act === 'ecrire') { switchTab('messagerie'); ouvrirMessagerie(b.dataset.tel); }
+    else if (act === 'signaler') { if (confirm('Signaler cette annonce à l’administrateur ?')) { const r = await emettre('marche_signaler', { id }, 10000); mkNotif(r && r.ok ? '🚩 Merci, l’annonce a été signalée.' : '⚠️ Signalement impossible.'); } }
+    else if (act === 'publier') mkPublier();
+    else if (act === 'payer') mkPayer(id);
+    else if (act === 'supprimer') { if (confirm('Supprimer cette annonce ?')) { const r = await emettre('marche_supprimer', { id }, 10000); if (r && r.ok) { mkNotif('🗑️ Annonce supprimée'); mkVueMes(); } else mkNotif('⚠️ Suppression impossible.'); } }
+    else if (act === 'commander') mkCommander(b.dataset.f, parseInt(b.dataset.max, 10) || 1);
+    else if (act === 'email') switchTab('sync');
+    else if (act === 'addstock') mkAjouterStock();
+    else if (act === 'vente') mkVente();
+    else if (act === 'qte') { const s = mkStocks().find(x => String(x.id) === id); if (s) { s.qte = Math.max(0, s.qte + parseInt(b.dataset.d, 10)); sauverProfil(); mkVueStocks(); } }
+    else if (act === 'delstock') { if (confirm('Supprimer ce produit du stock ?')) { utilisateur.stocks = mkStocks().filter(x => String(x.id) !== id); sauverProfil(); mkVueStocks(); } }
+    else if (act === 'partager') { const v = mkVentes().find(x => String(x.id) === id); if (v) mkPartagerRecu(v); }
+});
+
+socket.on('marche_maj', (d) => {
+    if (!utilisateur) return;
+    const visible = document.getElementById('tab-marche') && document.getElementById('tab-marche').style.display !== 'none';
+    if (visible && (_mk.section === 'mes' || _mk.section === 'annonces')) { if (_mk.section === 'mes') mkVueMes(); else mkCharger(false); }
+});
+
+(function () {
+    const st = document.createElement('style');
+    st.textContent =
+        '.mk-onglets{display:flex;gap:8px;overflow-x:auto;margin:6px 0 12px;padding-bottom:4px;scrollbar-width:none}.mk-onglets::-webkit-scrollbar{display:none}.mk-onglets .rm-onglet{flex:0 0 auto}' +
+        '#mkContenu label{display:block;margin:10px 0 4px;font-size:13px;color:var(--text-secondary)}#mkContenu .card .mk-choix label,#mkContenu .mk-tags.mk-choix label{display:inline-flex;gap:6px;align-items:center;margin:4px 10px 4px 0;color:var(--text-primary)}' +
+        '.mk-ligne{display:flex;gap:8px;align-items:stretch}.mk-ligne>*{flex:1;min-width:0}' +
+        '.mk-carte{margin:12px 0;border-radius:16px;overflow:hidden;border:1px solid var(--border-color);background:var(--card-bg);color:var(--text-primary)}.mk-carte.sponso{border-color:#f59e0b;box-shadow:0 0 0 1px #f59e0b55}' +
+        '.mk-photo{display:block;width:100%;max-height:230px;object-fit:cover;background:#111}.mk-corps{padding:12px 14px;display:flex;flex-direction:column;gap:6px}' +
+        '.mk-titre{font-size:16px}.mk-prix{font-weight:700;color:var(--accent);font-size:16px}.mk-desc{margin:0;font-size:14px;line-height:1.45;color:var(--text-secondary);white-space:pre-wrap;word-break:break-word}.mk-meta{color:var(--text-secondary)}' +
+        '.mk-tags{display:flex;flex-wrap:wrap;gap:6px}.mk-tags span,.mk-badge{font-size:11.5px;padding:3px 8px;border-radius:999px;background:rgba(120,160,255,.15)}.mk-badge{background:#f59e0b;color:#111}' +
+        '.mk-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}.mk-lien{text-decoration:none;color:inherit;display:inline-flex;align-items:center}' +
+        '.mk-avis{margin-bottom:10px}.mk-forfait small{display:block;margin:4px 0 8px;color:var(--text-secondary)}' +
+        '.mk-stock,.mk-recu{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:8px 0}.mk-stock small,.mk-recu small{display:block;color:var(--text-secondary);font-size:12px;margin-top:2px}.mk-stock.bas{border-color:#f59e0b}' +
+        '.mk-qte{display:flex;align-items:center;gap:8px}.mk-qte b{min-width:24px;text-align:center}.mk-stat{margin:0 !important;text-align:center}.mk-stat small{display:block;color:var(--text-secondary)}.mk-stat b{font-size:17px}' +
+        '.mk-overlay{align-items:flex-end;background:rgba(0,0,0,.6)}.mk-modal{width:100%;max-width:520px;max-height:90vh;overflow:auto;background:var(--card-bg);color:var(--text-primary);border-radius:20px 20px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px))}' +
+        '.mk-vl{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:8px 0}.mk-vl small{display:block;color:var(--text-secondary);font-size:12px}.mk-vl input{width:80px;text-align:center}.mk-total{margin:10px 0;font-size:17px}';
+    document.head.appendChild(st);
+    const swMk = switchTab;
+    switchTab = function (tabId) { swMk.apply(this, arguments); if (tabId === 'marche') mkSection(_mk.section); };
 })();
