@@ -212,50 +212,73 @@
                 <span id="sidebarUserRole">Non connecté</span>
             </div>
             <div class="nav-modules" id="navModulesRoot">
-                <p class="nav-hint">4 modules — profil en haut</p>
-                
-                <!-- Module 1 : un seul nom clair -->
+                <p class="nav-hint">Menu</p>
+
                 <div class="nav-module" data-module="dashboard">
                     <button type="button" class="nav-module-btn" onclick="ouvrirSousModule('dashboard');">
-                        🏠 1 · Tableau de bord
+                        🏠 Accueil
                     </button>
                 </div>
 
-                <div class="nav-module" data-module="messages">
-                    <button type="button" class="nav-module-btn" onclick="ouvrirSousModule('messagerie');">
-                        💬 2 · Discussion, Appels & GPS
+                <div class="nav-module" data-module="communication">
+                    <button type="button" class="nav-module-btn" onclick="toggleGrandModule('communication');">
+                        💬 Communication <span class="nav-chevron">▼</span>
                     </button>
+                    <div class="nav-sous">
+                        <a href="#" class="nav-link" id="link-messagerie" onclick="ouvrirSousModule('messagerie');return false;">💬 Messages</a>
+                        <a href="#" class="nav-link" id="link-contacts" onclick="ouvrirSousModule('contacts');return false;">👥 Contacts</a>
+                        <a href="#" class="nav-link" id="link-appels" onclick="ouvrirSousModule('appels');return false;">📞 Appels</a>
+                        <a href="#" class="nav-link" id="link-map" onclick="ouvrirSousModule('map');return false;">🗺️ Carte &amp; position GPS</a>
+                    </div>
                 </div>
 
-                <div class="nav-module" data-module="reseau">
-                    <button type="button" class="nav-module-btn" onclick="ouvrirSousModule('contacts');">
-                        👥 3 · Contacts
-                    </button>
-                </div>
-
-                <div class="nav-module" data-module="marche">
-                    <button type="button" class="nav-module-btn" onclick="ouvrirSousModule('marche');">
-                        🛒 Marché &amp; Commerce
-                    </button>
-                </div>
-
-                <div class="nav-module" data-module="elaws">
-                    <button type="button" class="nav-module-btn" onclick="toggleGrandModule('elaws');">
-                        ⚡ 4 · ELAWS · Studio · Quêtes <span class="nav-chevron">▼</span>
+                <div class="nav-module" data-module="assistants">
+                    <button type="button" class="nav-module-btn" onclick="toggleGrandModule('assistants');">
+                        🤖 Assistants &amp; recherche <span class="nav-chevron">▼</span>
                     </button>
                     <div class="nav-sous">
                         <a href="#" class="nav-link" id="link-elaws-ia" onclick="ouvrirSousModule('elaws-ia');return false;">🔮 Mister ELAWS (répond à tout)</a>
-                        <a href="#" class="nav-link" id="link-studio-elaws" onclick="ouvrirSousModule('studio-elaws');return false;">🎬 Studio ELAWS EVAT — spots, storyboard, podcast</a>
                         <a href="#" class="nav-link" id="link-ia-metier" onclick="ouvrirSousModule('ia-metier');return false;">💼 Mister I (mon métier)</a>
-                        <a href="#" class="nav-link" id="link-recherche-metier" onclick="switchTab('recherche-metier');return false;">🔎 Recherche métier (Internet)</a>
+                        <a href="#" class="nav-link" id="link-recherche-metier" onclick="ouvrirSousModule('recherche-metier');return false;">🔎 Recherche métier (Internet)</a>
+                        <a href="#" class="nav-link" id="link-studio-elaws" onclick="ouvrirSousModule('studio-elaws');return false;">🎬 Studio ELAWS EVAT</a>
+                    </div>
+                </div>
+
+                <div class="nav-module" data-module="marche">
+                    <button type="button" class="nav-module-btn" onclick="toggleGrandModule('marche');">
+                        🛒 Marché &amp; Commerce <span class="nav-chevron">▼</span>
+                    </button>
+                    <div class="nav-sous">
+                        <a href="#" class="nav-link" id="link-marche-annonces" onclick="ouvrirMarche('annonces');return false;">🛍️ Annonces</a>
+                        <a href="#" class="nav-link" id="link-marche-publier" onclick="ouvrirMarche('publier');return false;">➕ Publier une annonce</a>
+                        <a href="#" class="nav-link" id="link-marche-mes" onclick="ouvrirMarche('mes');return false;">📋 Mes annonces</a>
+                        <a href="#" class="nav-link" id="link-marche-stocks" onclick="ouvrirMarche('stocks');return false;">📦 Stocks &amp; reçus</a>
+                    </div>
+                </div>
+
+                <div class="nav-module" data-module="outils">
+                    <button type="button" class="nav-module-btn" onclick="toggleGrandModule('outils');">
+                        🧰 Outils &amp; évolution <span class="nav-chevron">▼</span>
+                    </button>
+                    <div class="nav-sous">
                         <a href="#" class="nav-link" id="link-outils" onclick="ouvrirSousModule('outils');return false;">🛠️ Bloc-notes</a>
-                        <a href="#" class="nav-link" id="link-parametres" onclick="ouvrirSousModule('parametres');return false;">⚙️ Paramètres</a>
-                        <a href="#" class="nav-link" id="link-voyage" onclick="ouvrirSousModule('voyage');return false;">✈️ Voyage</a>
-                        <a href="#" class="nav-link" id="link-sync" onclick="ouvrirSousModule('sync');return false;">☁️ Sauvegarde</a>
+                        <a href="#" class="nav-link" id="link-voyage" onclick="ouvrirSousModule('voyage');return false;">✈️ Voyage &amp; visa</a>
                         <a href="#" class="nav-link" id="link-quetes" onclick="ouvrirSousModule('quetes');return false;">⚡ Quêtes</a>
                         <a href="#" class="nav-link" id="link-succes1000" onclick="ouvrirSousModule('succes1000');return false;">💎 Stratégie</a>
                     </div>
                 </div>
+
+                <div class="nav-module" data-module="compte">
+                    <button type="button" class="nav-module-btn" onclick="toggleGrandModule('compte');">
+                        ⚙️ Mon compte <span class="nav-chevron">▼</span>
+                    </button>
+                    <div class="nav-sous">
+                        <a href="#" class="nav-link" id="link-profil" onclick="ouvrirSousModule('profil');return false;">👤 Profil &amp; sécurité</a>
+                        <a href="#" class="nav-link" id="link-sync" onclick="ouvrirSousModule('sync');return false;">☁️ Sauvegarde &amp; récupération</a>
+                        <a href="#" class="nav-link" id="link-parametres" onclick="ouvrirSousModule('parametres');return false;">⚙️ Paramètres (traduction, thème, sonneries)</a>
+                    </div>
+                </div>
+
             </div>
             <div class="sidebar-footer">
                 <button onclick="deconnecterUtilisateur()" class="btn-action btn-danger">🔄 Refaire l'enregistrement</button>
@@ -567,6 +590,7 @@
                         <div id="gpsMessageStatus" class="gps-status"></div>
                     </div>
 
+                    <div id="chatDocPreview" hidden><span class="doc-prev-nom"></span><button type="button" class="btn-icon" onclick="annulerDocChat()" aria-label="Retirer le document">✕</button></div>
                     <div id="chatImagePreview" class="chat-image-preview" hidden>
                         <img id="chatImagePreviewImg" alt="Aperçu">
                         <button type="button" class="btn-icon" onclick="annulerImageChat()" aria-label="Retirer">✕</button>
@@ -581,6 +605,8 @@
                         <input type="file" id="chatImageInput" accept="image/*" capture="environment" hidden onchange="onChatImageChoisie(event)">
                         <button type="button" class="btn-icon" onclick="document.getElementById('chatImageInput').click()" aria-label="Photo" title="Envoyer une photo">📷</button>
                         <button type="button" id="btnChatVocal" class="btn-icon btn-vocal" onclick="toggleVocalChat(event)" aria-label="Message vocal" title="Appuyer pour enregistrer / appuyer pour envoyer">🎙️</button>
+                        <input type="file" id="chatDocInput" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv" hidden onchange="onChatDocChoisi(event)">
+                        <button type="button" id="btnChatDoc" class="btn-icon" onclick="document.getElementById('chatDocInput').click()" aria-label="Document" title="Envoyer un document (PDF, Word, Excel… 350 Ko max)">📎</button>
                         <button type="button" id="btnChatVisio" class="btn-icon" onclick="lancerVisioGroupe()" aria-label="Visio de groupe" title="Lancer une visio (Jitsi) et envoyer le lien">🎥</button>
                         <textarea id="chatLocalInput" class="input input-message" rows="1" placeholder="Message" enterkeyhint="send" oninput="autoResize(this);signalerEcriture()" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();envoyerMessageChatLocal();}"></textarea>
                         <button type="button" onclick="envoyerMessageChatLocal()" class="btn-send-round" aria-label="Envoyer">➤</button>

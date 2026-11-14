@@ -3093,7 +3093,7 @@ socket.on('new_message', (msg) => {
 
     const m = {
         id: msg.id, cid: msg.cid || null,
-        expediteur: msg.fromName || msg.from, from: msg.from, texte: msg.texte, image: msg.image || null, audio: msg.audio || null, audioDur: msg.audioDur || 0, groupId: msg.groupId || null, groupName: msg.groupName || null, heure: msg.heure,
+        expediteur: msg.fromName || msg.from, from: msg.from, texte: msg.texte, image: msg.image || null, audio: msg.audio || null, doc: msg.doc || null, supprime: !!msg.supprime, audioDur: msg.audioDur || 0, groupId: msg.groupId || null, groupName: msg.groupName || null, heure: msg.heure,
         fromMe, to: msg.groupId ? ('group:' + msg.groupId) : (msg.to || null), ts: msg.timestamp,
         etat: fromMe ? (msg.read ? 'read' : (msg.delivered ? 'delivered' : 'sent')) : null
     };
@@ -3157,14 +3157,14 @@ socket.on('typing', (d) => {
 });
 
 /* ---------- Envoi ---------- */
-function envoyerMessage(to, texte, cidExistant, imageData, audioData, audioDur) {
+function envoyerMessage(to, texte, cidExistant, imageData, audioData, audioDur, doc) {
     if (!utilisateur) return;
     const cid = cidExistant || nouvelIdMsg();
     const isGroup = estCleGroupe(to);
     const groupId = isGroup ? idGroupeDeCle(to) : null;
     const peer = (!isGroup && to && to !== 'general') ? to : null;
-    const texteFinal = (texte || '').trim() || (audioData ? '🎤 Message vocal' : (imageData ? '📷 Photo' : ''));
-    if (!texteFinal && !imageData && !audioData) return;
+    const texteFinal = (texte || '').trim() || (audioData ? '🎤 Message vocal' : (imageData ? '📷 Photo' : (doc ? '📎 ' + doc.nom : '')));
+    if (!texteFinal && !imageData && !audioData && !doc) return;
 
     (utilisateur.messagesLocaux = utilisateur.messagesLocaux || []).push({
         id: cid, cid,
@@ -3173,6 +3173,7 @@ function envoyerMessage(to, texte, cidExistant, imageData, audioData, audioDur) 
         texte: texteFinal,
         image: imageData || null,
         audio: audioData || null,
+        doc: doc ? { nom: doc.nom, mime: doc.mime, taille: doc.taille } : null,
         audioDur: audioData ? (audioDur || 0) : 0,
         groupId: groupId || null,
         heure: heureCourte(Date.now()),
@@ -3192,6 +3193,7 @@ function envoyerMessage(to, texte, cidExistant, imageData, audioData, audioDur) 
         return;
     }
     const payload = { to: peer, texte: texteFinal, cid };
+    if (doc) payload.doc = { nom: doc.nom, data: doc.data };
     if (groupId) payload.groupId = groupId;
     if (imageData) payload.image = imageData;
     if (audioData) { payload.audio = audioData; payload.audioDur = audioDur || 0; }
@@ -3214,12 +3216,15 @@ function envoyerMessageChatLocal() {
     const input = document.getElementById('chatLocalInput');
     const texte = input ? input.value.trim() : '';
     const img = window._chatImageData || null;
-    if (!texte && !img) return;
+    const doc = window._chatDoc || null;
+    if (!texte && !img && !doc) return;
     if (!convoOuverte) return;
+    if (doc && !socket.connected) { montrerNotification('📡 Connexion au serveur nécessaire pour envoyer un document.'); return; }
     if (input) { input.value = ''; autoResize(input); }
     annulerImageChat();
+    annulerDocChat();
     const to = convoOuverte === 'general' ? null : convoOuverte;
-    envoyerMessage(to, texte, null, img);
+    envoyerMessage(to, texte, null, img, null, 0, doc);
     arreterEcriture();
 }
 
@@ -3749,15 +3754,18 @@ function rendreFil(forcerBas) {
         const imgHtml = m.image
             ? `<div class="msg-image"><img src="${m.image.replace(/"/g, '')}" alt="Photo" loading="lazy" onclick="ouvrirLightboxImage(this.src)"></div>`
             : '';
+        const docHtml = m.doc
+            ? `<button type="button" class="msg-doc" data-act="ouvrir-doc" data-mid="${escapeHtml(String(m.id || m.cid || ''))}"><span class="msg-doc-ico">${icoDoc(m.doc.nom)}</span><span class="msg-doc-txt"><b>${escapeHtml(m.doc.nom)}</b><small>${tailleDoc(m.doc.taille)} · Toucher pour ouvrir</small></span></button>`
+            : '';
         const audioHtml = m.audio
             ? `<div class="msg-audio"><button type="button" class="msg-audio-play" data-audio-src="${String(m.audio).replace(/"/g, '')}" aria-label="Lire">▶</button>
                 <div class="msg-audio-wave"></div>
                 <span class="msg-audio-dur">${fmtDureeVocal(m.audioDur)}</span></div>`
             : '';
-        const txtHtml = (m.texte && m.texte !== '📷 Photo' && m.texte !== '🎤 Message vocal')
+        const txtHtml = (m.supprime) ? '<p class="msg-suppr">🚫 Message supprimé</p>' : (m.texte && m.texte !== '📷 Photo' && m.texte !== '🎤 Message vocal' && !(m.doc && m.texte === '📎 ' + m.doc.nom))
             ? texteMsgHtml(m.texte)
-            : ((m.image || m.audio) ? '' : texteMsgHtml(m.texte || ''));
-        html += `<div class="msg-bubble ${moi ? 'me' : 'other'}" data-mid="${escapeHtml(String(m.id || m.cid || ''))}">${auteur}${imgHtml}${audioHtml}${txtHtml}` +
+            : ((m.image || m.audio || m.doc) ? '' : texteMsgHtml(m.texte || ''));
+        html += `<div class="msg-bubble ${moi ? 'me' : 'other'}" data-mid="${escapeHtml(String(m.id || m.cid || ''))}">${auteur}${imgHtml}${docHtml}${audioHtml}${txtHtml}` +
                 `${tradHtml(m)}${reactionsHtml(m)}<div class="msg-meta"><span class="msg-time">${escapeHtml(m.ts ? heureCourte(m.ts) : (m.heure || ''))}</span>${coches(m)}</div></div>`;
     });
     container.innerHTML = html;
@@ -3835,11 +3843,12 @@ function fusionnerHistorique(msgs) {
         if (ex) {
             if (fromMe && etat && ex.etat !== etat && ex.etat !== 'read') { ex.etat = etat; change = true; }
             if (JSON.stringify(ex.reactions || null) !== JSON.stringify(m.reactions || null)) { ex.reactions = m.reactions || null; change = true; }
+            if (m.supprime && !ex.supprime) { appliquerSuppressionLocale(ex); change = true; }
             return;
         }
         const nouveau = {
             id: m.id, cid: m.cid || null, expediteur: m.fromName || m.from, from: m.from, texte: m.texte,
-            heure: m.heure, fromMe, to: m.to || null, ts: m.timestamp, etat, reactions: m.reactions || null
+            heure: m.heure, fromMe, to: m.to || null, ts: m.timestamp, etat, reactions: m.reactions || null, doc: m.doc || null, supprime: !!m.supprime
         };
         utilisateur.messagesLocaux.push(nouveau);
         if (!fromMe) {
@@ -5504,10 +5513,11 @@ function lierUrls(htmlEchappe) {
         const rangee = document.createElement('div');
         rangee.className = 'evat-msg-reacts';
         REACTIONS.forEach(em => { const b = document.createElement('button'); b.type = 'button'; b.textContent = em; b.onclick = () => { fermerMenu(); reagirAuMessage(m, em); }; rangee.appendChild(b); });
-        menu.appendChild(rangee);
-        const actions = [['↩️ Répondre', () => repondre(m)]];
-        if (m.texte && m.texte !== '📷 Photo' && m.texte !== '🎤 Message vocal') actions.push(['📋 Copier le texte', () => copier(m.texte.replace(/^↩️ [^\n]*\n/, ''))]);
-        if (m.texte && m.texte !== '📷 Photo' && m.texte !== '🎤 Message vocal') actions.push([m.trad && !m.tradMasquee ? '🌐 Masquer la traduction' : '🌐 Traduire', () => (m.trad && !m.tradMasquee) ? masquerTraduction(m) : traduireMessage(m, true)]);
+        if (!m.supprime) menu.appendChild(rangee);
+        const actions = m.supprime ? [] : [['↩️ Répondre', () => repondre(m)]];
+        if (!m.supprime && m.texte && m.texte !== '📷 Photo' && m.texte !== '🎤 Message vocal' && !m.doc) actions.push(['📋 Copier le texte', () => copier(m.texte.replace(/^↩️ [^\n]*\n/, ''))]);
+        if (!m.supprime && m.texte && m.texte !== '📷 Photo' && m.texte !== '🎤 Message vocal' && !m.doc) actions.push([m.trad && !m.tradMasquee ? '🌐 Masquer la traduction' : '🌐 Traduire', () => (m.trad && !m.tradMasquee) ? masquerTraduction(m) : traduireMessage(m, true)]);
+        if (m.fromMe && !m.supprime && m.id && m.etat !== 'pending' && m.etat !== 'failed' && m.ts && Date.now() - m.ts < 2 * 3600000) actions.push(['🚫 Supprimer pour tous', () => supprimerPourTous(m)]);
         actions.push(['🗑️ Supprimer pour moi', () => supprimer(m)]);
         actions.forEach(([libelle, fn]) => {
             const b = document.createElement('button');
@@ -6376,6 +6386,7 @@ async function lancerRechercheMetier() {
     const r = await emettre('recherche_metier', { q, type: _rm.type, lang: langueCible(), pays }, 25000);
     _rm.envoi = false; btn.disabled = false; btn.textContent = '🔎 Chercher sur Internet';
     if (!r || !r.ok) { st.textContent = '⚠️ ' + ((r && r.error) || 'Recherche impossible pour le moment.'); return; }
+    r.resultats = r.resultats || [];
     if (!r.resultats.length) { st.textContent = (r.info || 'Aucun résultat pour « ' + q + ' ». Essayez avec d’autres mots, plus simples.'); avis.style.display = 'none'; return; }
     st.textContent = '🔎 ' + r.resultats.length + ' résultat(s) pour « ' + q + ' » — ' + (r.source === 'brave' ? 'source : Brave Search' : 'sources : Wikipédia et Wikimedia Commons');
     res.innerHTML = rmRendre(r.type, r.resultats);
@@ -6474,6 +6485,7 @@ async function mkCharger(mine) {
     const f = _mk.filtre;
     const r = await emettre('marche_lister', { q: f.q, type: f.type, quartier: f.quartier, mine: !!mine }, 20000);
     if (!r || !r.ok) { liste.innerHTML = '<p class="hint-box">⚠️ ' + escapeHtml((r && r.error) || 'Chargement impossible.') + '</p>'; return; }
+    r.annonces = r.annonces || [];
     _mk.annonces = r.annonces; _mk.params = r.params;
     if (!document.getElementById('mkListe')) return;
     liste.innerHTML = r.annonces.length ? r.annonces.map(a => mkCarte(a, mine)).join('') + (r.total > r.annonces.length ? '<p class="hint-box">Affinez la recherche pour voir les ' + (r.total - r.annonces.length) + ' autres annonces.</p>' : '') :
@@ -6733,4 +6745,129 @@ socket.on('marche_maj', (d) => {
     document.head.appendChild(st);
     const swMk = switchTab;
     switchTab = function (tabId) { swMk.apply(this, arguments); if (tabId === 'marche') mkSection(_mk.section); };
+})();
+
+/* ============================================================
+   v4.20 : documents dans les discussions, suppression pour tous, menu réorganisé, corrections d'affichage
+   ============================================================ */
+const DOC_EXT = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv'];
+const DOC_MAX_OCTETS = 350 * 1024;
+window._chatDoc = null;
+
+function icoDoc(nom) {
+    const e = String(nom || '').split('.').pop().toLowerCase();
+    return { pdf: '📕', doc: '📘', docx: '📘', xls: '📗', xlsx: '📗', ppt: '📙', pptx: '📙', csv: '📊', txt: '📄' }[e] || '📎';
+}
+function tailleDoc(n) { n = Number(n) || 0; return n >= 1048576 ? (n / 1048576).toFixed(1) + ' Mo' : Math.max(1, Math.round(n / 1024)) + ' Ko'; }
+
+function annulerDocChat() {
+    window._chatDoc = null;
+    const box = document.getElementById('chatDocPreview'); if (box) box.setAttribute('hidden', '');
+    const inp = document.getElementById('chatDocInput'); if (inp) inp.value = '';
+}
+function onChatDocChoisi(ev) {
+    const f = ev.target && ev.target.files && ev.target.files[0];
+    if (!f) return;
+    const ext = f.name.split('.').pop().toLowerCase();
+    if (!DOC_EXT.includes(ext)) { alert('Format non accepté. Envoyez un PDF, Word, Excel, PowerPoint, TXT ou CSV.'); ev.target.value = ''; return; }
+    if (f.size > DOC_MAX_OCTETS) { alert('Document trop lourd : ' + tailleDoc(f.size) + '. Le maximum est 350 Ko. Réduisez le fichier ou envoyez un lien.'); ev.target.value = ''; return; }
+    const r = new FileReader();
+    r.onerror = () => alert('Impossible de lire ce document.');
+    r.onload = () => {
+        window._chatDoc = { nom: f.name, mime: f.type, taille: f.size, data: String(r.result) };
+        const box = document.getElementById('chatDocPreview');
+        if (box) { box.querySelector('.doc-prev-nom').textContent = icoDoc(f.name) + ' ' + f.name + ' · ' + tailleDoc(f.size); box.removeAttribute('hidden'); }
+    };
+    r.readAsDataURL(f);
+}
+
+async function ouvrirDocMessage(id) {
+    const m = (utilisateur.messagesLocaux || []).find(z => String(z.id) === id || z.cid === id);
+    if (!m || !m.doc) return;
+    if (!socket.connected) { montrerNotification('📡 Connexion au serveur nécessaire pour ouvrir le document.'); return; }
+    montrerNotification('⏳ Téléchargement…');
+    const r = await emettre('doc_telecharger', { id: m.id }, 30000);
+    if (!r || !r.ok) { montrerNotification('⚠️ ' + ((r && r.error) || 'Document indisponible.')); return; }
+    try {
+        const bin = atob(r.data.split(',')[1]);
+        const octets = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) octets[i] = bin.charCodeAt(i);
+        const url = URL.createObjectURL(new Blob([octets], { type: r.mime || 'application/octet-stream' }));
+        const a = document.createElement('a');
+        a.href = url; a.download = r.nom || 'document'; a.rel = 'noopener';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (e) { montrerNotification('⚠️ Document illisible.'); }
+}
+document.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('[data-act="ouvrir-doc"]');
+    if (b && utilisateur) ouvrirDocMessage(b.dataset.mid);
+});
+
+/* ----- Suppression pour tous ----- */
+function appliquerSuppressionLocale(m) {
+    Object.assign(m, { texte: '🚫 Message supprimé', image: null, audio: null, audioDur: 0, doc: null, reactions: null, trad: null, supprime: true });
+}
+async function supprimerPourTous(m) {
+    if (!confirm('Supprimer ce message pour tout le monde ?')) return;
+    const r = await emettre('supprimer_message', { id: m.id }, 15000);
+    if (!r || !r.ok) { montrerNotification('⚠️ ' + ((r && r.error) || 'Suppression impossible.')); return; }
+    appliquerSuppressionLocale(m); sauverProfil(); rendreMessagesLocaux(); afficherMessagesLocaux();
+}
+socket.on('message_supprime', (d) => {
+    if (!utilisateur || !d) return;
+    const m = (utilisateur.messagesLocaux || []).find(x => x.id === d.id);
+    if (!m) return;
+    appliquerSuppressionLocale(m); sauverProfil(); rendreMessagesLocaux(); afficherMessagesLocaux();
+});
+
+/* ----- Menu ☰ réorganisé : groupes clairs, le groupe de l'écran affiché s'ouvre tout seul ----- */
+const GROUPES_MENU = {
+    communication: ['messagerie', 'contacts', 'appels', 'map', 'communications'],
+    assistants: ['elaws-ia', 'ia-metier', 'recherche-metier', 'studio-elaws'],
+    marche: ['marche'],
+    outils: ['outils', 'voyage', 'quetes', 'succes1000'],
+    compte: ['profil', 'sync', 'parametres']
+};
+function ouvrirGroupeMenu(id) {
+    window._grandModuleOuvert = id;
+    document.querySelectorAll('.nav-module').forEach(el => {
+        const open = el.getAttribute('data-module') === id;
+        el.classList.toggle('open', open);
+        const sous = el.querySelector('.nav-sous'); if (sous) sous.style.display = open ? 'flex' : 'none';
+        const chev = el.querySelector('.nav-chevron'); if (chev) chev.textContent = open ? '▲' : '▼';
+    });
+}
+
+(function () {
+    const st = document.createElement('style');
+    st.textContent =
+        /* défauts d'affichage corrigés */
+        '.appels-filtres{display:flex;align-items:center;gap:8px;margin:4px 0 12px}' +
+        '.appels-chip{border:1px solid var(--border-color);background:var(--card-bg);color:var(--text-primary);border-radius:999px;padding:8px 16px;font-size:14px;font-family:inherit;cursor:pointer}' +
+        '.appels-chip.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}' +
+        '.ia-tool{align-self:center}' +
+        '.msg-suppr{margin:0;font-style:italic;opacity:.75}' +
+        '.msg-doc{display:flex;align-items:center;gap:10px;width:100%;text-align:left;margin:2px 0 6px;padding:10px 12px;border:1px solid rgba(255,255,255,.28);border-radius:12px;background:rgba(255,255,255,.1);color:inherit;font-family:inherit;cursor:pointer}' +
+        '.msg-doc-ico{font-size:30px;line-height:1}.msg-doc-txt{display:flex;flex-direction:column;min-width:0}.msg-doc-txt b{font-size:14px;word-break:break-word}.msg-doc-txt small{opacity:.8;font-size:11.5px}' +
+        '[data-theme="light"] .msg-bubble.other .msg-doc{border-color:rgba(15,23,42,.2);background:rgba(15,23,42,.05)}' +
+        '#chatDocPreview{display:flex;align-items:center;gap:8px;padding:8px 12px;margin:0 8px 6px;border-radius:14px;border:1px solid rgba(34,211,238,.3);background:rgba(15,23,42,.95);color:#fff}#chatDocPreview[hidden]{display:none}' +
+        '#chatDocPreview .doc-prev-nom{flex:1;min-width:0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
+        '[data-theme="light"] #chatDocPreview{background:#fff;color:#0f172a;border-color:rgba(15,23,42,.2)}' +
+        /* thème clair : en-têtes et puces qui restaient pâles */
+        '[data-theme="light"] .studio-head strong,[data-theme="light"] .conv-head h2{color:#0e7490}[data-theme="light"] .studio-head span{color:#56657f}' +
+        '[data-theme="light"] .ia-tool{background:#fff;color:#0f172a;border-color:rgba(15,23,42,.18)}[data-theme="light"] .ia-tool.web{background:#e6f7fb;border-color:rgba(14,116,144,.45)}' +
+        '[data-theme="light"] .ia-tool small,[data-theme="light"] .kit-metier-banner small{color:#56657f}' +
+        '[data-theme="light"] .studio-chip,[data-theme="light"] .studio-chips button{background:#fff;color:#0f172a;border:1px solid rgba(15,23,42,.18)}' +
+        '[data-theme="light"] .studio-chips button.active,[data-theme="light"] .studio-chip.active{background:var(--accent);color:#fff;border-color:var(--accent)}';
+    document.head.appendChild(st);
+
+    // le groupe de l'écran affiché s'ouvre tout seul dans le menu ; l'ancien onglet « communications » (un simple renvoi) redirige
+    const swFinal = switchTab;
+    switchTab = function (tabId) {
+        if (tabId === 'communications') { swFinal.call(this, 'messagerie'); setTimeout(() => { try { toggleChoixAppel(true); } catch (e) {} }, 80); ouvrirGroupeMenu('communication'); return; }
+        swFinal.apply(this, arguments);
+        const g = Object.keys(GROUPES_MENU).find(k => GROUPES_MENU[k].includes(tabId));
+        if (g) ouvrirGroupeMenu(g);
+    };
 })();
